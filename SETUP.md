@@ -16,18 +16,25 @@ Full breakdown of the OpenClaw installation: skills, plugins, infrastructure, an
 ### Key Paths
 
 ```
-~/.openclaw/                    # Root config directory
-├── openclaw.json               # Main config (contains secrets — NOT in repo)
-├── identity/                   # Device auth (NOT in repo)
-├── credentials/                # Telegram pairing (NOT in repo)
+~/openclaw-agents/              # THIS REPO (monorepo)
+├── main/                       # → ~/.openclaw/workspace (symlink)
+│   ├── skills/                 # Community skills
+│   ├── memory/                 # Daily memory logs (gitignored)
+│   └── *.md                    # Agent personality + config
+├── mail/                       # → ~/.openclaw/workspace-mail (symlink)
+├── docs/                       # → ~/.openclaw/workspace-docs (symlink)
+├── research/                   # → ~/.openclaw/workspace-research (symlink)
+├── ai-research/                # → ~/.openclaw/workspace-ai-research (symlink)
+└── dev/                        # → ~/.openclaw/workspace-dev (symlink)
+
+~/.openclaw/                    # Root config directory (NOT in repo)
+├── openclaw.json               # Main config (contains secrets)
+├── identity/                   # Device auth
+├── credentials/                # Telegram pairing
 ├── agents/                     # Agent session data
 ├── memory/                     # LanceDB vector store
 ├── tools/                      # sherpa-onnx runtime + models
-├── logs/                       # Gateway stdout/stderr
-└── workspace/                  # THIS REPO
-    ├── skills/                 # Community skills
-    ├── memory/                 # Daily memory logs (gitignored)
-    └── *.md                    # Agent personality + config
+└── logs/                       # Gateway stdout/stderr
 ```
 
 ## Built-in Skills (44)

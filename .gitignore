@@ -2,8 +2,8 @@
 .DS_Store
 
 # Runtime state (changes constantly, not config)
-.openclaw/workspace-state.json
-.clawhub/lock.json
+**/.openclaw/workspace-state.json
+**/.clawhub/lock.json
 
 # Memory files (personal data, large)
 memory/
