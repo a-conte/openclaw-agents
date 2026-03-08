@@ -12,6 +12,7 @@ export async function GET() {
   const configAgents = config?.agents?.list || [];
   const healthAgents = health?.agents || [];
 
+  // Build agent list from health data, enriched with config
   const agents = healthAgents.map((ha: any) => {
     const ca = configAgents.find((c: any) => c.id === ha.agentId) || {};
     return {
@@ -22,8 +23,12 @@ export async function GET() {
     };
   });
 
-  // If no health data, fall back to config
-  if (agents.length === 0 && configAgents.length > 0) {
+  if (agents.length > 0) {
+    return NextResponse.json(agents);
+  }
+
+  // Fall back to config if gateway is unavailable
+  if (configAgents.length > 0) {
     const fallback = configAgents.map((ca: any) => ({
       agentId: ca.id,
       name: ca.name || ca.id,
@@ -35,5 +40,20 @@ export async function GET() {
     return NextResponse.json(fallback);
   }
 
-  return NextResponse.json(agents);
+  // Last resort: discover agents from the openclaw-agents directory
+  const { getAgentIds } = await import('@/lib/openclaw');
+  const discoveredIds = getAgentIds();
+  if (discoveredIds.length > 0) {
+    const discovered = discoveredIds.map((id) => ({
+      agentId: id,
+      name: id,
+      model: config?.agents?.defaults?.model?.primary || 'unknown',
+      emoji: AGENT_EMOJIS[id] || '🤖',
+      heartbeat: { enabled: false, every: '', everyMs: 0, prompt: '', target: '', ackMaxChars: 0 },
+      sessions: { path: '', count: 0, recent: [] },
+    }));
+    return NextResponse.json(discovered);
+  }
+
+  return NextResponse.json([]);
 }
