@@ -71,7 +71,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           {!collapsed && (
             <span className="text-sm font-semibold text-text-primary font-[var(--font-heading)] tracking-tight">
-              OpenClaw
+              Mission Control
             </span>
           )}
         </div>

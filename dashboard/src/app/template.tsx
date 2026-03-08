@@ -27,7 +27,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(v => !v)} />
-      <main className="flex-1 overflow-auto bg-surface-1">
+      <main className="flex-1 overflow-auto bg-surface-1/60">
         {children}
       </main>
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
