@@ -373,9 +373,30 @@ function drawFireplace(ctx: CanvasRenderingContext2D, tx: number, ty: number, ti
 
 function drawLabel(ctx: CanvasRenderingContext2D, vx: number, vy: number, text: string) {
   ctx.save();
-  ctx.fillStyle = PAL.textDim;
-  ctx.font = `${7 * PX}px monospace`;
+  const fontSize = 7 * PX;
+  ctx.font = `bold ${fontSize}px monospace`;
   ctx.textAlign = 'center';
+  const tw = ctx.measureText(text).width;
+  const padX = 6 * PX;
+  const padY = 3 * PX;
+  const bw = tw + padX * 2;
+  const bh = fontSize + padY * 2;
+  const bx = vx * PX - bw / 2;
+  const by = vy * PX - fontSize - padY;
+
+  // Dark plate behind text
+  ctx.fillStyle = 'rgba(13,11,9,0.75)';
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, 2 * PX);
+  ctx.fill();
+
+  // Gold border
+  ctx.strokeStyle = PAL.goldDark;
+  ctx.lineWidth = PX;
+  ctx.stroke();
+
+  // Bright text
+  ctx.fillStyle = PAL.gold;
   ctx.fillText(text, vx * PX, vy * PX);
   ctx.restore();
 }
