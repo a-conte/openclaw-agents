@@ -7,7 +7,8 @@ import {
   LayoutGrid,
   Calendar,
   MessageSquare,
-  Activity,
+  BarChart3,
+  Terminal,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -22,6 +23,8 @@ const navItems = [
   { href: '/tasks', icon: LayoutGrid, label: 'Tasks' },
   { href: '/schedule', icon: Calendar, label: 'Schedule' },
   { href: '/sessions', icon: MessageSquare, label: 'Sessions' },
+  { href: '/metrics', icon: BarChart3, label: 'Metrics' },
+  { href: '/logs', icon: Terminal, label: 'Logs' },
 ];
 
 interface SidebarProps {

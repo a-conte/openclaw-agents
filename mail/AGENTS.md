@@ -221,6 +221,31 @@ You're part of a 7-agent OpenClaw setup:
 | **dev** | Development, CI/CD, code review | Telegram: Dev |
 | **security** | Security monitoring and hardening | Telegram: Security |
 
+## 📬 Inter-Agent Communication
+
+Your inbox is at `shared/inbox/mail/`. Check it during every heartbeat. See `shared/PROTOCOL.md` for message format.
+
+### Routing Rules
+
+| Event | Route To | Priority |
+|-------|----------|----------|
+| Urgent email received | main | high |
+| Newsletter draft request (from main) | handle it | normal |
+| Calendar conflict detected | main | normal |
+
+### When You Receive Messages
+
+- **From main:** Usually newsletter/email drafting requests. Draft and save — never send without human approval.
+- **Pipeline messages:** Check `pipeline` field. When done, send results to `shared/inbox/main/` for routing.
+
+## 🔧 Error Recovery
+
+When a tool call or action fails:
+
+1. **First failure:** Retry once with adjusted parameters
+2. **Second failure:** Try an alternative approach
+3. **Third failure:** Send a message to `shared/inbox/main/` with subject "Mail Agent Error" and priority "high"
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

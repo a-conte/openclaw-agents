@@ -1,0 +1,28 @@
+{
+  "name": "Daily Briefing",
+  "description": "Research scans feeds → Main summarizes → Mail drafts email",
+  "trigger": "cron",
+  "schedule": "0 8 * * *",
+  "steps": [
+    {
+      "agent": "research",
+      "action": "Scan RSS feeds and blog monitors for notable news from the last 24 hours. Write a summary to shared/inbox/main/ with subject 'Daily Research Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "ai-research",
+      "action": "Scan AI news feeds for notable updates from the last 24 hours. Write a summary to shared/inbox/main/ with subject 'Daily AI Research Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read research summaries from inbox. Combine into a concise daily briefing. Send to shared/inbox/mail/ with subject 'Daily Briefing Draft'.",
+      "passOutput": true
+    },
+    {
+      "agent": "mail",
+      "action": "Read the daily briefing from inbox. Draft an email to Anthony with the combined summary. Save as draft — do not send without approval.",
+      "passOutput": false
+    }
+  ]
+}

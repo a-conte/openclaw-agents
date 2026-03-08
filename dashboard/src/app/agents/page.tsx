@@ -3,6 +3,7 @@
 import { useAgents } from '@/hooks/useAgents';
 import { AgentGrid } from '@/components/agents/AgentGrid';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
+import { HealthWidget } from '@/components/health/HealthWidget';
 import { Bot, Activity } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 
@@ -36,12 +37,15 @@ export default function AgentsPage() {
         )}
       </div>
 
-      <aside className="w-[320px] border-l border-border bg-surface-2 p-4 overflow-auto hidden xl:block">
-        <div className="flex items-center gap-2 mb-4">
-          <Activity size={14} className="text-text-tertiary" />
-          <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Activity</h2>
+      <aside className="w-[320px] border-l border-border bg-surface-2 p-4 overflow-auto hidden xl:block space-y-4">
+        <HealthWidget />
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={14} className="text-text-tertiary" />
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Activity</h2>
+          </div>
+          <ActivityFeed />
         </div>
-        <ActivityFeed />
       </aside>
     </div>
   );

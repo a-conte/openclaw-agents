@@ -221,6 +221,32 @@ You're part of a 7-agent OpenClaw setup:
 | **dev** | Development, CI/CD, code review (you) | Telegram: Dev |
 | **security** | Security monitoring and hardening | Telegram: Security |
 
+## 📬 Inter-Agent Communication
+
+Your inbox is at `shared/inbox/dev/`. Check it during every heartbeat. See `shared/PROTOCOL.md` for message format.
+
+### Routing Rules
+
+| Event | Route To | Priority |
+|-------|----------|----------|
+| CI failure detected | main | high |
+| Security fix needed (from security) | handle it, report to main | urgent |
+| Code review request (from main) | handle it, report back | normal |
+
+### When You Receive Messages
+
+- **From security:** Treat as high priority. Rotate secrets, fix vulnerabilities, create PRs as needed.
+- **From main:** Follow instructions. Report results back to `shared/inbox/main/`.
+- **Pipeline messages:** Check `pipeline` field. When done, send results to `shared/inbox/main/` for routing.
+
+## 🔧 Error Recovery
+
+When a tool call or action fails:
+
+1. **First failure:** Retry once with adjusted parameters
+2. **Second failure:** Try an alternative approach
+3. **Third failure:** Send a message to `shared/inbox/main/` with subject "Dev Agent Error" and priority "high", explaining what failed and what you tried
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

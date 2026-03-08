@@ -1,0 +1,18 @@
+{
+  "name": "CI Alert",
+  "description": "Dev detects CI failure → Main triages → Telegram notification",
+  "trigger": "event",
+  "event": "ci_failure",
+  "steps": [
+    {
+      "agent": "dev",
+      "action": "Investigate the CI failure. Identify the failing job, error message, and likely cause. Write findings to shared/inbox/main/ with subject 'CI Failure Report' and priority 'high'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read CI failure report from inbox. Assess severity and impact. If critical, notify Anthony via Telegram with a concise summary and recommended action.",
+      "passOutput": false
+    }
+  ]
+}

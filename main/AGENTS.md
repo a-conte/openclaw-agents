@@ -221,6 +221,57 @@ You're part of a 7-agent OpenClaw setup:
 | **dev** | Development, CI/CD, code review | Telegram: Dev |
 | **security** | Security monitoring and hardening | Telegram: Security |
 
+## 📬 Inter-Agent Communication
+
+You are the **orchestrator** of the agent team. You route messages, coordinate pipelines, and escalate to the human.
+
+### Inbox
+
+Your inbox is at `shared/inbox/main/`. Check it during every heartbeat. See `shared/PROTOCOL.md` for message format.
+
+### Routing Rules
+
+When you receive information that another agent should handle, send a message to their inbox:
+
+| Event | Route To | Priority |
+|-------|----------|----------|
+| CI/build failure | dev | high |
+| Security alert | security + dev | urgent |
+| Research request | research or ai-research | normal |
+| Newsletter content ready | mail | normal |
+| Documentation needs update | docs | low |
+| Urgent email alert (from mail) | respond directly to human | high |
+
+### Pipeline Orchestration
+
+Pipeline definitions are in `shared/pipelines/`. When triggering a pipeline:
+
+1. Read the pipeline JSON from `shared/pipelines/`
+2. Send a message to the first step's agent with `"pipeline": "{pipeline-name}"`
+3. When you receive a pipeline message back, route to the next step
+4. Track pipeline state — if a step fails, notify the human
+
+### Memory Consolidation
+
+You're responsible for periodic memory consolidation (see `shared/CONSOLIDATION.md`):
+
+- **Daily (11pm):** Quick scan of today's logs across all agents
+- **Weekly (Sunday):** Deep review of 7-day window
+- Propose changes to each agent's MEMORY.md but wait for human approval before writing
+
+## 🔧 Error Recovery
+
+When a tool call or action fails:
+
+1. **First failure:** Retry once with adjusted parameters
+2. **Second failure:** Try an alternative approach
+3. **Third failure:** Send a message to the human via Telegram explaining what failed, what you tried, and what you need
+
+For other agents' failures (reported via inbox):
+- Assess severity and impact
+- If recoverable, send guidance back to the failing agent
+- If not, escalate to the human with full context
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

@@ -1,0 +1,23 @@
+{
+  "name": "Security Incident",
+  "description": "Security finds issue → Dev creates fix → Main notifies human",
+  "trigger": "event",
+  "event": "security_incident",
+  "steps": [
+    {
+      "agent": "security",
+      "action": "Document the security finding in detail. Write to shared/inbox/dev/ with subject 'Security Incident' and priority 'urgent'. Also write to shared/inbox/main/ with the same priority.",
+      "passOutput": true
+    },
+    {
+      "agent": "dev",
+      "action": "Read security incident from inbox. If an exposed secret, rotate it immediately. If a code vulnerability, create a fix PR. Report actions taken to shared/inbox/main/.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read security reports from inbox. Send an urgent Telegram notification to Anthony with: what was found, what actions were taken, and what still needs human attention.",
+      "passOutput": false
+    }
+  ]
+}

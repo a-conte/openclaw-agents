@@ -5,4 +5,8 @@
 3. **Config integrity** - Check `~/.openclaw/openclaw.json` integrity — compare hash against known-good baseline in memory.
 4. **Auth log review** - Review gateway auth logs for unauthorized access attempts.
 5. **Healthcheck** - Run `healthcheck` skill for host security hardening.
-6. **Memory maintenance** - Consolidate security findings and patterns into MEMORY.md.
+6. **Check inbox** - Read all `*.json` files in `shared/inbox/security/`. Process unread messages. For security incidents, escalate to `shared/inbox/main/` and `shared/inbox/dev/` with priority `"urgent"`. See `shared/PROTOCOL.md`.
+7. **Network scan** - Check for unexpected open ports: `lsof -i -P -n | grep LISTEN`. Compare against known-good baseline (gateway 18789, SSH 22). Alert on any unknown listeners.
+8. **Tailscale check** - If Tailscale is installed, run `tailscale status` to verify device list. Alert if any unknown devices are connected.
+9. **Firewall status** - Check macOS firewall is enabled: `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate`. Alert if disabled.
+10. **Memory maintenance** - Consolidate security findings and patterns into MEMORY.md.

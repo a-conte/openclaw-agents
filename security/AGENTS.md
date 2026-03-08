@@ -219,6 +219,33 @@ You're part of a 7-agent OpenClaw setup:
 | **dev** | Development, CI/CD, code review | Telegram: Dev |
 | **security** | Security monitoring and hardening (you) | Telegram: Security |
 
+## 📬 Inter-Agent Communication
+
+Your inbox is at `shared/inbox/security/`. Check it during every heartbeat. See `shared/PROTOCOL.md` for message format.
+
+### Routing Rules
+
+| Event | Route To | Priority |
+|-------|----------|----------|
+| Exposed secret found | main + dev | urgent |
+| Config integrity failure | main | urgent |
+| Unauthorized access attempt | main | urgent |
+| Network anomaly detected | main | high |
+| Routine finding (informational) | main | low |
+
+### When You Receive Messages
+
+- **From main:** Security investigation requests. Investigate and report back to `shared/inbox/main/`.
+- **From dev:** Requests to verify a fix. Validate and confirm via `shared/inbox/dev/`.
+
+## 🔧 Error Recovery
+
+When a tool call or action fails:
+
+1. **First failure:** Retry once with adjusted parameters
+2. **Second failure:** Try an alternative approach
+3. **Third failure:** Send a message to `shared/inbox/main/` with subject "Security Agent Error" and priority "urgent"
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

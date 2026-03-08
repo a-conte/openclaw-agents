@@ -83,6 +83,6 @@ export function getAgentIds(): string[] {
   const agentsDir = path.join(OPENCLAW_AGENTS);
   if (!existsSync(agentsDir)) return [];
   return readdirSync(agentsDir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'dashboard' && d.name !== 'scripts')
+    .filter(d => d.isDirectory() && !d.name.startsWith('.') && !['dashboard', 'scripts', 'shared'].includes(d.name))
     .map(d => d.name);
 }
