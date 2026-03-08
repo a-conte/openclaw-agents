@@ -32,10 +32,11 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  status: 'backlog' | 'todo' | 'in_progress' | 'done';
+  status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
   priority: 'urgent' | 'high' | 'medium' | 'low';
   agentId?: string;
   labels: string[];
+  projectId?: string;
   dueDate?: string;
   order: number;
   createdAt: string;
@@ -98,6 +99,52 @@ export interface HealthResponse {
     path: string;
     count: number;
   };
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: 'active' | 'completed' | 'paused';
+  agentIds: string[];
+  labels: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Document {
+  id: string;
+  title: string;
+  category: string;
+  date: string;
+  agentId: string;
+  path: string;
+  size: number;
+}
+
+export interface RadarItem {
+  id: string;
+  type: 'opportunity' | 'alert' | 'watch';
+  title: string;
+  signal: 'high' | 'medium' | 'low';
+  source: string;
+  body?: string;
+  timestamp: string;
+}
+
+export interface MemoryCategory {
+  agentId: string;
+  category: string;
+  entries: string[];
+}
+
+export interface Briefing {
+  id: string;
+  name: string;
+  schedule: string;
+  agentId: string;
+  time: string;
+  status: 'delivered' | 'pending' | 'scheduled';
 }
 
 export type TaskStatus = Task['status'];
