@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-surface-0: #060610;
-  --color-surface-1: #0a0a14;
-  --color-surface-2: #0f0f1a;
-  --color-surface-3: #1a1a2e;
-  --color-surface-4: #242440;
+  --color-surface-0: #0d0d0d;
+  --color-surface-1: #1a1a1a;
+  --color-surface-2: #222222;
+  --color-surface-3: #2a2a2a;
+  --color-surface-4: #333333;
 
-  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border: rgba(255, 255, 255, 0.05);
   --color-border-hover: rgba(255, 255, 255, 0.10);
   --color-border-active: rgba(255, 255, 255, 0.15);
 
-  --color-text-primary: #cccccc;
-  --color-text-secondary: #888888;
-  --color-text-tertiary: #555555;
+  --color-text-primary: #E6D7C3;
+  --color-text-secondary: #a09484;
+  --color-text-tertiary: #6b6058;
 
-  --color-accent: #00ff88;
-  --color-accent-hover: #00dd77;
-  --color-accent-subtle: rgba(0, 255, 136, 0.12);
+  --color-accent: #FB5656;
+  --color-accent-hover: #FF6B6B;
+  --color-accent-subtle: rgba(251, 86, 86, 0.12);
 
-  --color-accent-blue: #00b4d8;
+  --color-accent-blue: #4A9EFF;
   --color-accent-yellow: #ffd166;
   --color-accent-red: #e94560;
   --color-accent-purple: #8338ec;
@@ -32,11 +32,11 @@
 
   --color-priority-urgent: #e94560;
   --color-priority-high: #ffd166;
-  --color-priority-medium: #00b4d8;
+  --color-priority-medium: #4A9EFF;
   --color-priority-low: #555555;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Anonymous Pro", monospace;
+  --font-heading: "Anonymous Pro", monospace;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
@@ -46,11 +46,56 @@
 }
 
 body {
-  background: var(--color-surface-0);
+  background: linear-gradient(135deg, #2f2f2f 0%, #1a1a1a 50%, #0d0d0d 100%);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
 
 ::selection {
-  background: var(--color-accent-subtle);
+  background: rgba(251, 86, 86, 0.15);
+}
+
+/* Starfield */
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle ease-in-out infinite alternate;
+}
+
+.star-sm { width: 2px; height: 2px; }
+.star-md { width: 3px; height: 3px; }
+.star-lg { width: 4px; height: 4px; }
+
+@keyframes twinkle {
+  from { opacity: 0.3; }
+  to   { opacity: 1; }
+}
+
+/* Glass card utility */
+.glass {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+}
+
+/* Button hover glow */
+.btn-glow:hover {
+  box-shadow: 0 10px 25px rgba(251, 86, 86, 0.3);
 }
