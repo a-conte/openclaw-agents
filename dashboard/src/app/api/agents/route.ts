@@ -1,9 +1,26 @@
 import { NextResponse } from 'next/server';
+import { existsSync, readdirSync } from 'fs';
+import path from 'path';
 import { getHealth } from '@/lib/gateway';
 import { readConfig } from '@/lib/openclaw';
 import { AGENT_EMOJIS } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
+
+const EXCLUDED_DIRS = ['dashboard', 'scripts', 'shared', 'node_modules', 'research'];
+
+function discoverAgentsFromDir(): string[] {
+  // Resolve repo root from cwd (dashboard dir)
+  const repoRoot = path.resolve(process.cwd(), '..');
+  if (!existsSync(repoRoot)) return [];
+  try {
+    return readdirSync(repoRoot, { withFileTypes: true })
+      .filter(d => d.isDirectory() && !d.name.startsWith('.') && !EXCLUDED_DIRS.includes(d.name))
+      .map(d => d.name);
+  } catch {
+    return [];
+  }
+}
 
 export async function GET() {
   const health = await getHealth();
@@ -40,14 +57,13 @@ export async function GET() {
     return NextResponse.json(fallback);
   }
 
-  // Last resort: discover agents from the openclaw-agents directory
-  const { getAgentIds } = await import('@/lib/openclaw');
-  const discoveredIds = getAgentIds();
+  // Last resort: discover agents from the repo directory structure
+  const discoveredIds = discoverAgentsFromDir();
   if (discoveredIds.length > 0) {
     const discovered = discoveredIds.map((id) => ({
       agentId: id,
       name: id,
-      model: config?.agents?.defaults?.model?.primary || 'unknown',
+      model: 'unknown',
       emoji: AGENT_EMOJIS[id] || '🤖',
       heartbeat: { enabled: false, every: '', everyMs: 0, prompt: '', target: '', ackMaxChars: 0 },
       sessions: { path: '', count: 0, recent: [] },
