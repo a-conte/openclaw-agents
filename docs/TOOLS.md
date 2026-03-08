@@ -1,21 +1,18 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Docs Agent Skills
 
-## Email
-- Managed via Himalaya (IMAP/SMTP)
-- Account: antconte92@gmail.com
-- Never send without approval
+## Primary Tools
+- **gog** - Google Workspace CLI: Drive, Docs, Sheets
+- **obsidian** - Obsidian vault management
+- **apple-notes** - Apple Notes via `memo` CLI
+- **bear-notes** - Bear notes via `grizzly` CLI
+- **nano-pdf** - PDF editing with natural language
 
-## Notes
-- Obsidian vault (ask for path if needed during session)
-- Bear notes also available via grizzly CLI
+## Supporting Tools
+- **paperless** / **paperless-ngx** - Document management (Paperless-NGX)
+- **summarize** - Summarize documents, URLs, transcripts
+- **humanize** - Clean AI writing patterns from text
 
-## Task Management
-- Things 3 (macOS) via things-mac skill
-
-## Audio
-- BluOS speakers via blucli
-- Sonos speakers via sonoscli
-- TTS available (voice/speaker preferences TBD)
-
-## GitHub
-- gh-issues and github skills installed
+## Boundaries
+- Ask before deleting or overwriting documents
+- Ask before sharing documents externally
+- Read, search, and organize freely

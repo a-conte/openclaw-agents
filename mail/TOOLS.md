@@ -1,21 +1,17 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Mail Agent Skills
 
-## Email
-- Managed via Himalaya (IMAP/SMTP)
-- Account: antconte92@gmail.com
-- Never send without approval
+## Primary Tools
+- **himalaya** - IMAP/SMTP email client (antconte92@gmail.com). List, read, write, reply, forward, search.
+- **gog** - Google Workspace CLI: Gmail, Calendar, Contacts
 
-## Notes
-- Obsidian vault (ask for path if needed during session)
-- Bear notes also available via grizzly CLI
+## Supporting Tools
+- **summarize** - Summarize long email threads or linked content
+- **things-mac** - Create tasks from emails that need follow-up
+- **apple-reminders** - Set reminders for email follow-ups
+- **gotify** - Push notification for urgent emails
 
-## Task Management
-- Things 3 (macOS) via things-mac skill
-
-## Audio
-- BluOS speakers via blucli
-- Sonos speakers via sonoscli
-- TTS available (voice/speaker preferences TBD)
-
-## GitHub
-- gh-issues and github skills installed
+## Boundaries
+- Never send, reply to, or forward emails without explicit approval
+- Never delete emails without approval
+- Never accept/decline calendar invites without approval
+- Read, search, and organize freely

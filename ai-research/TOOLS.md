@@ -1,21 +1,18 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - AI Research Agent Skills
 
-## Email
-- Managed via Himalaya (IMAP/SMTP)
-- Account: antconte92@gmail.com
-- Never send without approval
+## Primary Tools
+- **web search** - Built-in web search for AI news and papers
+- **web fetch** - Fetch and parse web pages, arxiv papers
+- **summarize** - Summarize articles, papers, podcasts
+- **blogwatcher** - Monitor AI blogs and RSS feeds
+- **freshrss** - FreshRSS reader for AI-focused feeds
 
-## Notes
-- Obsidian vault (ask for path if needed during session)
-- Bear notes also available via grizzly CLI
+## Supporting Tools
+- **gemini** - Gemini CLI for analysis and synthesis
+- **wikipedia-oc** - Wikipedia for background context
+- **github** - Track trending AI repos and releases
 
-## Task Management
-- Things 3 (macOS) via things-mac skill
-
-## Audio
-- BluOS speakers via blucli
-- Sonos speakers via sonoscli
-- TTS available (voice/speaker preferences TBD)
-
-## GitHub
-- gh-issues and github skills installed
+## Boundaries
+- Research is read-only: no external actions
+- Distinguish confirmed info from rumors/speculation
+- Focus on what matters for Anthony's work (supply chain AI, LLMs, ML infra)

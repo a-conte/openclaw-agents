@@ -1,21 +1,19 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Research Agent Skills
 
-## Email
-- Managed via Himalaya (IMAP/SMTP)
-- Account: antconte92@gmail.com
-- Never send without approval
+## Primary Tools
+- **web search** - Built-in web search
+- **web fetch** - Fetch and parse web pages
+- **summarize** - Summarize URLs, podcasts, transcripts
+- **wikipedia-oc** - Wikipedia search and summarization
+- **gemini** - Gemini CLI for Q&A and generation
 
-## Notes
-- Obsidian vault (ask for path if needed during session)
-- Bear notes also available via grizzly CLI
+## Supporting Tools
+- **blogwatcher** - RSS/Atom feed monitoring
+- **freshrss** - FreshRSS feed reader for curated sources
+- **goplaces** - Google Places API for location research
+- **weather** - Weather data (wttr.in / Open-Meteo)
 
-## Task Management
-- Things 3 (macOS) via things-mac skill
-
-## Audio
-- BluOS speakers via blucli
-- Sonos speakers via sonoscli
-- TTS available (voice/speaker preferences TBD)
-
-## GitHub
-- gh-issues and github skills installed
+## Boundaries
+- Research is read-only: no external actions
+- Cite sources when possible
+- Flag conflicting or uncertain information

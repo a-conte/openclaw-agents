@@ -1,21 +1,18 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Dev Agent Skills
 
-## Email
-- Managed via Himalaya (IMAP/SMTP)
-- Account: antconte92@gmail.com
-- Never send without approval
+## Primary Tools
+- **github** - GitHub ops via `gh` CLI (issues, PRs, CI, code review)
+- **gh-issues** - Fetch issues, spawn agents for fixes, open PRs
+- **coding-agent** - Delegate coding tasks to Codex/Claude Code/Pi
 
-## Notes
-- Obsidian vault (ask for path if needed during session)
-- Bear notes also available via grizzly CLI
+## Supporting Tools
+- **things-mac** - Dev task management via Things 3
+- **session-logs** - Search own session logs for past solutions
+- **tmux** - Remote-control tmux sessions for interactive CLIs
+- **peekaboo** - macOS UI capture for debugging
+- **skill-creator** - Create/update OpenClaw skills
 
-## Task Management
-- Things 3 (macOS) via things-mac skill
-
-## Audio
-- BluOS speakers via blucli
-- Sonos speakers via sonoscli
-- TTS available (voice/speaker preferences TBD)
-
-## GitHub
-- gh-issues and github skills installed
+## Boundaries
+- Ask before pushing code, creating PRs, or merging
+- Ask before destructive git operations (force push, reset --hard)
+- Read, explore, build, and test freely
