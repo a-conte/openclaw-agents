@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-surface-0: #0a0a0a;
+  --color-surface-1: #111111;
+  --color-surface-2: #191919;
+  --color-surface-3: #222222;
+  --color-surface-4: #2a2a2a;
+
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.10);
+  --color-border-active: rgba(255, 255, 255, 0.15);
+
+  --color-text-primary: #eeeeee;
+  --color-text-secondary: #888888;
+  --color-text-tertiary: #555555;
+
+  --color-accent: #7c5cfc;
+  --color-accent-hover: #6b4ce0;
+  --color-accent-subtle: rgba(124, 92, 252, 0.15);
+
+  --color-status-online: #22c55e;
+  --color-status-warning: #eab308;
+  --color-status-offline: #6b7280;
+  --color-status-error: #ef4444;
+
+  --color-priority-urgent: #ef4444;
+  --color-priority-high: #f97316;
+  --color-priority-medium: #3b82f6;
+  --color-priority-low: #6b7280;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+body {
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-accent-subtle);
+}
