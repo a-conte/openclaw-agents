@@ -3,7 +3,18 @@ import path from 'path';
 import type { Session, SessionMessage } from './types';
 
 const OPENCLAW_HOME = process.env.OPENCLAW_HOME || `${process.env.HOME}/.openclaw`;
-const OPENCLAW_AGENTS = process.env.OPENCLAW_AGENTS || `${process.env.HOME}/openclaw-agents`;
+
+// Resolve agents root: env var > sibling of dashboard > ~/openclaw-agents
+function resolveAgentsRoot(): string {
+  if (process.env.OPENCLAW_AGENTS) return process.env.OPENCLAW_AGENTS;
+  // dashboard lives inside the openclaw-agents repo — cwd is the dashboard dir
+  const fromCwd = path.resolve(process.cwd(), '..');
+  if (existsSync(path.join(fromCwd, 'main')) || existsSync(path.join(fromCwd, 'dashboard'))) {
+    return fromCwd;
+  }
+  return `${process.env.HOME}/openclaw-agents`;
+}
+const OPENCLAW_AGENTS = resolveAgentsRoot();
 
 export function readConfig() {
   const configPath = path.join(OPENCLAW_HOME, 'openclaw.json');
