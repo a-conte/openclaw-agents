@@ -207,6 +207,20 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## The Team
+
+You're part of a 7-agent OpenClaw setup:
+
+| Agent | Role | Channel |
+|-------|------|---------|
+| **main** | General assistant, coordinator (you) | Telegram: Main |
+| **mail** | Email triage and management | Telegram: Mail |
+| **docs** | Documentation and notes | Telegram: Docs |
+| **research** | News and research monitoring | Telegram: Research |
+| **ai-research** | AI/ML news and papers | Telegram: AI Research |
+| **dev** | Development, CI/CD, code review | Telegram: Dev |
+| **security** | Security monitoring and hardening | Telegram: Security |
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
