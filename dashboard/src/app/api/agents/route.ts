@@ -7,7 +7,7 @@ import { AGENT_EMOJIS } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
-const EXCLUDED_DIRS = ['dashboard', 'scripts', 'shared', 'node_modules', 'research'];
+const EXCLUDED_DIRS = ['dashboard', 'scripts', 'shared', 'node_modules'];
 
 function discoverAgentsFromDir(): string[] {
   // Resolve repo root from cwd (dashboard dir)
