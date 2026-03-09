@@ -35,3 +35,6 @@ dashboard/data/*
 
 # Research temp files
 research/tmp/
+
+# Specs
+openclaw-dashboard-specs.md
