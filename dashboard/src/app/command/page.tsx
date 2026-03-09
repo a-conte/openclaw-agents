@@ -37,7 +37,7 @@ export default function CommandPage() {
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
       {/* Mission Statement */}
-      <div className="border border-border rounded-lg p-5 mb-6 bg-surface-1" style={{ borderLeftColor: '#00ff88', borderLeftWidth: 3 }}>
+      <div className="border border-border rounded-lg p-5 mb-6 bg-surface-1" style={{ borderLeftColor: '#FB5656', borderLeftWidth: 3 }}>
         <div className="flex items-center gap-2 mb-2">
           <Diamond size={14} className="text-accent" />
           <span className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium">Mission</span>
@@ -47,8 +47,8 @@ export default function CommandPage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users size={16} />} label="Active Agents" value={`${activeAgents}/${agents.length}`} color="#00ff88" />
-        <StatCard icon={<ListTodo size={16} />} label="In Progress" value={tasksInProgress.toString()} color="#00b4d8" />
+        <StatCard icon={<Users size={16} />} label="Active Agents" value={`${activeAgents}/${agents.length}`} color="#FB5656" />
+        <StatCard icon={<ListTodo size={16} />} label="In Progress" value={tasksInProgress.toString()} color="#4A9EFF" />
         <StatCard icon={<GitBranch size={16} />} label="Pipeline" value={pipelineItems.toString()} color="#ffd166" />
         <StatCard icon={<Radar size={16} />} label="Radar Signals" value={radarSignals.toString()} color="#8338ec" />
       </div>
@@ -71,7 +71,7 @@ export default function CommandPage() {
                 </div>
                 <Badge
                   color={
-                    b.status === 'delivered' ? '#00ff88' :
+                    b.status === 'delivered' ? '#FB5656' :
                     b.status === 'pending' ? '#ffd166' : '#555555'
                   }
                 >
@@ -95,7 +95,7 @@ export default function CommandPage() {
               className="flex items-center justify-between bg-surface-1 border border-border rounded-lg px-4 py-3 hover:border-accent/30 transition-colors cursor-pointer group"
             >
               <div className="flex items-center gap-3">
-                <Badge color="#00b4d8">{prompt.category}</Badge>
+                <Badge color="#4A9EFF">{prompt.category}</Badge>
                 <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{prompt.text}</span>
               </div>
               <ArrowRight size={14} className="text-text-tertiary group-hover:text-accent transition-colors" />

@@ -32,3 +32,6 @@ data/
 !dashboard/data/
 dashboard/data/*
 !dashboard/data/tasks.json
+
+# Research temp files
+research/tmp/

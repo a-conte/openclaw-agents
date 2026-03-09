@@ -298,7 +298,7 @@ function LogsTab() {
           {isStreaming ? 'Streaming' : 'Stream'}
         </button>
       </div>
-      <div ref={containerRef} className="flex-1 bg-[#060610] border border-border rounded-lg overflow-auto font-mono text-xs">
+      <div ref={containerRef} className="flex-1 bg-surface-0 border border-border rounded-lg overflow-auto font-mono text-xs">
         {isLoading ? (
           <div className="p-4 text-text-tertiary">Loading logs...</div>
         ) : filteredLogs.length === 0 ? (

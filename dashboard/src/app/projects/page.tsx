@@ -101,8 +101,8 @@ export default function ProjectsPage() {
                     )}
                   </div>
                   <Badge color={
-                    project.status === 'active' ? '#00ff88' :
-                    project.status === 'completed' ? '#00b4d8' : '#555'
+                    project.status === 'active' ? '#FB5656' :
+                    project.status === 'completed' ? '#4A9EFF' : '#555'
                   }>
                     {project.status}
                   </Badge>

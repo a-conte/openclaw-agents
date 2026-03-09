@@ -155,7 +155,7 @@ export default function PipelinePage() {
                           <Badge color={
                             task.priority === 'urgent' ? '#e94560' :
                             task.priority === 'high' ? '#ffd166' :
-                            task.priority === 'medium' ? '#00b4d8' : '#555'
+                            task.priority === 'medium' ? '#4A9EFF' : '#555'
                           }>
                             {task.priority}
                           </Badge>

@@ -13,7 +13,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json());
 const TYPE_CONFIG = {
   alert: { icon: AlertTriangle, color: '#e94560', label: 'Alert' },
   watch: { icon: Eye, color: '#ffd166', label: 'Watch' },
-  opportunity: { icon: Lightbulb, color: '#00ff88', label: 'Opportunity' },
+  opportunity: { icon: Lightbulb, color: '#FB5656', label: 'Opportunity' },
 };
 
 const SIGNAL_COLORS = {

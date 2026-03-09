@@ -1,7 +1,7 @@
 export const AGENT_COLORS: Record<string, string> = {
-  main: '#00ff88',
+  main: '#FB5656',
   mail: '#ffd166',
-  docs: '#00b4d8',
+  docs: '#4A9EFF',
   research: '#06d6a0',
   'ai-research': '#8338ec',
   dev: '#e94560',
@@ -29,7 +29,7 @@ export const AGENT_EMOJIS: Record<string, string> = {
 };
 
 export const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
-  'openai/gpt-5.2': { label: 'GPT-5.2', color: '#00b4d8' },
+  'openai/gpt-5.2': { label: 'GPT-5.2', color: '#4A9EFF' },
   'openai/gpt-4o-mini': { label: 'GPT-4o Mini', color: '#555555' },
   'openai-codex/gpt-5.3-codex': { label: 'Codex 5.3', color: '#8338ec' },
 };
@@ -40,7 +40,7 @@ export const TASK_PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 export const PRIORITY_COLORS: Record<string, string> = {
   urgent: '#e94560',
   high: '#ffd166',
-  medium: '#00b4d8',
+  medium: '#4A9EFF',
   low: '#555555',
 };
 
@@ -54,8 +54,8 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const PIPELINE_STAGES: Record<string, { label: string; color: string }> = {
   backlog: { label: 'Intake', color: '#555555' },
-  todo: { label: 'Research', color: '#00b4d8' },
-  in_progress: { label: 'Build', color: '#00ff88' },
+  todo: { label: 'Research', color: '#4A9EFF' },
+  in_progress: { label: 'Build', color: '#FB5656' },
   review: { label: 'Review', color: '#ffd166' },
   done: { label: 'Deploy', color: '#8338ec' },
 };

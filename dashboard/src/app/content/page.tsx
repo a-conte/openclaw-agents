@@ -15,13 +15,13 @@ const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const CATEGORY_COLORS: Record<string, string> = {
   Identity: '#8338ec',
-  Technical: '#00b4d8',
+  Technical: '#4A9EFF',
   Memory: '#06d6a0',
   Operations: '#ffd166',
-  Documentation: '#00ff88',
+  Documentation: '#FB5656',
   Research: '#e94560',
   Security: '#ff6b35',
-  Strategy: '#00b4d8',
+  Strategy: '#4A9EFF',
   General: '#555555',
 };
 
