@@ -1,0 +1,20 @@
+{
+  "name": "Clean Workspace",
+  "description": "Scan downloads and repo status, compile cleanup report, propose deletions",
+  "trigger": "on-demand",
+  "keyword": "clean workspace",
+  "approvalRequired": true,
+  "approvalReason": "File deletion requires human confirmation",
+  "steps": [
+    {
+      "agent": "dev",
+      "action": "Scan ~/Downloads for files older than 30 days. Check all repos in shared/repos.json for uncommitted changes, untracked files, and stale local branches. Write findings to shared/inbox/main/ with subject 'Workspace Scan Results'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read workspace scan results from inbox. Compile a cleanup report with: (1) old downloads that could be deleted, (2) repos with uncommitted work, (3) stale branches. Send to Anthony via Telegram with proposed deletions — do NOT delete anything without explicit approval.",
+      "passOutput": false
+    }
+  ]
+}

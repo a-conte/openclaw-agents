@@ -1,5 +1,16 @@
 # HEARTBEAT.md - Security Agent Periodic Tasks
 
+## State Management
+
+Before starting, read `heartbeat-state.json` from this agent's directory. Use it to:
+- Skip messages already in `processedMessages` (by filename)
+- Track `lastRun` and `lastInboxCheck` timestamps
+- Increment `counters.messagesProcessed` for each new message handled
+
+After completing all steps, write the updated state back to `heartbeat-state.json`.
+
+## Tasks
+
 1. **Secret scan** - Scan git repos for exposed secrets (API keys, tokens, passwords in code or config).
 2. **Bot token validation** - Verify all Telegram bot tokens are valid (hit getMe endpoint for each).
 3. **Config integrity** - Check `~/.openclaw/openclaw.json` integrity — compare hash against known-good baseline in memory.
@@ -10,3 +21,10 @@
 8. **Tailscale check** - If Tailscale is installed, run `tailscale status` to verify device list. Alert if any unknown devices are connected.
 9. **Firewall status** - Check macOS firewall is enabled: `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate`. Alert if disabled.
 10. **Memory maintenance** - Consolidate security findings and patterns into MEMORY.md.
+
+## Logging
+
+11. **Activity log** - After completing all steps, append one JSONL line to `shared/logs/activity.jsonl`:
+    ```json
+    {"timestamp":"...","type":"heartbeat","agent":"security","inbox_processed":N,"duration_ms":N}
+    ```

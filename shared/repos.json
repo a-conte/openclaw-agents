@@ -1,0 +1,11 @@
+{
+  "repos": [
+    {
+      "owner": "a-conte",
+      "name": "openclaw-agents",
+      "local": "~/openclaw-agents",
+      "watch": ["ci", "prs", "branches"],
+      "default_branch": "main"
+    }
+  ]
+}

@@ -147,6 +147,36 @@ export interface Briefing {
   status: 'delivered' | 'pending' | 'scheduled';
 }
 
+export interface WorkflowStep {
+  agent: string;
+  action: string;
+  passOutput: boolean;
+}
+
+export interface Workflow {
+  name: string;
+  description: string;
+  trigger: 'on-demand' | 'cron' | 'event';
+  schedule?: string;
+  keyword?: string;
+  approvalRequired: boolean;
+  approvalReason?: string;
+  steps: WorkflowStep[];
+  source: 'workflow' | 'pipeline';
+}
+
+export interface RepoStatus {
+  owner: string;
+  name: string;
+  local: string;
+  watch: string[];
+  default_branch: string;
+  status: 'clean' | 'dirty' | 'missing';
+  uncommittedCount: number;
+  lastCommit: string | null;
+  lastCommitDate: string | null;
+}
+
 export type TaskStatus = Task['status'];
 export type TaskPriority = Task['priority'];
 export type AgentStatus = 'online' | 'warning' | 'offline';

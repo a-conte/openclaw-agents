@@ -21,7 +21,9 @@ Messages are JSON files placed in the target agent's inbox folder.
   "timestamp": "2026-03-08T12:00:00Z",
   "status": "unread",
   "pipeline": null,
-  "replyTo": null
+  "replyTo": null,
+  "workflow": null,
+  "expiresAt": null
 }
 ```
 
@@ -38,6 +40,8 @@ Messages are JSON files placed in the target agent's inbox folder.
 | `status` | `"unread"` \| `"read"` \| `"actioned"` | yes | Processing status |
 | `pipeline` | string \| null | no | Pipeline ID if part of a workflow |
 | `replyTo` | string \| null | no | Filename of the message being replied to |
+| `workflow` | string \| null | no | Which power workflow generated this message |
+| `expiresAt` | ISO 8601 \| null | no | Auto-cleanup timestamp — message can be deleted after this time |
 
 ## Sending a Message
 

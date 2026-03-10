@@ -2,16 +2,21 @@
 
 import { useAgents } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
-import { MISSION_STATEMENT } from '@/lib/constants';
-import { Diamond, Users, ListTodo, GitBranch, Radar, ArrowRight, Clock } from 'lucide-react';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useRepos } from '@/hooks/useRepos';
+import { MISSION_STATEMENT, AGENT_EMOJIS } from '@/lib/constants';
+import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import useSWR from 'swr';
 import { Badge } from '@/components/shared/Badge';
+import type { Workflow, RepoStatus } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function CommandPage() {
   const { agents } = useAgents();
   const { tasks } = useTasks();
+  const { workflows } = useWorkflows();
+  const { repos } = useRepos();
   const { data: briefingsData } = useSWR('/api/briefings', fetcher, { refreshInterval: 30000 });
   const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
 
@@ -25,14 +30,6 @@ export default function CommandPage() {
   const pipelineItems = tasks.filter((t: any) => t.status !== 'done').length;
   const radarSignals = radarData?.items?.length || 0;
   const briefings = briefingsData?.briefings || [];
-
-  const reversePrompts = [
-    { id: '1', text: 'Automate weekly stock scarcity scans → reduce manual research by 80%', category: 'Automation' },
-    { id: '2', text: 'Build a Plex content recommendation engine using viewing history', category: 'Project' },
-    { id: '3', text: 'Deploy a GPU price tracker with alert thresholds', category: 'Monitoring' },
-    { id: '4', text: 'Create an automated daily briefing summary with key metrics', category: 'Workflow' },
-    { id: '5', text: 'Set up automated security scanning for all agent codebases', category: 'Security' },
-  ];
 
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
@@ -52,6 +49,38 @@ export default function CommandPage() {
         <StatCard icon={<GitBranch size={16} />} label="Pipeline" value={pipelineItems.toString()} color="#ffd166" />
         <StatCard icon={<Radar size={16} />} label="Radar Signals" value={radarSignals.toString()} color="#8338ec" />
       </div>
+
+      {/* Power Workflows */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">
+          Power Workflows
+        </h2>
+        {workflows.length === 0 ? (
+          <div className="bg-surface-1 border border-border rounded-lg p-8 text-center text-text-tertiary text-sm">
+            No workflows defined
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {workflows.map((wf: Workflow) => (
+              <WorkflowCard key={wf.name} workflow={wf} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Repo Health */}
+      {repos.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">
+            Repo Health
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {repos.map((repo: RepoStatus) => (
+              <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Briefings Feed */}
       <div className="mb-8">
@@ -82,27 +111,89 @@ export default function CommandPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Reverse Prompt Suggestions */}
-      <div>
-        <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">
-          What OpenClaw Thinks You Should Do Next
-        </h2>
-        <div className="space-y-2">
-          {reversePrompts.map((prompt) => (
-            <div
-              key={prompt.id}
-              className="flex items-center justify-between bg-surface-1 border border-border rounded-lg px-4 py-3 hover:border-accent/30 transition-colors cursor-pointer group"
-            >
-              <div className="flex items-center gap-3">
-                <Badge color="#4A9EFF">{prompt.category}</Badge>
-                <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{prompt.text}</span>
-              </div>
-              <ArrowRight size={14} className="text-text-tertiary group-hover:text-accent transition-colors" />
-            </div>
+function WorkflowCard({ workflow }: { workflow: Workflow }) {
+  const triggerIcon = workflow.trigger === 'cron' ? (
+    <CalendarClock size={14} />
+  ) : workflow.trigger === 'event' ? (
+    <Zap size={14} />
+  ) : (
+    <Play size={14} />
+  );
+
+  const triggerLabel = workflow.trigger === 'cron'
+    ? workflow.schedule || 'scheduled'
+    : workflow.trigger === 'event'
+    ? 'event-triggered'
+    : 'on-demand';
+
+  const sourceColor = workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF';
+  const agentList = [...new Set(workflow.steps.map(s => s.agent))];
+
+  return (
+    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-text-primary">{workflow.name}</span>
+        <Badge color={sourceColor}>{workflow.source}</Badge>
+      </div>
+      <p className="text-xs text-text-tertiary mb-3 leading-relaxed">{workflow.description}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+          <span className="text-text-tertiary">{triggerIcon}</span>
+          <span>{triggerLabel}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {agentList.map(a => (
+            <span key={a} className="text-xs" title={a}>
+              {AGENT_EMOJIS[a] || a}
+            </span>
           ))}
         </div>
       </div>
+      {workflow.approvalRequired && (
+        <div className="flex items-center gap-1 mt-2 text-xs text-yellow-500">
+          <ShieldAlert size={12} />
+          <span>{workflow.approvalReason || 'Requires approval'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RepoCard({ repo }: { repo: RepoStatus }) {
+  const statusIcon = repo.status === 'clean' ? (
+    <CheckCircle2 size={14} className="text-green-500" />
+  ) : repo.status === 'dirty' ? (
+    <AlertTriangle size={14} className="text-yellow-500" />
+  ) : (
+    <XCircle size={14} className="text-red-500" />
+  );
+
+  const statusColor = repo.status === 'clean' ? '#06d6a0' : repo.status === 'dirty' ? '#ffd166' : '#e94560';
+
+  return (
+    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <span className="text-sm font-medium text-text-primary">{repo.owner}/{repo.name}</span>
+        </div>
+        <Badge color={statusColor}>{repo.status}</Badge>
+      </div>
+      {repo.uncommittedCount > 0 && (
+        <p className="text-xs text-yellow-500 mb-1">
+          {repo.uncommittedCount} uncommitted change{repo.uncommittedCount !== 1 ? 's' : ''}
+        </p>
+      )}
+      {repo.lastCommit && (
+        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+          <GitCommitHorizontal size={12} />
+          <span className="truncate">{repo.lastCommit}</span>
+        </div>
+      )}
     </div>
   );
 }

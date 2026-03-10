@@ -1,0 +1,24 @@
+{
+  "name": "Prep My Day",
+  "description": "Calendar, weather, tasks overview + urgent emails → compiled morning briefing",
+  "trigger": "on-demand",
+  "keyword": "prep my day",
+  "approvalRequired": false,
+  "steps": [
+    {
+      "agent": "main",
+      "action": "Check today's calendar via `gog cal today`, current weather, and outstanding tasks. Compile a structured overview with time blocks, priorities, and weather impact on plans.",
+      "passOutput": true
+    },
+    {
+      "agent": "mail",
+      "action": "Run `himalaya list -s unseen` and identify any urgent or time-sensitive emails from the last 12 hours. Write a summary of urgent items to shared/inbox/main/ with subject 'Urgent Email Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read the urgent email summary from inbox. Combine with calendar/weather/tasks overview into a single 'Your Day' briefing. Send to Anthony via Telegram.",
+      "passOutput": false
+    }
+  ]
+}

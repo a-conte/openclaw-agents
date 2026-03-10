@@ -1,0 +1,14 @@
+{
+  "name": "What Needs Attention",
+  "description": "Scan all agent inboxes, merge and dedupe pending items, send consolidated summary",
+  "trigger": "on-demand",
+  "keyword": "what needs attention",
+  "approvalRequired": false,
+  "steps": [
+    {
+      "agent": "main",
+      "action": "Scan all agent inboxes in shared/inbox/*/. Read all messages with status 'unread' or 'read' (not yet actioned). Group by priority (urgent → high → normal → low), deduplicate similar items, and compile a single 'Needs Attention' summary. Send to Anthony via Telegram with the top items requiring human input.",
+      "passOutput": false
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Weekly Review",
+  "description": "Summarize the week's merged PRs, closed issues, and research findings",
+  "trigger": "cron",
+  "schedule": "0 18 * * 0",
+  "keyword": "weekly review",
+  "approvalRequired": false,
+  "steps": [
+    {
+      "agent": "dev",
+      "action": "For each repo in shared/repos.json: list PRs merged this week (`gh pr list --state merged --search 'merged:>={{7_DAYS_AGO}}'`), closed issues, and notable commits. Write findings to shared/inbox/main/ with subject 'Weekly Dev Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "research",
+      "action": "Compile this week's notable research findings from memory files and FreshRSS. Highlight top 3-5 items worth remembering. Write to shared/inbox/main/ with subject 'Weekly Research Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read weekly summaries from dev and research. Compile into a 'Week in Review' report covering: (1) code shipped, (2) issues resolved, (3) notable research/news, (4) upcoming priorities. Send to Anthony via Telegram.",
+      "passOutput": false
+    }
+  ]
+}

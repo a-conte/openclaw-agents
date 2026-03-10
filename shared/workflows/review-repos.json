@@ -1,0 +1,20 @@
+{
+  "name": "Review Repos",
+  "description": "Check PRs, CI runs, and stale branches across all watched repos",
+  "trigger": "on-demand",
+  "keyword": "review repos",
+  "approvalRequired": true,
+  "approvalReason": "Branch deletion requires human confirmation",
+  "steps": [
+    {
+      "agent": "dev",
+      "action": "For each repo in shared/repos.json: run `gh pr list`, `gh run list --limit 5`, and check for branches merged more than 14 days ago. Write a structured report to shared/inbox/main/ with subject 'Repo Review Report'.",
+      "passOutput": true
+    },
+    {
+      "agent": "main",
+      "action": "Read repo review report from inbox. Format into a clear summary with: (1) open PRs needing review, (2) recent CI status, (3) stale branches that could be cleaned up. Send to Anthony via Telegram — propose branch deletions but do NOT delete without explicit approval.",
+      "passOutput": false
+    }
+  ]
+}

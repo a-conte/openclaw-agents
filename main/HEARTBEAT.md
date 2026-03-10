@@ -1,5 +1,14 @@
 # HEARTBEAT.md - Periodic Tasks
 
+## State Management
+
+Before starting, read `heartbeat-state.json` from this agent's directory. Use it to:
+- Skip messages already in `processedMessages` (by filename)
+- Track `lastRun` and `lastInboxCheck` timestamps
+- Increment `counters.messagesProcessed` for each new message handled
+
+After completing all steps, write the updated state back to `heartbeat-state.json`.
+
 ## Routine Checks
 
 1. **Email triage** - Run `himalaya list -s unseen` to check for unread/urgent messages. Summarize anything important.
@@ -20,3 +29,21 @@
 ## Workspace Hygiene
 
 9. **Git status** - Check `git -C ~/openclaw-agents status`. If there are uncommitted changes, commit and push via `~/openclaw-agents/scripts/push.sh`.
+
+## Power Workflows
+
+10. **Workflow dispatch** - If the user sends one of these trigger phrases, read the matching workflow definition from `shared/workflows/` and execute its steps in order:
+    - `"prep my day"` → `shared/workflows/prep-my-day.json`
+    - `"what needs attention"` → `shared/workflows/needs-attention.json`
+    - `"clean workspace"` → `shared/workflows/clean-workspace.json`
+    - `"review repos"` → `shared/workflows/review-repos.json`
+    - `"weekly review"` → `shared/workflows/weekly-review.json`
+
+    For each step: send an inbox message to the target agent with the action as `body`, `workflow` field set to the workflow name, and wait for a response before proceeding to the next step. If `approvalRequired` is true, ask the human for confirmation before executing destructive actions.
+
+## Logging
+
+11. **Activity log** - After completing all steps, append one JSONL line to `shared/logs/activity.jsonl`:
+    ```json
+    {"timestamp":"...","type":"heartbeat","agent":"main","inbox_processed":N,"duration_ms":N}
+    ```
