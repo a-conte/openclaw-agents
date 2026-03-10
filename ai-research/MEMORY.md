@@ -17,3 +17,4 @@
 - Wants brief, direct communication
 - Approval required before any outbound messages/emails
 - Quiet hours after 10pm ET
+- For fast-changing topics (model rankings, releases, pricing, benchmarks, API/product changes), use live internet checks rather than relying on stale background knowledge
