@@ -33,7 +33,7 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
       // Deliver the last step's response via Telegram so the user
       // actually receives the workflow result.
       if (isLastStep) {
-        args.push('--deliver', '--channel', 'telegram');
+        args.push('--deliver', '--reply-channel', 'telegram', '--reply-account', 'main', '--reply-to', '1858496116');
       }
 
       const { stdout } = await execFileAsync(
