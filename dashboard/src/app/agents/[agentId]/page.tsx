@@ -101,26 +101,40 @@ function ActionButton({ rec, agentId, onDone }: { rec: Recommendation; agentId: 
   return null;
 }
 
+function getRecLink(rec: Recommendation): string | null {
+  if (rec.type === 'workflow') return '/command';
+  if (rec.type === 'cron') return '/calendar';
+  if (rec.type === 'task' && rec.status === 'active') return '/pipeline';
+  return null;
+}
+
 function RecItem({ rec, agentId, onDone, variant }: {
   rec: Recommendation;
   agentId: string;
   onDone: () => void;
   variant: 'active' | 'available' | 'suggested';
 }) {
+  const router = useRouter();
   const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
   const Icon = config.icon;
 
   const borderClass = variant === 'available' ? 'border-dashed' : variant === 'suggested' ? 'border-border/50' : '';
   const bgClass = variant === 'suggested' ? 'bg-surface-1/50' : 'bg-surface-1';
   const textClass = variant === 'active' ? 'text-text-primary' : 'text-text-secondary';
-  const clickable = rec.action === 'assign' || rec.action === 'create';
+  const hasAction = rec.action === 'assign' || rec.action === 'create';
+  const link = getRecLink(rec);
+
+  const handleRowClick = () => {
+    if (link) router.push(link);
+  };
 
   return (
     <div
+      onClick={handleRowClick}
       className={cn(
         'flex items-start gap-3 p-2.5 rounded-md border border-border transition-all',
         bgClass, borderClass,
-        clickable && 'hover:border-accent/40 hover:bg-accent/5 cursor-pointer group'
+        (hasAction || link) && 'hover:border-accent/40 hover:bg-accent/5 cursor-pointer group'
       )}
     >
       <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
@@ -135,7 +149,11 @@ function RecItem({ rec, agentId, onDone, variant }: {
         </div>
         <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
       </div>
-      <ActionButton rec={rec} agentId={agentId} onDone={onDone} />
+      {hasAction ? (
+        <ActionButton rec={rec} agentId={agentId} onDone={onDone} />
+      ) : link ? (
+        <ArrowRight size={14} className="text-text-tertiary group-hover:text-accent shrink-0 mt-0.5 transition-colors" />
+      ) : null}
     </div>
   );
 }
