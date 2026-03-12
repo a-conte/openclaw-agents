@@ -8,8 +8,14 @@ const execFileAsync = promisify(execFile);
 export async function executeWorkflowInBackground(runId: string, workflow: Workflow): Promise<void> {
   let previousOutput = '';
 
+  // Strip OPENCLAW_AGENTS and OPENCLAW_HOME from env — the .env.local values
+  // point to the workspace repo/config, which conflicts with the CLI's
+  // internal agent registry lookup.
+  const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
+
   for (let i = 0; i < workflow.steps.length; i++) {
     const step = workflow.steps[i];
+    const isLastStep = i === workflow.steps.length - 1;
 
     updateRunStep(runId, i, {
       status: 'running',
@@ -22,14 +28,17 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
         message = `Context from previous step:\n${previousOutput}\n\n${step.action}`;
       }
 
-      // Strip OPENCLAW_AGENTS and OPENCLAW_HOME from env — the .env.local values
-      // point to the workspace repo/config, which conflicts with the CLI's
-      // internal agent registry lookup.
-      const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
+      const args = ['agent', '--agent', step.agent, '--message', message, '--json'];
+
+      // Deliver the last step's response via Telegram so the user
+      // actually receives the workflow result.
+      if (isLastStep) {
+        args.push('--deliver', '--channel', 'telegram');
+      }
 
       const { stdout } = await execFileAsync(
         '/usr/local/bin/openclaw',
-        ['agent', '--agent', step.agent, '--message', message, '--json', '--local'],
+        args,
         {
           timeout: 600_000,
           encoding: 'utf-8',
