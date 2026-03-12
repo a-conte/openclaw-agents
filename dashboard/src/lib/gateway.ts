@@ -6,10 +6,13 @@ const execAsync = promisify(exec);
 
 export async function callGateway(method: string): Promise<unknown> {
   try {
+    // Strip OPENCLAW_AGENTS and OPENCLAW_HOME — .env.local values conflict
+    // with the CLI's internal agent registry lookup.
+    const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
     const { stdout } = await execAsync(`openclaw gateway call ${method} --json`, {
       timeout: 10000,
       encoding: 'utf-8',
-      env: { ...process.env, OPENCLAW_GATEWAY_TOKEN: process.env.GATEWAY_TOKEN },
+      env: { ...cleanEnv, OPENCLAW_GATEWAY_TOKEN: process.env.GATEWAY_TOKEN },
     });
     return JSON.parse(stdout);
   } catch (err) {
