@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import path from 'path';
+import type { Workflow } from '@/lib/types';
+import { createRun } from '@/lib/workflow-runs-store';
+import { executeWorkflowInBackground } from '@/lib/workflow-executor';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,58 +16,65 @@ function resolveAgentsRoot(): string {
   return `${process.env.HOME}/openclaw-agents`;
 }
 
+function loadWorkflows(): Workflow[] {
+  const agentsRoot = resolveAgentsRoot();
+  const sharedDir = path.join(agentsRoot, 'shared');
+  const workflows: Workflow[] = [];
+
+  for (const [dir, source] of [['workflows', 'workflow'], ['pipelines', 'pipeline']] as const) {
+    const fullDir = path.join(sharedDir, dir);
+    if (!existsSync(fullDir)) continue;
+    for (const f of readdirSync(fullDir).filter(f => f.endsWith('.json'))) {
+      try {
+        const raw = JSON.parse(readFileSync(path.join(fullDir, f), 'utf-8'));
+        workflows.push({
+          name: raw.name,
+          description: raw.description || '',
+          trigger: raw.trigger || (source === 'workflow' ? 'on-demand' : 'event'),
+          schedule: raw.schedule,
+          keyword: raw.keyword,
+          approvalRequired: raw.approvalRequired || false,
+          approvalReason: raw.approvalReason,
+          steps: (raw.steps || []).map((s: any) => ({
+            agent: s.agent,
+            action: s.action,
+            passOutput: s.passOutput ?? false,
+          })),
+          source,
+        });
+      } catch { /* skip malformed files */ }
+    }
+  }
+  return workflows;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { workflow } = await req.json();
+    const { workflowName } = await req.json();
 
-    if (!workflow?.name || !workflow?.steps?.length) {
-      return NextResponse.json({ error: 'Invalid workflow' }, { status: 400 });
+    if (!workflowName) {
+      return NextResponse.json({ error: 'workflowName is required' }, { status: 400 });
     }
 
-    const agentsRoot = resolveAgentsRoot();
-    const firstStep = workflow.steps[0];
-    const targetAgent = firstStep.agent;
-    const inboxDir = path.join(agentsRoot, 'shared', 'inbox', targetAgent);
+    const workflows = loadWorkflows();
+    const workflow = workflows.find(w => w.name === workflowName);
 
-    if (!existsSync(inboxDir)) {
-      mkdirSync(inboxDir, { recursive: true });
+    if (!workflow) {
+      return NextResponse.json({ error: `Workflow "${workflowName}" not found` }, { status: 404 });
     }
 
-    const timestamp = Math.floor(Date.now() / 1000);
-    const filename = `${timestamp}-dashboard.json`;
+    if (!workflow.steps.length) {
+      return NextResponse.json({ error: 'Workflow has no steps' }, { status: 400 });
+    }
 
-    // Build the full workflow instruction for the agent
-    const stepsDescription = workflow.steps
-      .map((s: any, i: number) => `Step ${i + 1} (${s.agent}): ${s.action}`)
-      .join('\n');
+    const run = createRun(workflow);
 
-    const message = {
-      from: 'dashboard',
-      to: targetAgent,
-      subject: `[Workflow] ${workflow.name}`,
-      body: `You have been asked to execute the "${workflow.name}" power workflow.\n\n` +
-        `Description: ${workflow.description}\n\n` +
-        `Your task (Step 1): ${firstStep.action}\n\n` +
-        `Full workflow steps:\n${stepsDescription}\n\n` +
-        (workflow.steps.length > 1
-          ? `After completing your step, forward the results to the next agent (${workflow.steps[1].agent}) via shared/inbox/${workflow.steps[1].agent}/.`
-          : 'This is a single-step workflow.'),
-      priority: 'high' as const,
-      timestamp: new Date().toISOString(),
-      status: 'unread' as const,
-      pipeline: null,
-      replyTo: null,
-      workflow: workflow.name,
-      expiresAt: null,
-    };
-
-    writeFileSync(path.join(inboxDir, filename), JSON.stringify(message, null, 2));
-
-    return NextResponse.json({
-      ok: true,
-      message: `Workflow "${workflow.name}" dispatched to ${targetAgent}`,
-      inboxFile: `shared/inbox/${targetAgent}/${filename}`,
+    // Fire and forget — do not await
+    executeWorkflowInBackground(run.id, workflow).catch(err => {
+      console.error(`Workflow run ${run.id} failed unexpectedly:`, err);
     });
+
+    return NextResponse.json({ runId: run.id, status: 'running' }, { status: 202 });
   } catch (err) {
     console.error('Workflow execute failed:', err);
     return NextResponse.json({ error: 'Failed to execute workflow' }, { status: 500 });

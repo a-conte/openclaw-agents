@@ -180,3 +180,28 @@ export interface RepoStatus {
 export type TaskStatus = Task['status'];
 export type TaskPriority = Task['priority'];
 export type AgentStatus = 'online' | 'warning' | 'offline';
+
+export type WorkflowRunStepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+export type WorkflowRunStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface WorkflowRunStep {
+  stepIndex: number;
+  agent: string;
+  action: string;
+  status: WorkflowRunStepStatus;
+  startedAt?: string;
+  completedAt?: string;
+  output?: string;
+  error?: string;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflowName: string;
+  status: WorkflowRunStatus;
+  steps: WorkflowRunStep[];
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+  triggeredBy: 'dashboard' | 'cron' | 'api';
+}
