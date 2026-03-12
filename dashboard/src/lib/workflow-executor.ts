@@ -22,10 +22,20 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
         message = `Context from previous step:\n${previousOutput}\n\n${step.action}`;
       }
 
+      // Strip OPENCLAW_AGENTS and OPENCLAW_HOME from env — the .env.local values
+      // point to the workspace repo/config, which conflicts with the CLI's
+      // internal agent registry lookup.
+      const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
+
       const { stdout } = await execFileAsync(
-        'openclaw',
-        ['agent', '--agent', step.agent, '--message', message, '--json'],
-        { timeout: 600_000, encoding: 'utf-8' }
+        '/usr/local/bin/openclaw',
+        ['agent', '--agent', step.agent, '--message', message, '--json', '--local'],
+        {
+          timeout: 600_000,
+          encoding: 'utf-8',
+          env: cleanEnv,
+          cwd: process.env.HOME || '/Users/a_conte',
+        }
       );
 
       previousOutput = stdout.trim();
