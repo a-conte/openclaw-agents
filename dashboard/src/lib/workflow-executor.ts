@@ -1,9 +1,9 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { Workflow } from './types';
 import { updateRunStep, completeRun } from './workflow-runs-store';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function executeWorkflowInBackground(runId: string, workflow: Workflow): Promise<void> {
   let previousOutput = '';
@@ -22,9 +22,9 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
         message = `Context from previous step:\n${previousOutput}\n\n${step.action}`;
       }
 
-      const escapedMessage = message.replace(/"/g, '\\"');
-      const { stdout } = await execAsync(
-        `openclaw agent --agent ${step.agent} --message "${escapedMessage}" --json`,
+      const { stdout } = await execFileAsync(
+        'openclaw',
+        ['agent', '--agent', step.agent, '--message', message, '--json'],
         { timeout: 600_000, encoding: 'utf-8' }
       );
 
