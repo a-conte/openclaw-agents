@@ -1,14 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { useAgents } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
 import { useWorkflows } from '@/hooks/useWorkflows';
+import { useWorkflowRuns, useWorkflowRun } from '@/hooks/useWorkflowRuns';
 import { useRepos } from '@/hooks/useRepos';
 import { MISSION_STATEMENT, AGENT_EMOJIS } from '@/lib/constants';
-import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronRight, Circle, Minus } from 'lucide-react';
 import useSWR from 'swr';
 import { Badge } from '@/components/shared/Badge';
-import type { Workflow, RepoStatus } from '@/lib/types';
+import type { Workflow, WorkflowRun, WorkflowRunStep, RepoStatus } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -17,6 +19,7 @@ export default function CommandPage() {
   const { tasks } = useTasks();
   const { workflows } = useWorkflows();
   const { repos } = useRepos();
+  const { runs } = useWorkflowRuns();
   const { data: briefingsData } = useSWR('/api/briefings', fetcher, { refreshInterval: 30000 });
   const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
 
@@ -62,7 +65,7 @@ export default function CommandPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {workflows.map((wf: Workflow) => (
-              <WorkflowCard key={wf.name} workflow={wf} />
+              <WorkflowCard key={wf.name} workflow={wf} runs={runs.filter(r => r.workflowName === wf.name)} />
             ))}
           </div>
         )}
@@ -115,7 +118,56 @@ export default function CommandPage() {
   );
 }
 
-function WorkflowCard({ workflow }: { workflow: Workflow }) {
+function StepStatusIcon({ status }: { status: WorkflowRunStep['status'] }) {
+  switch (status) {
+    case 'pending': return <Circle size={12} className="text-text-tertiary" />;
+    case 'running': return <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" /><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" /></span>;
+    case 'done': return <CheckCircle2 size={12} className="text-green-400" />;
+    case 'failed': return <XCircle size={12} className="text-red-400" />;
+    case 'skipped': return <Minus size={12} className="text-text-tertiary" />;
+  }
+}
+
+function RunStatusBadge({ status }: { status: WorkflowRun['status'] }) {
+  const colors: Record<string, string> = {
+    pending: '#555555',
+    running: '#4A9EFF',
+    completed: '#06d6a0',
+    failed: '#e94560',
+  };
+  return <Badge color={colors[status] || '#555555'}>{status}</Badge>;
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function formatDuration(start: string, end?: string): string {
+  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+  const secs = Math.floor(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const remSecs = secs % 60;
+  return `${mins}m ${remSecs}s`;
+}
+
+function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRun[] }) {
+  const [executingRunId, setExecutingRunId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [runState, setRunState] = useState<'idle' | 'confirm'>('idle');
+
+  const { run: activeRun } = useWorkflowRun(executingRunId);
+
+  // Auto-expand when a run starts, collapse when idle
+  const isRunning = activeRun && (activeRun.status === 'running' || activeRun.status === 'pending');
+
   const triggerIcon = workflow.trigger === 'cron' ? (
     <CalendarClock size={14} />
   ) : workflow.trigger === 'event' ? (
@@ -133,11 +185,78 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
   const sourceColor = workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF';
   const agentList = [...new Set(workflow.steps.map(s => s.agent))];
 
+  async function handleRun() {
+    if (workflow.approvalRequired && runState !== 'confirm') {
+      setRunState('confirm');
+      return;
+    }
+    setRunState('idle');
+
+    try {
+      const res = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflowName: workflow.name }),
+      });
+      const data = await res.json();
+      if (res.ok && data.runId) {
+        setExecutingRunId(data.runId);
+        setExpanded(true);
+      }
+    } catch {
+      // Network error — will show in run history if it partially started
+    }
+  }
+
+  const showSteps = expanded && (activeRun || executingRunId);
+  const displayRun = activeRun;
+
   return (
-    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
+    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors group">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-text-primary">{workflow.name}</span>
-        <Badge color={sourceColor}>{workflow.source}</Badge>
+        <div className="flex items-center gap-2">
+          {(showSteps || runs.length > 0) && (
+            <button onClick={() => setExpanded(!expanded)} className="text-text-tertiary hover:text-text-secondary">
+              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          )}
+          <span className="text-sm font-medium text-text-primary">{workflow.name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge color={sourceColor}>{workflow.source}</Badge>
+          {!isRunning && runState === 'idle' && (
+            <button
+              onClick={handleRun}
+              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20"
+              title={`Run ${workflow.name}`}
+            >
+              <Play size={12} />
+              Run
+            </button>
+          )}
+          {runState === 'confirm' && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleRun}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setRunState('idle')}
+                className="px-2 py-1 rounded text-xs font-medium text-text-tertiary hover:text-text-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {isRunning && (
+            <span className="flex items-center gap-1 text-xs text-text-tertiary">
+              <Loader2 size={12} className="animate-spin" />
+              Running...
+            </span>
+          )}
+        </div>
       </div>
       <p className="text-xs text-text-tertiary mb-3 leading-relaxed">{workflow.description}</p>
       <div className="flex items-center justify-between">
@@ -153,10 +272,65 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
           ))}
         </div>
       </div>
-      {workflow.approvalRequired && (
+      {workflow.approvalRequired && runState !== 'confirm' && (
         <div className="flex items-center gap-1 mt-2 text-xs text-yellow-500">
           <ShieldAlert size={12} />
           <span>{workflow.approvalReason || 'Requires approval'}</span>
+        </div>
+      )}
+
+      {/* Step-by-step progress */}
+      {showSteps && displayRun && (
+        <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+          {displayRun.steps.map((step) => (
+            <div key={step.stepIndex} className="flex items-center gap-2 text-xs">
+              <StepStatusIcon status={step.status} />
+              <span>{AGENT_EMOJIS[step.agent] || step.agent}</span>
+              <span className="text-text-secondary truncate flex-1">{step.action}</span>
+              {step.status === 'running' && step.startedAt && (
+                <span className="text-text-tertiary">{formatDuration(step.startedAt)}</span>
+              )}
+              {step.status === 'done' && step.startedAt && step.completedAt && (
+                <span className="text-text-tertiary">{formatDuration(step.startedAt, step.completedAt)}</span>
+              )}
+            </div>
+          ))}
+          {displayRun.status === 'completed' && (
+            <div className="flex items-center gap-1 text-xs text-green-400 pt-1">
+              <CheckCircle2 size={12} />
+              Completed in {formatDuration(displayRun.startedAt, displayRun.completedAt)}
+            </div>
+          )}
+          {displayRun.status === 'failed' && (
+            <div className="flex items-center gap-1 text-xs text-red-400 pt-1">
+              <XCircle size={12} />
+              Failed{displayRun.error ? `: ${displayRun.error.slice(0, 100)}` : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Run history */}
+      {expanded && runs.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <span className="text-xs text-text-tertiary font-medium">Recent Runs</span>
+          <div className="mt-1.5 space-y-1">
+            {runs.slice(0, 5).map((r) => (
+              <div
+                key={r.id}
+                className={`flex items-center justify-between text-xs cursor-pointer hover:bg-surface-2 rounded px-1 py-0.5 ${r.id === executingRunId ? 'bg-surface-2' : ''}`}
+                onClick={() => { setExecutingRunId(r.id); setExpanded(true); }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-text-tertiary">{relativeTime(r.startedAt)}</span>
+                  <RunStatusBadge status={r.status} />
+                </div>
+                <span className="text-text-tertiary">
+                  {r.completedAt ? formatDuration(r.startedAt, r.completedAt) : r.status === 'running' ? formatDuration(r.startedAt) : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
