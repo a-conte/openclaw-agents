@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { useAgent } from '@/hooks/useAgents';
 import {
   ArrowLeft, Circle, Zap, Clock, ListTodo, Lightbulb, Workflow,
-  Check, Plus, ArrowRight, Sparkles, Loader2,
+  Check, Sparkles, Loader2,
 } from 'lucide-react';
 import { cn, getAgentStatus, relativeTime } from '@/lib/utils';
 import { MODEL_DISPLAY, AGENT_FILES, AGENT_COLORS, AGENT_ROLES } from '@/lib/constants';
@@ -42,103 +42,57 @@ const STATUS_STYLES: Record<string, string> = {
 
 const TABS = ['Overview', 'SOUL.md', 'IDENTITY.md', 'TOOLS.md', 'HEARTBEAT.md', 'MEMORY.md', 'Sessions'] as const;
 
-function ActionButton({ rec, agentId, onDone }: { rec: Recommendation; agentId: string; onDone: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (loading || done) return;
-    setLoading(true);
-
-    try {
-      const res = await fetch(`/api/agents/${agentId}/recommendations/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: rec.action,
-          taskId: rec.taskId,
-          title: rec.title,
-          description: rec.description,
-        }),
-      });
-      if (res.ok) {
-        setDone(true);
-        setTimeout(onDone, 1000);
-      }
-    } catch {}
-    setLoading(false);
-  };
-
-  if (rec.action === 'view') return null;
-  if (done) return <Check size={14} className="text-status-online shrink-0" />;
-  if (loading) return <Loader2 size={14} className="animate-spin text-text-tertiary shrink-0" />;
-
-  if (rec.action === 'assign') {
-    return (
-      <button
-        onClick={handleClick}
-        className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-accent/10 text-accent hover:bg-accent/20 transition-colors shrink-0"
-      >
-        <ArrowRight size={10} />
-        Assign
-      </button>
-    );
-  }
-
-  if (rec.action === 'create') {
-    return (
-      <button
-        onClick={handleClick}
-        className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-[#06d6a0]/10 text-[#06d6a0] hover:bg-[#06d6a0]/20 transition-colors shrink-0"
-      >
-        <Plus size={10} />
-        Create Task
-      </button>
-    );
-  }
-
-  return null;
-}
-
-function getRecLink(rec: Recommendation): string | null {
-  if (rec.type === 'workflow') return '/command';
-  if (rec.type === 'cron') return '/calendar';
-  if (rec.type === 'task' && rec.status === 'active') return '/pipeline';
-  return null;
-}
-
 function RecItem({ rec, agentId, onDone, variant }: {
   rec: Recommendation;
   agentId: string;
   onDone: () => void;
   variant: 'active' | 'available' | 'suggested';
 }) {
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
   const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
   const Icon = config.icon;
 
   const borderClass = variant === 'available' ? 'border-dashed' : variant === 'suggested' ? 'border-border/50' : '';
   const bgClass = variant === 'suggested' ? 'bg-surface-1/50' : 'bg-surface-1';
   const textClass = variant === 'active' ? 'text-text-primary' : 'text-text-secondary';
-  const hasAction = rec.action === 'assign' || rec.action === 'create';
-  const link = getRecLink(rec);
 
-  const handleRowClick = () => {
-    if (link) router.push(link);
+  const handleRun = async () => {
+    if (loading || running) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/recommendations/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'run',
+          type: rec.type,
+          taskId: rec.taskId,
+          title: rec.title,
+          description: rec.description,
+        }),
+      });
+      if (res.ok) {
+        setRunning(true);
+        setTimeout(onDone, 2000);
+      }
+    } catch {}
+    setLoading(false);
   };
 
   return (
     <div
-      onClick={handleRowClick}
+      onClick={handleRun}
       className={cn(
-        'flex items-start gap-3 p-2.5 rounded-md border border-border transition-all',
+        'flex items-start gap-3 p-2.5 rounded-md border border-border transition-all cursor-pointer group',
         bgClass, borderClass,
-        (hasAction || link) && 'hover:border-accent/40 hover:bg-accent/5 cursor-pointer group'
+        running
+          ? 'border-status-online/40 bg-status-online/5'
+          : 'hover:border-accent/40 hover:bg-accent/5'
       )}
     >
-      <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
-        <Icon size={14} />
+      <div className="mt-0.5 shrink-0" style={{ color: running ? 'var(--color-status-online)' : config.color }}>
+        {loading ? <Loader2 size={14} className="animate-spin" /> : running ? <Check size={14} /> : <Icon size={14} />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -147,13 +101,16 @@ function RecItem({ rec, agentId, onDone, variant }: {
             {variant === 'active' ? config.label : variant === 'available' ? 'Unassigned' : 'Idea'}
           </span>
         </div>
-        <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
+        <p className="text-xs text-text-tertiary mt-0.5 truncate">
+          {running ? `${agentId} is working on this...` : rec.description}
+        </p>
       </div>
-      {hasAction ? (
-        <ActionButton rec={rec} agentId={agentId} onDone={onDone} />
-      ) : link ? (
-        <ArrowRight size={14} className="text-text-tertiary group-hover:text-accent shrink-0 mt-0.5 transition-colors" />
-      ) : null}
+      {!loading && !running && (
+        <div className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-accent/10 text-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Zap size={10} />
+          Run
+        </div>
+      )}
     </div>
   );
 }

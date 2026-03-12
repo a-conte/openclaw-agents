@@ -1,5 +1,29 @@
 import { NextResponse } from 'next/server';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { updateTask, createTask } from '@/lib/tasks-store';
+
+const execFileAsync = promisify(execFile);
+
+function runAgent(agentId: string, message: string) {
+  const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
+  // Fire and forget — don't block the response
+  execFileAsync(
+    '/usr/local/bin/openclaw',
+    [
+      'agent', '--agent', agentId, '--message', message, '--json',
+      '--deliver', '--reply-channel', 'telegram', '--reply-account', 'main', '--reply-to', '1858496116',
+    ],
+    {
+      timeout: 600_000,
+      encoding: 'utf-8',
+      env: cleanEnv,
+      cwd: process.env.HOME || '/Users/a_conte',
+    }
+  ).catch(err => {
+    console.error(`Agent run failed for ${agentId}:`, err.stderr || err.message);
+  });
+}
 
 export async function POST(
   request: Request,
@@ -7,10 +31,45 @@ export async function POST(
 ) {
   const { agentId } = await params;
   const body = await request.json();
-  const { action, taskId, title, description } = body;
+  const { action, taskId, title, description, type } = body;
 
+  // "run" — trigger the agent to execute a task/workflow/suggestion
+  if (action === 'run') {
+    let message = '';
+
+    if (type === 'task' && taskId) {
+      // Mark task as in_progress
+      updateTask(taskId, { agentId, status: 'in_progress' });
+      message = `You have been assigned the following task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
+    } else if (type === 'workflow') {
+      message = `Execute the following workflow: "${title}"\n${description ? `Context: ${description}` : ''}`;
+    } else if (type === 'cron') {
+      message = `Run your scheduled job now: "${title}"\n${description ? `Context: ${description}` : ''}`;
+    } else if (type === 'suggestion') {
+      // Create a task from the suggestion, then run it
+      const task = createTask({
+        title: title || 'Untitled',
+        description: description || '',
+        agentId,
+        status: 'in_progress',
+        priority: 'medium',
+        labels: ['auto-suggested'],
+      });
+      message = `You have been assigned a new task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
+    } else {
+      message = `${title}\n${description || ''}`;
+    }
+
+    runAgent(agentId, message);
+
+    return NextResponse.json({
+      ok: true,
+      message: `Agent ${agentId} is now working on: ${title}`,
+    }, { status: 202 });
+  }
+
+  // Legacy: "assign" — just assign without running
   if (action === 'assign' && taskId) {
-    // Assign existing unassigned task to this agent
     const task = updateTask(taskId, { agentId, status: 'todo' });
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
@@ -18,8 +77,8 @@ export async function POST(
     return NextResponse.json({ ok: true, task });
   }
 
+  // Legacy: "create" — just create without running
   if (action === 'create') {
-    // Create a new task from a suggestion and assign to this agent
     const task = createTask({
       title: title || 'Untitled',
       description: description || '',
