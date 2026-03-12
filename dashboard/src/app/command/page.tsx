@@ -1,11 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useAgents } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
 import { useWorkflows } from '@/hooks/useWorkflows';
 import { useRepos } from '@/hooks/useRepos';
 import { MISSION_STATEMENT, AGENT_EMOJIS } from '@/lib/constants';
-import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
 import useSWR from 'swr';
 import { Badge } from '@/components/shared/Badge';
 import type { Workflow, RepoStatus } from '@/lib/types';
@@ -116,6 +117,9 @@ export default function CommandPage() {
 }
 
 function WorkflowCard({ workflow }: { workflow: Workflow }) {
+  const [runState, setRunState] = useState<'idle' | 'confirm' | 'running' | 'done' | 'error'>('idle');
+  const [resultMsg, setResultMsg] = useState('');
+
   const triggerIcon = workflow.trigger === 'cron' ? (
     <CalendarClock size={14} />
   ) : workflow.trigger === 'event' ? (
@@ -133,11 +137,83 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
   const sourceColor = workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF';
   const agentList = [...new Set(workflow.steps.map(s => s.agent))];
 
+  async function handleRun() {
+    if (workflow.approvalRequired && runState !== 'confirm') {
+      setRunState('confirm');
+      return;
+    }
+    setRunState('running');
+    try {
+      const res = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResultMsg(data.message);
+        setRunState('done');
+        setTimeout(() => setRunState('idle'), 4000);
+      } else {
+        setResultMsg(data.error || 'Failed');
+        setRunState('error');
+        setTimeout(() => setRunState('idle'), 4000);
+      }
+    } catch {
+      setResultMsg('Network error');
+      setRunState('error');
+      setTimeout(() => setRunState('idle'), 4000);
+    }
+  }
+
   return (
-    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
+    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors group">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-text-primary">{workflow.name}</span>
-        <Badge color={sourceColor}>{workflow.source}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge color={sourceColor}>{workflow.source}</Badge>
+          {runState === 'idle' && (
+            <button
+              onClick={handleRun}
+              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20"
+              title={`Run ${workflow.name}`}
+            >
+              <Play size={12} />
+              Run
+            </button>
+          )}
+          {runState === 'confirm' && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleRun}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setRunState('idle')}
+                className="px-2 py-1 rounded text-xs font-medium text-text-tertiary hover:text-text-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {runState === 'running' && (
+            <span className="flex items-center gap-1 text-xs text-text-tertiary">
+              <Loader2 size={12} className="animate-spin" />
+              Dispatching...
+            </span>
+          )}
+          {runState === 'done' && (
+            <span className="flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle2 size={12} />
+              Sent
+            </span>
+          )}
+          {runState === 'error' && (
+            <span className="text-xs text-red-400">{resultMsg}</span>
+          )}
+        </div>
       </div>
       <p className="text-xs text-text-tertiary mb-3 leading-relaxed">{workflow.description}</p>
       <div className="flex items-center justify-between">
@@ -153,7 +229,7 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
           ))}
         </div>
       </div>
-      {workflow.approvalRequired && (
+      {workflow.approvalRequired && runState !== 'confirm' && (
         <div className="flex items-center gap-1 mt-2 text-xs text-yellow-500">
           <ShieldAlert size={12} />
           <span>{workflow.approvalReason || 'Requires approval'}</span>
