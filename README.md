@@ -2,14 +2,14 @@
 
 Personal AI assistant system running on [OpenClaw](https://openclaw.ai), hosted on an Intel MacBook (x86_64) repurposed as a home server.
 
-Monorepo containing all 6 agent workspaces — each with its own personality, memory, and configuration.
+Monorepo containing all 7 agent workspaces — each with its own personality, memory, and configuration.
 
 ## Overview
 
-- **Model:** OpenAI Codex (gpt-5.3-codex, 200k context)
+- **Model:** OpenAI Codex (`openai-codex/gpt-5.4` at time of last update)
 - **Gateway:** Local LaunchAgent on port 18789
 - **Channel:** Telegram (7 bots — main + 6 specialized agents)
-- **Skills:** 58 active (44 built-in + 19 community)
+- **Skills:** See `SETUP.md` for the current inventory and install notes
 - **Plugins:** memory-lancedb, telegram, voice-call
 
 ## Repo Structure

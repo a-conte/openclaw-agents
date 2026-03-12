@@ -1,0 +1,104 @@
+<h2>WorkflowCard: Run + Step Tracking</h2>
+<p class="subtitle">How should the workflow card look when a run is in progress?</p>
+
+<div class="cards">
+  <!-- Option A: Inline Expansion -->
+  <div class="card" data-choice="inline" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d1a;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#e0e0e0;">
+        <!-- Card header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-weight:600;color:#fff;">Prep My Day</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="background:#06d6a020;color:#06d6a0;padding:2px 6px;border-radius:4px;font-size:10px;">workflow</span>
+            <span style="background:#4A9EFF20;color:#4A9EFF;padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;">&#9654; Run</span>
+          </div>
+        </div>
+        <div style="color:#888;font-size:11px;margin-bottom:10px;">Get calendar, weather, tasks, urgent emails, compile morning briefing</div>
+
+        <!-- Step progress (expanded) -->
+        <div style="border-top:1px solid #222;padding-top:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="color:#06d6a0;font-size:10px;">&#10003;</span>
+            <span>&#129504;</span>
+            <span style="color:#aaa;font-size:11px;flex:1;">Check today's calendar, weather, tasks</span>
+            <span style="color:#06d6a0;font-size:10px;">done</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="color:#4A9EFF;font-size:10px;animation:pulse 1.5s infinite;">&#9679;</span>
+            <span>&#128231;</span>
+            <span style="color:#ccc;font-size:11px;flex:1;">Run himalaya list, flag urgent items</span>
+            <span style="color:#4A9EFF;font-size:10px;">running</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="color:#555;font-size:10px;">&#9675;</span>
+            <span style="opacity:0.4;">&#129504;</span>
+            <span style="color:#555;font-size:11px;flex:1;">Compile briefing from all sources</span>
+            <span style="color:#555;font-size:10px;">pending</span>
+          </div>
+        </div>
+
+        <!-- Run history -->
+        <div style="border-top:1px solid #222;padding-top:8px;margin-top:10px;">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Recent runs</div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;">
+            <span>2h ago</span>
+            <span style="color:#06d6a0;">completed (45s)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#888;">
+            <span>Yesterday</span>
+            <span style="color:#FB5656;">failed at step 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Inline Expansion</h3>
+      <p>Card expands in-place to show step progress and run history below the description. Compact, everything in one view.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Slide-out Panel -->
+  <div class="card" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d1a;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#e0e0e0;display:flex;gap:12px;">
+        <!-- Left: normal card grid -->
+        <div style="flex:1;opacity:0.5;">
+          <div style="background:#111;border:1px solid #222;border-radius:6px;padding:10px;margin-bottom:6px;">
+            <div style="font-size:11px;color:#888;">Needs Attention</div>
+          </div>
+          <div style="background:#111;border:1px solid #222;border-radius:6px;padding:10px;">
+            <div style="font-size:11px;color:#888;">Clean Workspace</div>
+          </div>
+        </div>
+        <!-- Right: detail panel -->
+        <div style="flex:1.5;background:#111;border:1px solid #4A9EFF44;border-radius:6px;padding:12px;">
+          <div style="font-weight:600;color:#fff;margin-bottom:6px;">Prep My Day</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="color:#06d6a0;font-size:10px;">&#10003;</span>
+            <span style="color:#aaa;font-size:11px;">Step 1: Calendar check</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="color:#4A9EFF;font-size:10px;">&#9679;</span>
+            <span style="color:#ccc;font-size:11px;">Step 2: Email scan</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="color:#555;font-size:10px;">&#9675;</span>
+            <span style="color:#555;font-size:11px;">Step 3: Compile</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Slide-out Panel</h3>
+      <p>Clicking Run opens a side panel with step detail and history. Keeps the card grid clean but splits attention.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>

@@ -1,0 +1,4 @@
+{"type":"server-started","port":52733,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:52733","screen_dir":"/Users/a_conte/openclaw-agents/.superpowers/brainstorm/74882-1773295492"}
+{"type":"screen-added","file":"/Users/a_conte/openclaw-agents/.superpowers/brainstorm/74882-1773295492/workflow-card-design.html"}
+{"type":"screen-added","file":"/Users/a_conte/openclaw-agents/.superpowers/brainstorm/74882-1773295492/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}
