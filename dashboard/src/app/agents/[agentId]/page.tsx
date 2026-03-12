@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { useAgent } from '@/hooks/useAgents';
-import { ArrowLeft, Circle, Zap, Clock, ListTodo, Lightbulb, Workflow } from 'lucide-react';
+import {
+  ArrowLeft, Circle, Zap, Clock, ListTodo, Lightbulb, Workflow,
+  Check, Plus, ArrowRight, Sparkles, Loader2,
+} from 'lucide-react';
 import { cn, getAgentStatus, relativeTime } from '@/lib/utils';
 import { MODEL_DISPLAY, AGENT_FILES, AGENT_COLORS, AGENT_ROLES } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
@@ -14,11 +17,14 @@ import { FileEditor } from '@/components/agents/FileEditor';
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 interface Recommendation {
+  id: string;
   type: 'workflow' | 'cron' | 'task' | 'suggestion';
   title: string;
   description: string;
   source?: string;
-  status?: 'active' | 'available' | 'suggested';
+  status: 'active' | 'available' | 'suggested';
+  action?: 'assign' | 'create' | 'view';
+  taskId?: string;
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof Zap; color: string; label: string }> = {
@@ -36,17 +42,140 @@ const STATUS_STYLES: Record<string, string> = {
 
 const TABS = ['Overview', 'SOUL.md', 'IDENTITY.md', 'TOOLS.md', 'HEARTBEAT.md', 'MEMORY.md', 'Sessions'] as const;
 
+function ActionButton({ rec, agentId, onDone }: { rec: Recommendation; agentId: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (loading || done) return;
+    setLoading(true);
+
+    try {
+      const res = await fetch(`/api/agents/${agentId}/recommendations/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: rec.action,
+          taskId: rec.taskId,
+          title: rec.title,
+          description: rec.description,
+        }),
+      });
+      if (res.ok) {
+        setDone(true);
+        setTimeout(onDone, 1000);
+      }
+    } catch {}
+    setLoading(false);
+  };
+
+  if (rec.action === 'view') return null;
+  if (done) return <Check size={14} className="text-status-online shrink-0" />;
+  if (loading) return <Loader2 size={14} className="animate-spin text-text-tertiary shrink-0" />;
+
+  if (rec.action === 'assign') {
+    return (
+      <button
+        onClick={handleClick}
+        className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-accent/10 text-accent hover:bg-accent/20 transition-colors shrink-0"
+      >
+        <ArrowRight size={10} />
+        Assign
+      </button>
+    );
+  }
+
+  if (rec.action === 'create') {
+    return (
+      <button
+        onClick={handleClick}
+        className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-[#06d6a0]/10 text-[#06d6a0] hover:bg-[#06d6a0]/20 transition-colors shrink-0"
+      >
+        <Plus size={10} />
+        Create Task
+      </button>
+    );
+  }
+
+  return null;
+}
+
+function RecItem({ rec, agentId, onDone, variant }: {
+  rec: Recommendation;
+  agentId: string;
+  onDone: () => void;
+  variant: 'active' | 'available' | 'suggested';
+}) {
+  const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
+  const Icon = config.icon;
+
+  const borderClass = variant === 'available' ? 'border-dashed' : variant === 'suggested' ? 'border-border/50' : '';
+  const bgClass = variant === 'suggested' ? 'bg-surface-1/50' : 'bg-surface-1';
+  const textClass = variant === 'active' ? 'text-text-primary' : 'text-text-secondary';
+  const clickable = rec.action === 'assign' || rec.action === 'create';
+
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-3 p-2.5 rounded-md border border-border transition-all',
+        bgClass, borderClass,
+        clickable && 'hover:border-accent/40 hover:bg-accent/5 cursor-pointer group'
+      )}
+    >
+      <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
+        <Icon size={14} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className={cn('text-sm font-medium truncate', textClass)}>{rec.title}</span>
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full border', STATUS_STYLES[variant])}>
+            {variant === 'active' ? config.label : variant === 'available' ? 'Unassigned' : 'Idea'}
+          </span>
+        </div>
+        <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
+      </div>
+      <ActionButton rec={rec} agentId={agentId} onDone={onDone} />
+    </div>
+  );
+}
+
 export default function AgentDetailPage() {
   const { agentId } = useParams<{ agentId: string }>();
   const router = useRouter();
   const { agent, isLoading, mutate } = useAgent(agentId);
   const [activeTab, setActiveTab] = useState<string>('Overview');
-  const { data: recData } = useSWR<{ recommendations: Recommendation[] }>(
+  const { data: recData, mutate: mutateRecs } = useSWR<{ recommendations: Recommendation[] }>(
     agentId ? `/api/agents/${agentId}/recommendations` : null,
     fetcher
   );
   const recommendations = recData?.recommendations || [];
   const role = AGENT_ROLES[agentId] || '';
+
+  const [improving, setImproving] = useState(false);
+  const [improveStatus, setImproveStatus] = useState<string | null>(null);
+
+  const handleImprove = useCallback(async () => {
+    if (improving) return;
+    setImproving(true);
+    setImproveStatus(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/improve`, { method: 'POST' });
+      const data = await res.json();
+      setImproveStatus(data.ok ? 'Agent is reviewing its sessions and updating its files...' : data.error);
+      if (data.ok) {
+        // Refresh agent data after a delay to show updated files
+        setTimeout(() => mutate(), 30_000);
+      }
+    } catch (err: any) {
+      setImproveStatus('Failed to start improvement session');
+    }
+    setImproving(false);
+  }, [agentId, improving, mutate]);
+
+  const handleRecDone = useCallback(() => {
+    mutateRecs();
+  }, [mutateRecs]);
 
   if (isLoading) {
     return (
@@ -69,8 +198,12 @@ export default function AgentDetailPage() {
   const model = MODEL_DISPLAY[health?.model || ''] || { label: 'Unknown', color: '#6b7280' };
   const color = AGENT_COLORS[agentId] || '#6b7280';
 
+  const activeRecs = recommendations.filter(r => r.status === 'active');
+  const availableRecs = recommendations.filter(r => r.status === 'available');
+  const suggestedRecs = recommendations.filter(r => r.status === 'suggested');
+
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6 max-w-5xl overflow-auto h-full">
       <button
         onClick={() => router.push('/agents')}
         className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-secondary mb-4 transition-colors"
@@ -79,17 +212,40 @@ export default function AgentDetailPage() {
         Back to agents
       </button>
 
-      <div className="flex items-center gap-3 mb-6">
-        <span className="text-2xl">{agent.emoji}</span>
-        <div>
-          <h1 className="text-lg font-semibold">{agentId}</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Circle size={8} className={cn('fill-current', status === 'online' ? 'text-status-online' : status === 'warning' ? 'text-status-warning' : 'text-status-offline')} />
-            <Badge color={model.color}>{model.label}</Badge>
-            {lastActivity && <span className="text-xs text-text-tertiary">{relativeTime(lastActivity)}</span>}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{agent.emoji}</span>
+          <div>
+            <h1 className="text-lg font-semibold">{agentId}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Circle size={8} className={cn('fill-current', status === 'online' ? 'text-status-online' : status === 'warning' ? 'text-status-warning' : 'text-status-offline')} />
+              <Badge color={model.color}>{model.label}</Badge>
+              {lastActivity && <span className="text-xs text-text-tertiary">{relativeTime(lastActivity)}</span>}
+            </div>
           </div>
         </div>
+
+        {/* Self-improve button */}
+        <button
+          onClick={handleImprove}
+          disabled={improving}
+          className={cn(
+            'flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+            improving
+              ? 'bg-surface-2 text-text-tertiary cursor-not-allowed'
+              : 'bg-accent/10 text-accent hover:bg-accent/20'
+          )}
+        >
+          {improving ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          Self-Improve
+        </button>
       </div>
+
+      {improveStatus && (
+        <div className="mb-4 p-3 rounded-md bg-accent/5 border border-accent/20 text-xs text-accent">
+          {improveStatus}
+        </div>
+      )}
 
       <div className="flex gap-1 border-b border-border mb-6">
         {TABS.map((tab) => {
@@ -145,89 +301,35 @@ export default function AgentDetailPage() {
                 Assignments & Recommendations
               </h3>
 
-              {/* Current assignments */}
-              {recommendations.filter(r => r.status === 'active').length > 0 && (
+              {activeRecs.length > 0 && (
                 <div className="mb-4">
                   <h4 className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium mb-2">Currently Assigned</h4>
                   <div className="space-y-2">
-                    {recommendations.filter(r => r.status === 'active').map((rec, i) => {
-                      const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
-                      const Icon = config.icon;
-                      return (
-                        <div key={`active-${i}`} className="flex items-start gap-3 p-2.5 rounded-md bg-surface-1 border border-border">
-                          <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
-                            <Icon size={14} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-text-primary truncate">{rec.title}</span>
-                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full border', STATUS_STYLES.active)}>
-                                {config.label}
-                              </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {activeRecs.map((rec) => (
+                      <RecItem key={rec.id} rec={rec} agentId={agentId} onDone={handleRecDone} variant="active" />
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Available (unassigned tasks) */}
-              {recommendations.filter(r => r.status === 'available').length > 0 && (
+              {availableRecs.length > 0 && (
                 <div className="mb-4">
                   <h4 className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium mb-2">Available to Pick Up</h4>
                   <div className="space-y-2">
-                    {recommendations.filter(r => r.status === 'available').map((rec, i) => {
-                      const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
-                      const Icon = config.icon;
-                      return (
-                        <div key={`available-${i}`} className="flex items-start gap-3 p-2.5 rounded-md bg-surface-1 border border-border border-dashed">
-                          <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
-                            <Icon size={14} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-text-secondary truncate">{rec.title}</span>
-                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full border', STATUS_STYLES.available)}>
-                                Unassigned
-                              </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {availableRecs.map((rec) => (
+                      <RecItem key={rec.id} rec={rec} agentId={agentId} onDone={handleRecDone} variant="available" />
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Suggestions */}
-              {recommendations.filter(r => r.status === 'suggested').length > 0 && (
+              {suggestedRecs.length > 0 && (
                 <div>
                   <h4 className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium mb-2">Suggested</h4>
                   <div className="space-y-2">
-                    {recommendations.filter(r => r.status === 'suggested').map((rec, i) => {
-                      const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
-                      const Icon = config.icon;
-                      return (
-                        <div key={`suggested-${i}`} className="flex items-start gap-3 p-2.5 rounded-md bg-surface-1/50 border border-border/50">
-                          <div className="mt-0.5 shrink-0" style={{ color: config.color }}>
-                            <Icon size={14} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-text-secondary truncate">{rec.title}</span>
-                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full border', STATUS_STYLES.suggested)}>
-                                Idea
-                              </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary mt-0.5 truncate">{rec.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {suggestedRecs.map((rec) => (
+                      <RecItem key={rec.id} rec={rec} agentId={agentId} onDone={handleRecDone} variant="suggested" />
+                    ))}
                   </div>
                 </div>
               )}

@@ -6,11 +6,14 @@ import { AGENT_ROLES } from '@/lib/constants';
 export const dynamic = 'force-dynamic';
 
 interface Recommendation {
+  id: string;
   type: 'workflow' | 'cron' | 'task' | 'suggestion';
   title: string;
   description: string;
   source?: string;
-  status?: 'active' | 'available' | 'suggested';
+  status: 'active' | 'available' | 'suggested';
+  action?: 'assign' | 'create' | 'view';
+  taskId?: string;
 }
 
 function loadWorkflows(): any[] {
@@ -22,7 +25,7 @@ function loadWorkflows(): any[] {
     for (const file of readdirSync(fullDir).filter(f => f.endsWith('.json'))) {
       try {
         const data = JSON.parse(readFileSync(path.join(fullDir, file), 'utf-8'));
-        workflows.push({ ...data, source: dir.includes('pipeline') ? 'pipeline' : 'workflow' });
+        workflows.push({ ...data, _file: file, source: dir.includes('pipeline') ? 'pipeline' : 'workflow' });
       } catch {}
     }
   }
@@ -69,11 +72,13 @@ export async function GET(
     const agentSteps = steps.filter((s: any) => s.agent === agentId);
     if (agentSteps.length > 0) {
       recommendations.push({
+        id: `wf-${wf._file}`,
         type: 'workflow',
         title: wf.name,
         description: `${agentSteps.length} of ${steps.length} steps — ${wf.description || ''}`,
         source: wf.source,
         status: 'active',
+        action: 'view',
       });
     }
   }
@@ -83,10 +88,12 @@ export async function GET(
     if (job.agentId === agentId && job.enabled) {
       const expr = typeof job.schedule === 'string' ? job.schedule : job.schedule?.expr || '';
       recommendations.push({
+        id: `cron-${job.id}`,
         type: 'cron',
         title: job.name || 'Untitled job',
         description: `Schedule: ${expr}${job.state?.lastRunStatus === 'error' ? ' (last run failed)' : ''}`,
         status: 'active',
+        action: 'view',
       });
     }
   }
@@ -95,10 +102,13 @@ export async function GET(
   const agentTasks = tasks.filter((t: any) => t.agentId === agentId && t.status !== 'done');
   for (const task of agentTasks) {
     recommendations.push({
+      id: `task-${task.id}`,
       type: 'task',
       title: task.title,
       description: `${task.priority} priority — ${task.status.replace('_', ' ')}`,
       status: 'active',
+      action: 'view',
+      taskId: task.id,
     });
   }
 
@@ -106,10 +116,13 @@ export async function GET(
   const unassigned = tasks.filter((t: any) => !t.agentId && t.status !== 'done');
   for (const task of unassigned) {
     recommendations.push({
+      id: `task-${task.id}`,
       type: 'task',
       title: task.title,
       description: `Unassigned — ${task.priority} priority`,
       status: 'available',
+      action: 'assign',
+      taskId: task.id,
     });
   }
 
@@ -118,14 +131,15 @@ export async function GET(
     const steps = wf.steps || [];
     const participates = steps.some((s: any) => s.agent === agentId);
     if (!participates) {
-      // Check if this workflow could benefit from this agent's capabilities
       const couldHelp = matchesRole(agentId, role, wf);
       if (couldHelp) {
         recommendations.push({
+          id: `suggest-wf-${wf._file}`,
           type: 'suggestion',
           title: `Could contribute to "${wf.name}"`,
           description: couldHelp,
           status: 'suggested',
+          action: 'create',
         });
       }
     }
@@ -167,52 +181,48 @@ function matchesRole(agentId: string, role: string, workflow: any): string | nul
 
 function getRoleSuggestions(
   agentId: string,
-  role: string,
+  _role: string,
   stats: { workflowCount: number; cronCount: number; taskCount: number }
 ): Recommendation[] {
   const suggestions: Recommendation[] = [];
 
   const roleSuggestionMap: Record<string, Recommendation[]> = {
     mail: [
-      { type: 'suggestion', title: 'Email digest automation', description: 'Set up automated email categorization and priority scoring', status: 'suggested' },
-      { type: 'suggestion', title: 'Follow-up tracker', description: 'Monitor sent emails that haven\'t received replies after 48h', status: 'suggested' },
+      { id: 'suggest-mail-1', type: 'suggestion', title: 'Email digest automation', description: 'Set up automated email categorization and priority scoring', status: 'suggested', action: 'create' },
+      { id: 'suggest-mail-2', type: 'suggestion', title: 'Follow-up tracker', description: 'Monitor sent emails that haven\'t received replies after 48h', status: 'suggested', action: 'create' },
     ],
     research: [
-      { type: 'suggestion', title: 'RSS feed monitoring', description: 'Auto-scan FreshRSS feeds for high-signal items daily', status: 'suggested' },
-      { type: 'suggestion', title: 'Competitor tracking', description: 'Weekly scan of competitor repos, blogs, and releases', status: 'suggested' },
+      { id: 'suggest-research-1', type: 'suggestion', title: 'RSS feed monitoring', description: 'Auto-scan FreshRSS feeds for high-signal items daily', status: 'suggested', action: 'create' },
+      { id: 'suggest-research-2', type: 'suggestion', title: 'Competitor tracking', description: 'Weekly scan of competitor repos, blogs, and releases', status: 'suggested', action: 'create' },
     ],
     'ai-research': [
-      { type: 'suggestion', title: 'Model benchmark tracking', description: 'Monitor new model releases and benchmark scores weekly', status: 'suggested' },
-      { type: 'suggestion', title: 'Paper digest', description: 'Scan arxiv for relevant AI/ML papers and summarize key findings', status: 'suggested' },
+      { id: 'suggest-air-1', type: 'suggestion', title: 'Model benchmark tracking', description: 'Monitor new model releases and benchmark scores weekly', status: 'suggested', action: 'create' },
+      { id: 'suggest-air-2', type: 'suggestion', title: 'Paper digest', description: 'Scan arxiv for relevant AI/ML papers and summarize key findings', status: 'suggested', action: 'create' },
     ],
     dev: [
-      { type: 'suggestion', title: 'Dependency audit', description: 'Weekly check for outdated or vulnerable dependencies', status: 'suggested' },
-      { type: 'suggestion', title: 'Dead code scan', description: 'Identify unused exports, unreachable code, and stale branches', status: 'suggested' },
+      { id: 'suggest-dev-1', type: 'suggestion', title: 'Dependency audit', description: 'Weekly check for outdated or vulnerable dependencies', status: 'suggested', action: 'create' },
+      { id: 'suggest-dev-2', type: 'suggestion', title: 'Dead code scan', description: 'Identify unused exports, unreachable code, and stale branches', status: 'suggested', action: 'create' },
     ],
     docs: [
-      { type: 'suggestion', title: 'Documentation freshness check', description: 'Scan READMEs and docs for outdated information', status: 'suggested' },
-      { type: 'suggestion', title: 'Changelog generation', description: 'Auto-generate changelogs from merged PRs and commit messages', status: 'suggested' },
+      { id: 'suggest-docs-1', type: 'suggestion', title: 'Documentation freshness check', description: 'Scan READMEs and docs for outdated information', status: 'suggested', action: 'create' },
+      { id: 'suggest-docs-2', type: 'suggestion', title: 'Changelog generation', description: 'Auto-generate changelogs from merged PRs and commit messages', status: 'suggested', action: 'create' },
     ],
     security: [
-      { type: 'suggestion', title: 'Access audit', description: 'Review GitHub team permissions and API token scopes', status: 'suggested' },
-      { type: 'suggestion', title: 'Secret scanning', description: 'Scan repos for accidentally committed secrets or credentials', status: 'suggested' },
+      { id: 'suggest-sec-1', type: 'suggestion', title: 'Access audit', description: 'Review GitHub team permissions and API token scopes', status: 'suggested', action: 'create' },
+      { id: 'suggest-sec-2', type: 'suggestion', title: 'Secret scanning', description: 'Scan repos for accidentally committed secrets or credentials', status: 'suggested', action: 'create' },
     ],
     main: [
-      { type: 'suggestion', title: 'Agent health monitoring', description: 'Track agent response times and error rates, alert on degradation', status: 'suggested' },
-      { type: 'suggestion', title: 'Cross-agent coordination', description: 'Detect when multiple agents are working on overlapping tasks', status: 'suggested' },
+      { id: 'suggest-main-1', type: 'suggestion', title: 'Agent health monitoring', description: 'Track agent response times and error rates, alert on degradation', status: 'suggested', action: 'create' },
+      { id: 'suggest-main-2', type: 'suggestion', title: 'Cross-agent coordination', description: 'Detect when multiple agents are working on overlapping tasks', status: 'suggested', action: 'create' },
     ],
   };
 
   const agentSuggestions = roleSuggestionMap[agentId] || [];
 
-  // Only show suggestions if the agent doesn't have much assigned
   if (stats.workflowCount + stats.cronCount + stats.taskCount < 5) {
     suggestions.push(...agentSuggestions);
-  } else {
-    // Still show one suggestion
-    if (agentSuggestions.length > 0) {
-      suggestions.push(agentSuggestions[0]);
-    }
+  } else if (agentSuggestions.length > 0) {
+    suggestions.push(agentSuggestions[0]);
   }
 
   return suggestions;
