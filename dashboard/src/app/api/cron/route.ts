@@ -14,7 +14,18 @@ export async function GET() {
   if (existsSync(cronPath)) {
     try {
       const data = JSON.parse(readFileSync(cronPath, 'utf-8'));
-      cronJobs = data.jobs || [];
+      // Normalize raw jobs into the CronJob shape the frontend expects
+      cronJobs = (data.jobs || []).map((j: any) => ({
+        id: j.id,
+        name: j.name || 'Untitled',
+        schedule: typeof j.schedule === 'string' ? j.schedule : j.schedule?.expr || '',
+        agentId: j.agentId,
+        command: j.payload?.message || '',
+        enabled: j.enabled ?? true,
+        lastRun: j.state?.lastRunAtMs ? new Date(j.state.lastRunAtMs).toISOString() : undefined,
+        nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : undefined,
+        lastStatus: j.state?.lastRunStatus === 'error' ? 'failure' : j.state?.lastRunStatus === 'ok' ? 'success' : undefined,
+      }));
     } catch {}
   }
 
