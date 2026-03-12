@@ -5,7 +5,7 @@ import { updateTask, createTask } from '@/lib/tasks-store';
 
 const execFileAsync = promisify(execFile);
 
-function runAgent(agentId: string, message: string) {
+function runAgent(agentId: string, message: string, taskId?: string) {
   const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
   // Fire and forget — don't block the response
   execFileAsync(
@@ -20,8 +20,11 @@ function runAgent(agentId: string, message: string) {
       env: cleanEnv,
       cwd: process.env.HOME || '/Users/a_conte',
     }
-  ).catch(err => {
+  ).then(() => {
+    if (taskId) updateTask(taskId, { status: 'done' });
+  }).catch(err => {
     console.error(`Agent run failed for ${agentId}:`, err.stderr || err.message);
+    if (taskId) updateTask(taskId, { status: 'todo', labels: ['agent-failed'] });
   });
 }
 
@@ -36,10 +39,12 @@ export async function POST(
   // "run" — trigger the agent to execute a task/workflow/suggestion
   if (action === 'run') {
     let message = '';
+    let runTaskId: string | undefined;
 
     if (type === 'task' && taskId) {
       // Mark task as in_progress
       updateTask(taskId, { agentId, status: 'in_progress' });
+      runTaskId = taskId;
       message = `You have been assigned the following task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
     } else if (type === 'workflow') {
       message = `Execute the following workflow: "${title}"\n${description ? `Context: ${description}` : ''}`;
@@ -55,12 +60,13 @@ export async function POST(
         priority: 'medium',
         labels: ['auto-suggested'],
       });
+      runTaskId = task.id;
       message = `You have been assigned a new task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
     } else {
       message = `${title}\n${description || ''}`;
     }
 
-    runAgent(agentId, message);
+    runAgent(agentId, message, runTaskId);
 
     return NextResponse.json({
       ok: true,

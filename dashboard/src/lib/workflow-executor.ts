@@ -13,6 +13,20 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
   // internal agent registry lookup.
   const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
 
+  // Notify via Telegram if this workflow requires approval
+  if (workflow.approvalRequired) {
+    execFileAsync(
+      '/usr/local/bin/openclaw',
+      [
+        'send', '--channel', 'telegram', '--account', 'main', '--to', '1858496116',
+        '--message', `⏳ Workflow "${workflow.name}" requires approval.\nReason: ${workflow.approvalReason || 'No reason provided'}\nReview in the dashboard.`,
+      ],
+      { timeout: 30_000, encoding: 'utf-8', env: cleanEnv }
+    ).catch(err => {
+      console.error(`Telegram approval notification failed for ${workflow.name}:`, err.stderr || err.message);
+    });
+  }
+
   for (let i = 0; i < workflow.steps.length; i++) {
     const step = workflow.steps[i];
     const isLastStep = i === workflow.steps.length - 1;

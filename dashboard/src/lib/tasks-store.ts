@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Task } from './types';
 
 const TASKS_FILE = path.join(process.cwd(), 'data', 'tasks.json');
+const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 function readTasks(): Task[] {
   try {
@@ -13,6 +14,21 @@ function readTasks(): Task[] {
   }
 }
 
+function recoverStaleTasks(tasks: Task[]): Task[] {
+  const now = Date.now();
+  let changed = false;
+  for (const task of tasks) {
+    if (task.status === 'in_progress' && now - new Date(task.updatedAt).getTime() > STALE_THRESHOLD_MS) {
+      task.status = 'todo';
+      task.labels = [...(task.labels || []), 'stale'];
+      task.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+  if (changed) writeTasks(tasks);
+  return tasks;
+}
+
 function writeTasks(tasks: Task[]): void {
   const tmp = TASKS_FILE + '.tmp';
   writeFileSync(tmp, JSON.stringify(tasks, null, 2), 'utf-8');
@@ -20,7 +36,7 @@ function writeTasks(tasks: Task[]): void {
 }
 
 export function getAllTasks(): Task[] {
-  return readTasks();
+  return recoverStaleTasks(readTasks());
 }
 
 export function createTask(data: Partial<Task>): Task {
