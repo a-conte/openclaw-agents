@@ -1,173 +1,355 @@
 'use client';
 
-import { useState } from 'react';
-import { useAgents } from '@/hooks/useAgents';
-import { useTasks } from '@/hooks/useTasks';
-import { useWorkflows } from '@/hooks/useWorkflows';
-import { useWorkflowRuns, useWorkflowRun } from '@/hooks/useWorkflowRuns';
-import { useRepos } from '@/hooks/useRepos';
-import { MISSION_STATEMENT, AGENT_EMOJIS } from '@/lib/constants';
-import { Diamond, Users, ListTodo, GitBranch, Radar, Clock, Zap, Play, CalendarClock, ShieldAlert, GitCommitHorizontal, CheckCircle2, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronRight, Circle, Minus } from 'lucide-react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Clock3,
+  Diamond,
+  GitBranch,
+  GitCommitHorizontal,
+  Loader2,
+  Minus,
+  Play,
+  Radar,
+  ShieldAlert,
+  Sparkles,
+  Users,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import { Badge } from '@/components/shared/Badge';
-import type { Workflow, WorkflowRun, WorkflowRunStep, RepoStatus } from '@/lib/types';
+import { Button } from '@/components/shared/Button';
+import { ActivityFeed } from '@/components/activity/ActivityFeed';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
+import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
+import type { Agent, Briefing, RepoStatus, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
+import { formatDate, relativeTime } from '@/lib/utils';
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+type AttentionItem = {
+  id: string;
+  tone: 'danger' | 'warn' | 'info';
+  title: string;
+  detail: string;
+  href?: string;
+};
+
+type AgentSummary = Agent & {
+  lastActivity?: number;
+  state: 'active' | 'quiet' | 'stale';
+};
 
 export default function CommandPage() {
-  const { agents } = useAgents();
-  const { tasks } = useTasks();
-  const { workflows } = useWorkflows();
-  const { repos } = useRepos();
-  const { runs } = useWorkflowRuns();
-  const { data: briefingsData } = useSWR('/api/briefings', fetcher, { refreshInterval: 30000 });
-  const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
+  const { filters } = useDashboardFilters();
+  const { data } = useSWR<{
+    health: any;
+    agents: Agent[];
+    tasks: any[];
+    workflows: Workflow[];
+    repos: RepoStatus[];
+    runs: WorkflowRun[];
+    briefings: Briefing[];
+    radarItems: Array<{ id: string }>;
+  }>('/api/command-overview', fetcher, { refreshInterval: POLL_INTERVAL });
 
-  const activeAgents = agents.filter((a: any) => {
-    const lastActivity = a.sessions?.recent?.[0]?.updatedAt;
-    if (!lastActivity) return false;
-    return Date.now() - lastActivity < 60 * 60 * 1000;
-  }).length;
+  const health = data?.health;
+  const agents = data?.agents || [];
+  const tasks = data?.tasks || [];
+  const workflows = data?.workflows || [];
+  const repos = data?.repos || [];
+  const runs = data?.runs || [];
+  const briefings = data?.briefings || [];
+  const radarSignals = data?.radarItems?.length || 0;
+  const searchNeedle = filters.search.trim().toLowerCase();
 
-  const tasksInProgress = tasks.filter((t: any) => t.status === 'in_progress').length;
-  const pipelineItems = tasks.filter((t: any) => t.status !== 'done').length;
-  const radarSignals = radarData?.items?.length || 0;
-  const briefings = briefingsData?.briefings || [];
+  const agentSummaries = useMemo<AgentSummary[]>(() => {
+    const now = Date.now();
+    return agents.map((agent: Agent) => {
+      const lastActivity = agent.sessions?.recent?.[0]?.updatedAt;
+      const ageMs = lastActivity ? now - lastActivity : Infinity;
+      const state = ageMs < 60 * 60 * 1000 ? 'active' : ageMs < 6 * 60 * 60 * 1000 ? 'quiet' : 'stale';
+
+      return {
+        ...agent,
+        lastActivity,
+        state,
+      };
+    });
+  }, [agents]);
+
+  const filteredWorkflows = useMemo(() => workflows.filter((workflow) => {
+    if (filters.agentId && !workflow.steps.some((step) => step.agent === filters.agentId)) return false;
+    if (filters.focus === 'attention') {
+      const relatedRuns = runs.filter((run) => run.workflowName === workflow.name);
+      const hasAttentionRun = relatedRuns.some((run) => run.status === 'failed' || run.status === 'running' || run.status === 'pending');
+      if (!workflow.approvalRequired && !hasAttentionRun) return false;
+    }
+    if (!searchNeedle) return true;
+    const haystack = [workflow.name, workflow.description, workflow.steps.map((step) => `${step.agent} ${step.action}`).join(' ')].join(' ').toLowerCase();
+    return haystack.includes(searchNeedle);
+  }), [filters.agentId, filters.focus, runs, searchNeedle, workflows]);
+
+  const filteredRepos = useMemo(() => repos.filter((repo) => {
+    if (filters.focus === 'attention' && repo.status === 'clean') return false;
+    if (!searchNeedle) return true;
+    return [repo.owner, repo.name, repo.local, repo.watch.join(' ')].join(' ').toLowerCase().includes(searchNeedle);
+  }), [filters.focus, repos, searchNeedle]);
+
+  const filteredBriefings = useMemo(() => briefings.filter((briefing) => {
+    if (filters.agentId && briefing.agentId !== filters.agentId) return false;
+    if (filters.focus === 'attention' && briefing.status === 'delivered') return false;
+    if (!searchNeedle) return true;
+    return [briefing.name, briefing.time, briefing.agentId].join(' ').toLowerCase().includes(searchNeedle);
+  }), [briefings, filters.agentId, filters.focus, searchNeedle]);
+
+  const runningRuns = useMemo(
+    () => runs.filter((run) => (filters.focus === 'attention' ? run.status !== 'completed' : run.status === 'running' || run.status === 'pending')).sort((a, b) => +new Date(b.startedAt) - +new Date(a.startedAt)),
+    [filters.focus, runs]
+  );
+  const failedRuns = useMemo(
+    () => runs.filter((run) => run.status === 'failed').sort((a, b) => +new Date(b.startedAt) - +new Date(a.startedAt)),
+    [runs]
+  );
+  const dirtyRepos = filteredRepos.filter((repo) => repo.status !== 'clean');
+  const activeAgents = agentSummaries.filter((agent) => agent.state === 'active');
+  const staleAgents = agentSummaries.filter((agent) => agent.state === 'stale');
+  const inProgressTasks = tasks.filter((task) => task.status === 'in_progress');
+  const overdueTasks = inProgressTasks.filter((task) => Date.now() - new Date(task.updatedAt).getTime() > 2 * 60 * 60 * 1000);
+  const pendingBriefings = filteredBriefings.filter((briefing) => briefing.status !== 'delivered');
+
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = [];
+
+    if (!health?.ok) {
+      items.push({
+        id: 'gateway',
+        tone: 'danger',
+        title: 'Gateway is unreachable',
+        detail: 'Agent health, live sessions, and command status may be stale until the gateway responds again.',
+        href: '/system',
+      });
+    }
+
+    if (failedRuns.length > 0) {
+      items.push({
+        id: 'failed-runs',
+        tone: 'danger',
+        title: `${failedRuns.length} workflow run${failedRuns.length === 1 ? '' : 's'} failed`,
+        detail: `Most recent failure: ${failedRuns[0].workflowName}${failedRuns[0].error ? ` - ${failedRuns[0].error.slice(0, 80)}` : ''}`,
+        href: '/pipeline',
+      });
+    }
+
+    if (dirtyRepos.length > 0) {
+      items.push({
+        id: 'dirty-repos',
+        tone: 'warn',
+        title: `${dirtyRepos.length} repo${dirtyRepos.length === 1 ? '' : 's'} need attention`,
+        detail: dirtyRepos
+          .slice(0, 2)
+          .map((repo) => `${repo.owner}/${repo.name} (${repo.status}${repo.uncommittedCount ? `, ${repo.uncommittedCount} changes` : ''})`)
+          .join(' · '),
+        href: '/system',
+      });
+    }
+
+    if (overdueTasks.length > 0) {
+      items.push({
+        id: 'stale-tasks',
+        tone: 'warn',
+        title: `${overdueTasks.length} in-progress task${overdueTasks.length === 1 ? '' : 's'} look stale`,
+        detail: 'These tasks have not been updated in more than 2 hours and may need reassignment or a progress check.',
+        href: '/projects',
+      });
+    }
+
+    if (staleAgents.length > 0) {
+      items.push({
+        id: 'stale-agents',
+        tone: 'info',
+        title: `${staleAgents.length} agent${staleAgents.length === 1 ? '' : 's'} are quiet`,
+        detail: staleAgents.slice(0, 3).map((agent) => agent.agentId).join(' · '),
+        href: '/agents',
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        id: 'clear',
+        tone: 'info',
+        title: 'No urgent issues right now',
+        detail: 'Workflows, repos, and agents look stable from the latest poll.',
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [dirtyRepos, failedRuns, health?.ok, overdueTasks.length, staleAgents]);
 
   return (
-    <div className="p-6 max-w-5xl overflow-auto h-full">
-      {/* Mission Statement */}
-      <div className="border border-border rounded-lg p-5 mb-6 bg-surface-1" style={{ borderLeftColor: '#FB5656', borderLeftWidth: 3 }}>
-        <div className="flex items-center gap-2 mb-2">
-          <Diamond size={14} className="text-accent" />
-          <span className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium">Mission</span>
-        </div>
-        <p className="text-sm text-text-secondary leading-relaxed">{MISSION_STATEMENT}</p>
-      </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users size={16} />} label="Active Agents" value={`${activeAgents}/${agents.length}`} color="#FB5656" />
-        <StatCard icon={<ListTodo size={16} />} label="In Progress" value={tasksInProgress.toString()} color="#4A9EFF" />
-        <StatCard icon={<GitBranch size={16} />} label="Pipeline" value={pipelineItems.toString()} color="#ffd166" />
-        <StatCard icon={<Radar size={16} />} label="Radar Signals" value={radarSignals.toString()} color="#8338ec" />
-      </div>
-
-      {/* Power Workflows */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">
-          Power Workflows
-        </h2>
-        {workflows.length === 0 ? (
-          <div className="bg-surface-1 border border-border rounded-lg p-8 text-center text-text-tertiary text-sm">
-            No workflows defined
+    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 overflow-auto p-6">
+      <section className="rounded-2xl border border-border bg-surface-1/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] glass">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-text-tertiary">
+              <Diamond size={14} className="text-accent" />
+              Command Deck
+            </div>
+            <div>
+              <h1 className="font-[var(--font-heading)] text-2xl text-text-primary md:text-3xl">Run the day from one screen</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">{MISSION_STATEMENT}</p>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {workflows.map((wf: Workflow) => (
-              <WorkflowCard key={wf.name} workflow={wf} runs={runs.filter(r => r.workflowName === wf.name)} />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Repo Health */}
-      {repos.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">
-            Repo Health
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {repos.map((repo: RepoStatus) => (
-              <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} />
-            ))}
+          <div className="grid min-w-[280px] gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
+            <TrustPill
+              label={health?.ok ? 'Gateway live' : 'Gateway degraded'}
+              value={health?.ts ? `Last health ping ${relativeTime(health.ts)}` : 'No live health timestamp'}
+              tone={health?.ok ? 'good' : 'danger'}
+            />
+            <TrustPill
+              label="Polling cadence"
+              value={`Agents, runs, and repos refresh every ${Math.round(POLL_INTERVAL / 1000)}s`}
+              tone="neutral"
+            />
+            <TrustPill
+              label="Delivery model"
+              value="Workflow completions may reply in Telegram; approvals trigger a Telegram notification before execution."
+              tone="warn"
+            />
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Briefings Feed */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-text-primary font-[var(--font-heading)] uppercase tracking-[0.1em] mb-4">Briefings</h2>
-        <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
-          {briefings.length === 0 ? (
-            <div className="p-8 text-center text-text-tertiary text-sm">No briefings scheduled</div>
+      <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <Panel title="Needs Attention" eyebrow="Triage" icon={<AlertTriangle size={15} className="text-accent" />}>
+          <div className="grid gap-3 md:grid-cols-2">
+            {attentionItems.map((item) => (
+              <AttentionCard key={item.id} item={item} />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Operational Snapshot" eyebrow="Now" icon={<Sparkles size={15} className="text-accent-blue" />}>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="Agents active" value={`${activeAgents.length}/${agentSummaries.length || 0}`} note="last hour" tone="accent" />
+            <StatCard label="Runs in flight" value={runningRuns.length.toString()} note="live workflows" tone="info" />
+            <StatCard label="Tasks moving" value={inProgressTasks.length.toString()} note={`${overdueTasks.length} stale`} tone="warn" />
+            <StatCard label="Signals" value={radarSignals.toString()} note={`${pendingBriefings.length} pending briefings`} tone="neutral" />
+          </div>
+        </Panel>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <Panel title="Workflow Queue" eyebrow="Execution" icon={<Zap size={15} className="text-accent-yellow" />}>
+          {filteredWorkflows.length === 0 ? (
+            <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No workflows match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No workflows defined yet.'} />
           ) : (
-            briefings.map((b: any) => (
-              <div key={b.id} className="flex items-center justify-between px-4 py-3 hover:bg-surface-2 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Clock size={14} className="text-text-tertiary" />
-                  <div>
-                    <span className="text-sm text-text-primary">{b.name}</span>
-                    <span className="text-xs text-text-tertiary ml-2">{b.time}</span>
-                  </div>
-                </div>
-                <Badge
-                  color={
-                    b.status === 'delivered' ? '#FB5656' :
-                    b.status === 'pending' ? '#ffd166' : '#555555'
-                  }
-                >
-                  {b.status}
-                </Badge>
-              </div>
-            ))
+            <div className="grid gap-3 xl:grid-cols-2">
+              {filteredWorkflows.map((workflow) => (
+                <WorkflowCard key={workflow.name} workflow={workflow} runs={runs.filter((run) => run.workflowName === workflow.name)} />
+              ))}
+            </div>
           )}
+        </Panel>
+
+        <div className="grid gap-4">
+          <Panel title="Running Now" eyebrow="Focus" icon={<Loader2 size={15} className="text-accent-blue" />}>
+            {runningRuns.length === 0 ? (
+              <EmptyMessage message="No workflows are running right now." />
+            ) : (
+              <div className="space-y-2">
+                {runningRuns.slice(0, 4).map((run) => (
+                  <RunListItem key={run.id} run={run} />
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Agent Pulse" eyebrow="Coverage" icon={<Users size={15} className="text-accent-teal" />}>
+            <div className="space-y-2">
+              {agentSummaries.slice(0, 7).map((agent) => (
+                <AgentPulseRow key={agent.agentId} agent={agent} />
+              ))}
+            </div>
+          </Panel>
         </div>
-      </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_1fr]">
+        <Panel title="Repos That Need You" eyebrow="Code" icon={<GitBranch size={15} className="text-accent" />}>
+          {dirtyRepos.length === 0 ? (
+            <EmptyMessage message={filters.search || filters.focus ? `No repos match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'Watched repos are clean.'} />
+          ) : (
+            <div className="space-y-3">
+              {dirtyRepos.slice(0, 5).map((repo) => (
+                <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} />
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Upcoming Briefings" eyebrow="Schedule" icon={<CalendarClock size={15} className="text-accent-yellow" />}>
+          {filteredBriefings.length === 0 ? (
+            <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No briefings match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No briefings scheduled.'} />
+          ) : (
+            <div className="space-y-2">
+              {filteredBriefings.slice(0, 6).map((briefing) => (
+                <BriefingRow key={briefing.id} briefing={briefing} />
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Recent Activity" eyebrow="Signals" icon={<Radar size={15} className="text-accent-purple" />}>
+          <ActivityFeed />
+        </Panel>
+      </section>
     </div>
   );
 }
 
 function StepStatusIcon({ status }: { status: WorkflowRunStep['status'] }) {
   switch (status) {
-    case 'pending': return <Circle size={12} className="text-text-tertiary" />;
-    case 'running': return <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" /><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" /></span>;
-    case 'done': return <CheckCircle2 size={12} className="text-green-400" />;
-    case 'failed': return <XCircle size={12} className="text-red-400" />;
-    case 'skipped': return <Minus size={12} className="text-text-tertiary" />;
+    case 'pending':
+      return <Circle size={12} className="text-text-tertiary" />;
+    case 'running':
+      return (
+        <span className="relative flex h-3 w-3">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500" />
+        </span>
+      );
+    case 'done':
+      return <CheckCircle2 size={12} className="text-green-400" />;
+    case 'failed':
+      return <XCircle size={12} className="text-red-400" />;
+    case 'skipped':
+      return <Minus size={12} className="text-text-tertiary" />;
   }
-}
-
-function RunStatusBadge({ status }: { status: WorkflowRun['status'] }) {
-  const colors: Record<string, string> = {
-    pending: '#555555',
-    running: '#4A9EFF',
-    completed: '#06d6a0',
-    failed: '#e94560',
-  };
-  return <Badge color={colors[status] || '#555555'}>{status}</Badge>;
-}
-
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function formatDuration(start: string, end?: string): string {
-  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
-  const secs = Math.floor(ms / 1000);
-  if (secs < 60) return `${secs}s`;
-  const mins = Math.floor(secs / 60);
-  const remSecs = secs % 60;
-  return `${mins}m ${remSecs}s`;
 }
 
 function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRun[] }) {
   const [executingRunId, setExecutingRunId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [runState, setRunState] = useState<'idle' | 'confirm'>('idle');
+  const [runState, setRunState] = useState<'idle' | 'confirm' | 'starting' | 'error'>('idle');
+  const [runError, setRunError] = useState<string | null>(null);
 
-  const { run: activeRun } = useWorkflowRun(executingRunId);
+  const sortedRuns = [...runs].sort((a, b) => +new Date(b.startedAt) - +new Date(a.startedAt));
+  const latestRun = sortedRuns[0];
+  const { run: polledRun } = useWorkflowRun(executingRunId || latestRun?.id || null);
+  const displayRun = polledRun || latestRun || null;
 
-  // Auto-expand when a run starts, collapse when idle
-  const isRunning = activeRun && (activeRun.status === 'running' || activeRun.status === 'pending');
-
+  const isRunning = displayRun?.status === 'running' || displayRun?.status === 'pending';
   const triggerIcon = workflow.trigger === 'cron' ? (
     <CalendarClock size={14} />
   ) : workflow.trigger === 'event' ? (
@@ -179,18 +361,17 @@ function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRu
   const triggerLabel = workflow.trigger === 'cron'
     ? workflow.schedule || 'scheduled'
     : workflow.trigger === 'event'
-    ? 'event-triggered'
-    : 'on-demand';
-
-  const sourceColor = workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF';
-  const agentList = [...new Set(workflow.steps.map(s => s.agent))];
+      ? 'event-triggered'
+      : 'on-demand';
 
   async function handleRun() {
     if (workflow.approvalRequired && runState !== 'confirm') {
       setRunState('confirm');
       return;
     }
-    setRunState('idle');
+
+    setRunState('starting');
+    setRunError(null);
 
     try {
       const res = await fetch('/api/workflows/execute', {
@@ -199,138 +380,146 @@ function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRu
         body: JSON.stringify({ workflowName: workflow.name }),
       });
       const data = await res.json();
-      if (res.ok && data.runId) {
-        setExecutingRunId(data.runId);
-        setExpanded(true);
+
+      if (!res.ok || !data.runId) {
+        setRunState('error');
+        setRunError(data.error || 'Failed to queue workflow');
+        return;
       }
+
+      setExecutingRunId(data.runId);
+      setExpanded(true);
+      setRunState('idle');
     } catch {
-      // Network error — will show in run history if it partially started
+      setRunState('error');
+      setRunError('Network error while starting workflow');
     }
   }
 
-  const showSteps = expanded && (activeRun || executingRunId);
-  const displayRun = activeRun;
+  const showSteps = expanded && displayRun;
+  const agentList = [...new Set(workflow.steps.map((step) => step.agent))];
 
   return (
-    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors group">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {(showSteps || runs.length > 0) && (
-            <button onClick={() => setExpanded(!expanded)} className="text-text-tertiary hover:text-text-secondary">
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          )}
-          <span className="text-sm font-medium text-text-primary">{workflow.name}</span>
+    <div className="rounded-xl border border-border bg-surface-2/75 p-4 transition-colors hover:border-border-hover">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            {(displayRun || sortedRuns.length > 0) && (
+              <button onClick={() => setExpanded((value) => !value)} className="text-text-tertiary hover:text-text-secondary">
+                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+            )}
+            <h3 className="text-sm font-semibold text-text-primary">{workflow.name}</h3>
+          </div>
+          <p className="text-xs leading-relaxed text-text-tertiary">{workflow.description || 'No description provided.'}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge color={sourceColor}>{workflow.source}</Badge>
-          {!isRunning && runState === 'idle' && (
-            <button
-              onClick={handleRun}
-              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20"
-              title={`Run ${workflow.name}`}
-            >
-              <Play size={12} />
-              Run
-            </button>
-          )}
-          {runState === 'confirm' && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleRun}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setRunState('idle')}
-                className="px-2 py-1 rounded text-xs font-medium text-text-tertiary hover:text-text-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-          {isRunning && (
-            <span className="flex items-center gap-1 text-xs text-text-tertiary">
-              <Loader2 size={12} className="animate-spin" />
-              Running...
-            </span>
-          )}
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge color={workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF'}>{workflow.source}</Badge>
+          <Button size="sm" variant="secondary" onClick={handleRun} disabled={runState === 'starting' || isRunning}>
+            {runState === 'starting' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+            <span className="ml-1">{runState === 'confirm' ? 'Confirm' : isRunning ? 'Running' : 'Run'}</span>
+          </Button>
         </div>
       </div>
-      <p className="text-xs text-text-tertiary mb-3 leading-relaxed">{workflow.description}</p>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-          <span className="text-text-tertiary">{triggerIcon}</span>
-          <span>{triggerLabel}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {agentList.map(a => (
-            <span key={a} className="text-xs" title={a}>
-              {AGENT_EMOJIS[a] || a}
-            </span>
-          ))}
-        </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2 py-1">
+          {triggerIcon}
+          {triggerLabel}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2 py-1">
+          <span>Agents</span>
+          <span>{agentList.map((agent) => AGENT_EMOJIS[agent] || agent).join(' ')}</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2 py-1">
+          <span>Result</span>
+          <span>Final step replies in Telegram</span>
+        </span>
       </div>
-      {workflow.approvalRequired && runState !== 'confirm' && (
-        <div className="flex items-center gap-1 mt-2 text-xs text-yellow-500">
-          <ShieldAlert size={12} />
-          <span>{workflow.approvalReason || 'Requires approval'}</span>
+
+      {workflow.approvalRequired && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/8 p-2 text-xs text-yellow-300">
+          <ShieldAlert size={13} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="font-medium">Approval required</div>
+            <div>{workflow.approvalReason || 'A Telegram notice will be sent before execution continues.'}</div>
+          </div>
         </div>
       )}
 
-      {/* Step-by-step progress */}
+      {runState === 'confirm' && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+          <span>This workflow can send a Telegram approval request before it runs.</span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setRunState('idle')}>Cancel</Button>
+            <Button size="sm" variant="primary" onClick={handleRun}>Run now</Button>
+          </div>
+        </div>
+      )}
+
+      {runError && (
+        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{runError}</div>
+      )}
+
+      {displayRun && !expanded && (
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+          <div className="flex items-center gap-2">
+            <RunStatusBadge status={displayRun.status} />
+            <span>{relativeTime(displayRun.startedAt)}</span>
+          </div>
+          <span>
+            {displayRun.completedAt ? formatDuration(displayRun.startedAt, displayRun.completedAt) : formatDuration(displayRun.startedAt)}
+          </span>
+        </div>
+      )}
+
       {showSteps && displayRun && (
-        <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-          {displayRun.steps.map((step) => (
-            <div key={step.stepIndex} className="flex items-center gap-2 text-xs">
-              <StepStatusIcon status={step.status} />
-              <span>{AGENT_EMOJIS[step.agent] || step.agent}</span>
-              <span className="text-text-secondary truncate flex-1">{step.action}</span>
-              {step.status === 'running' && step.startedAt && (
-                <span className="text-text-tertiary">{formatDuration(step.startedAt)}</span>
-              )}
-              {step.status === 'done' && step.startedAt && step.completedAt && (
-                <span className="text-text-tertiary">{formatDuration(step.startedAt, step.completedAt)}</span>
-              )}
-            </div>
-          ))}
-          {displayRun.status === 'completed' && (
-            <div className="flex items-center gap-1 text-xs text-green-400 pt-1">
-              <CheckCircle2 size={12} />
-              Completed in {formatDuration(displayRun.startedAt, displayRun.completedAt)}
-            </div>
-          )}
-          {displayRun.status === 'failed' && (
-            <div className="flex items-center gap-1 text-xs text-red-400 pt-1">
-              <XCircle size={12} />
-              Failed{displayRun.error ? `: ${displayRun.error.slice(0, 100)}` : ''}
-            </div>
-          )}
-        </div>
-      )}
+        <div className="mt-3 space-y-2 border-t border-border pt-3">
+          <div className="flex items-center justify-between text-xs text-text-tertiary">
+            <span>Run detail</span>
+            <span>{formatDate(displayRun.startedAt, 'MMM d, HH:mm')}</span>
+          </div>
 
-      {/* Run history */}
-      {expanded && runs.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border">
-          <span className="text-xs text-text-tertiary font-medium">Recent Runs</span>
-          <div className="mt-1.5 space-y-1">
-            {runs.slice(0, 5).map((r) => (
-              <div
-                key={r.id}
-                className={`flex items-center justify-between text-xs cursor-pointer hover:bg-surface-2 rounded px-1 py-0.5 ${r.id === executingRunId ? 'bg-surface-2' : ''}`}
-                onClick={() => { setExecutingRunId(r.id); setExpanded(true); }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-text-tertiary">{relativeTime(r.startedAt)}</span>
-                  <RunStatusBadge status={r.status} />
-                </div>
-                <span className="text-text-tertiary">
-                  {r.completedAt ? formatDuration(r.startedAt, r.completedAt) : r.status === 'running' ? formatDuration(r.startedAt) : '—'}
-                </span>
+          <div className="space-y-1.5">
+            {displayRun.steps.map((step) => (
+              <div key={step.stepIndex} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-surface-3/80">
+                <StepStatusIcon status={step.status} />
+                <span>{AGENT_EMOJIS[step.agent] || step.agent}</span>
+                <span className="flex-1 truncate text-text-secondary">{step.action}</span>
+                {step.status === 'running' && step.startedAt && <span className="text-text-tertiary">{formatDuration(step.startedAt)}</span>}
+                {step.status === 'done' && step.startedAt && step.completedAt && <span className="text-text-tertiary">{formatDuration(step.startedAt, step.completedAt)}</span>}
               </div>
             ))}
           </div>
+
+          {displayRun.status === 'failed' && displayRun.error && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{displayRun.error.slice(0, 200)}</div>
+          )}
+
+          {sortedRuns.length > 0 && (
+            <div className="space-y-1 border-t border-border pt-3">
+              <div className="text-xs text-text-tertiary">Recent runs</div>
+              {sortedRuns.slice(0, 4).map((run) => (
+                <button
+                  key={run.id}
+                  onClick={() => {
+                    setExecutingRunId(run.id);
+                    setExpanded(true);
+                  }}
+                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-surface-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <RunStatusBadge status={run.status} />
+                    <span>{relativeTime(run.startedAt)}</span>
+                  </div>
+                  <span className="text-text-tertiary">
+                    {run.completedAt ? formatDuration(run.startedAt, run.completedAt) : formatDuration(run.startedAt)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -338,48 +527,190 @@ function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRu
 }
 
 function RepoCard({ repo }: { repo: RepoStatus }) {
-  const statusIcon = repo.status === 'clean' ? (
-    <CheckCircle2 size={14} className="text-green-500" />
-  ) : repo.status === 'dirty' ? (
-    <AlertTriangle size={14} className="text-yellow-500" />
-  ) : (
-    <XCircle size={14} className="text-red-500" />
-  );
-
-  const statusColor = repo.status === 'clean' ? '#06d6a0' : repo.status === 'dirty' ? '#ffd166' : '#e94560';
+  const tone = repo.status === 'dirty' ? '#ffd166' : '#e94560';
 
   return (
-    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {statusIcon}
-          <span className="text-sm font-medium text-text-primary">{repo.owner}/{repo.name}</span>
+    <div className="rounded-xl border border-border bg-surface-2/75 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-text-primary">{repo.owner}/{repo.name}</div>
+          <div className="mt-1 text-xs text-text-tertiary">{repo.local}</div>
         </div>
-        <Badge color={statusColor}>{repo.status}</Badge>
+        <Badge color={tone}>{repo.status}</Badge>
       </div>
-      {repo.uncommittedCount > 0 && (
-        <p className="text-xs text-yellow-500 mb-1">
-          {repo.uncommittedCount} uncommitted change{repo.uncommittedCount !== 1 ? 's' : ''}
-        </p>
-      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-text-secondary">
+        <MetricChip label="Changes" value={repo.uncommittedCount.toString()} />
+        <MetricChip label="Branch" value={repo.default_branch} />
+      </div>
+
       {repo.lastCommit && (
-        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-text-tertiary">
           <GitCommitHorizontal size={12} />
           <span className="truncate">{repo.lastCommit}</span>
+        </div>
+      )}
+
+      {repo.watch.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {repo.watch.slice(0, 3).map((item) => (
+            <Badge key={item} variant="outline">{item}</Badge>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function AgentPulseRow({ agent }: { agent: AgentSummary }) {
+  const tone = agent.state === 'active' ? 'text-status-online' : agent.state === 'quiet' ? 'text-status-warning' : 'text-status-error';
+
   return (
-    <div className="bg-surface-1 border border-border rounded-lg p-4 hover:border-border-hover transition-colors">
-      <div className="flex items-center gap-2 mb-2">
-        <span style={{ color }}>{icon}</span>
-        <span className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium">{label}</span>
+    <Link href={`/agents/${agent.agentId}`} className="flex items-start gap-3 rounded-lg border border-border bg-surface-2/65 px-3 py-2 transition-colors hover:border-border-hover">
+      <div className="text-base">{AGENT_EMOJIS[agent.agentId] || '🤖'}</div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-text-primary">{agent.agentId}</span>
+          <span className={`text-[10px] uppercase tracking-[0.18em] ${tone}`}>{agent.state}</span>
+        </div>
+        <div className="truncate text-xs text-text-tertiary">{AGENT_ROLES[agent.agentId] || 'Agent workspace'}</div>
       </div>
-      <div className="text-2xl font-semibold text-text-primary font-mono">{value}</div>
+      <div className="text-right text-xs text-text-tertiary">
+        {agent.lastActivity ? relativeTime(agent.lastActivity) : 'no activity'}
+      </div>
+    </Link>
+  );
+}
+
+function BriefingRow({ briefing }: { briefing: Briefing }) {
+  const color = briefing.status === 'delivered' ? '#06d6a0' : briefing.status === 'pending' ? '#ffd166' : '#4A9EFF';
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2/75 px-3 py-2">
+      <div>
+        <div className="text-sm text-text-primary">{briefing.name}</div>
+        <div className="text-xs text-text-tertiary">{briefing.time}</div>
+      </div>
+      <Badge color={color}>{briefing.status}</Badge>
     </div>
   );
+}
+
+function RunListItem({ run }: { run: WorkflowRun }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2/75 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm text-text-primary">{run.workflowName}</div>
+          <div className="text-xs text-text-tertiary">Started {relativeTime(run.startedAt)}</div>
+        </div>
+        <RunStatusBadge status={run.status} />
+      </div>
+    </div>
+  );
+}
+
+function RunStatusBadge({ status }: { status: WorkflowRun['status'] }) {
+  const colors: Record<WorkflowRun['status'], string> = {
+    pending: '#555555',
+    running: '#4A9EFF',
+    completed: '#06d6a0',
+    failed: '#e94560',
+  };
+
+  return <Badge color={colors[status]}>{status}</Badge>;
+}
+
+function formatDuration(start: string, end?: string): string {
+  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+  const secs = Math.max(0, Math.floor(ms / 1000));
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const remSecs = secs % 60;
+  return `${mins}m ${remSecs}s`;
+}
+
+function Panel({ title, eyebrow, icon, children }: { title: string; eyebrow: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border bg-surface-1/85 p-4 glass">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">{eyebrow}</div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+            {icon}
+            {title}
+          </div>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TrustPill({ label, value, tone }: { label: string; value: string; tone: 'good' | 'warn' | 'danger' | 'neutral' }) {
+  const toneClass = {
+    good: 'border-green-500/25 bg-green-500/8 text-green-200',
+    warn: 'border-yellow-500/25 bg-yellow-500/8 text-yellow-100',
+    danger: 'border-red-500/25 bg-red-500/8 text-red-200',
+    neutral: 'border-border bg-surface-2/75 text-text-secondary',
+  }[tone];
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
+      <div className="text-[11px] uppercase tracking-[0.16em]">{label}</div>
+      <div className="mt-1 text-xs leading-relaxed">{value}</div>
+    </div>
+  );
+}
+
+function AttentionCard({ item }: { item: AttentionItem }) {
+  const toneClass = {
+    danger: 'border-red-500/20 bg-red-500/8',
+    warn: 'border-yellow-500/20 bg-yellow-500/8',
+    info: 'border-border bg-surface-2/75',
+  }[item.tone];
+
+  const content = (
+    <div className={`rounded-xl border p-4 transition-colors hover:border-border-hover ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-text-primary">{item.title}</div>
+          <div className="mt-1 text-xs leading-relaxed text-text-secondary">{item.detail}</div>
+        </div>
+        {item.href && <ArrowRight size={14} className="mt-1 shrink-0 text-text-tertiary" />}
+      </div>
+    </div>
+  );
+
+  return item.href ? <Link href={item.href}>{content}</Link> : content;
+}
+
+function StatCard({ label, value, note, tone }: { label: string; value: string; note: string; tone: 'accent' | 'info' | 'warn' | 'neutral' }) {
+  const toneClass = {
+    accent: 'text-accent',
+    info: 'text-accent-blue',
+    warn: 'text-accent-yellow',
+    neutral: 'text-text-secondary',
+  }[tone];
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-2/75 p-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">{label}</div>
+      <div className={`mt-2 font-mono text-2xl font-semibold ${toneClass}`}>{value}</div>
+      <div className="mt-1 text-xs text-text-tertiary">{note}</div>
+    </div>
+  );
+}
+
+function MetricChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface-3 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-text-tertiary">{label}</div>
+      <div className="mt-1 truncate text-xs text-text-primary">{value}</div>
+    </div>
+  );
+}
+
+function EmptyMessage({ message }: { message: string }) {
+  return <div className="rounded-xl border border-dashed border-border bg-surface-2/40 px-4 py-6 text-center text-sm text-text-tertiary">{message}</div>;
 }

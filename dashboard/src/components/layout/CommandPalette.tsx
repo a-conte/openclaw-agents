@@ -29,10 +29,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const agentIds = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
 
   const commands: CommandItem[] = [
+    { id: 'nav-command', label: 'Go to Command', category: 'Navigation', action: () => router.push('/command'), icon: <LayoutGrid size={16} /> },
     { id: 'nav-agents', label: 'Go to Agents', category: 'Navigation', action: () => router.push('/agents'), icon: <Bot size={16} /> },
-    { id: 'nav-tasks', label: 'Go to Tasks', category: 'Navigation', action: () => router.push('/tasks'), icon: <LayoutGrid size={16} /> },
-    { id: 'nav-schedule', label: 'Go to Schedule', category: 'Navigation', action: () => router.push('/schedule'), icon: <Calendar size={16} /> },
-    { id: 'nav-sessions', label: 'Go to Sessions', category: 'Navigation', action: () => router.push('/sessions'), icon: <MessageSquare size={16} /> },
+    { id: 'nav-projects', label: 'Go to Projects', category: 'Navigation', action: () => router.push('/projects'), icon: <LayoutGrid size={16} /> },
+    { id: 'nav-calendar', label: 'Go to Calendar', category: 'Navigation', action: () => router.push('/calendar'), icon: <Calendar size={16} /> },
+    { id: 'nav-pipeline', label: 'Go to Pipeline', category: 'Navigation', action: () => router.push('/pipeline'), icon: <MessageSquare size={16} /> },
+    { id: 'nav-radar', label: 'Go to Radar', category: 'Navigation', action: () => router.push('/radar'), icon: <Search size={16} /> },
+    { id: 'nav-system', label: 'Go to System', category: 'Navigation', action: () => router.push('/system'), icon: <Search size={16} /> },
     ...agentIds.map(id => ({
       id: `agent-${id}`,
       label: `${AGENT_EMOJIS[id] || ''} ${id}`,

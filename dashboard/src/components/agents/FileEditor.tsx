@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Save, Eye, Edit3, Loader2 } from 'lucide-react';
 import { Button } from '@/components/shared/Button';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { useToast } from '@/components/providers/DashboardProviders';
 import { cn } from '@/lib/utils';
 
 interface FileEditorProps {
@@ -14,6 +15,7 @@ interface FileEditorProps {
 }
 
 export function FileEditor({ agentId, filename, content, onSave }: FileEditorProps) {
+  const { pushToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
   const [saving, setSaving] = useState(false);
@@ -36,7 +38,13 @@ export function FileEditor({ agentId, filename, content, onSave }: FileEditorPro
         setHasChanges(false);
         setEditing(false);
         onSave?.(editContent);
+        pushToast({ title: `${filename} saved`, description: `${agentId} configuration updated successfully.`, tone: 'success' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        pushToast({ title: `Failed to save ${filename}`, description: data.error || 'The file update was rejected.', tone: 'error' });
       }
+    } catch {
+      pushToast({ title: `Failed to save ${filename}`, description: 'Network error while saving the file.', tone: 'error' });
     } finally {
       setSaving(false);
     }

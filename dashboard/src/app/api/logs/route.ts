@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { existsSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,28 +20,30 @@ export async function GET(request: NextRequest) {
 
 function snapshotLogs(linesParam: string) {
   const maxLines = Math.min(parseInt(linesParam) || 100, 500);
-  const logFiles = [
-    { name: 'stdout', path: path.join(OPENCLAW_HOME, 'logs', 'gateway-stdout.log') },
-    { name: 'stderr', path: path.join(OPENCLAW_HOME, 'logs', 'gateway-stderr.log') },
-  ];
 
-  const logs: Array<{ source: string; line: string; timestamp?: number }> = [];
+  const loadSnapshot = () => {
+    const logFiles = [
+      { name: 'stdout', path: path.join(OPENCLAW_HOME, 'logs', 'gateway-stdout.log') },
+      { name: 'stderr', path: path.join(OPENCLAW_HOME, 'logs', 'gateway-stderr.log') },
+    ];
 
-  for (const logFile of logFiles) {
-    if (!existsSync(logFile.path)) continue;
-    try {
-      const content = readFileSync(logFile.path, 'utf-8');
-      const lines = content.split('\n').filter(Boolean).slice(-maxLines);
-      for (const line of lines) {
-        logs.push({ source: logFile.name, line });
+    const logs: Array<{ source: string; line: string; timestamp?: number }> = [];
+    for (const logFile of logFiles) {
+      if (!existsSync(logFile.path)) continue;
+      try {
+        const content = readFileSync(logFile.path, 'utf-8');
+        const lines = content.split('\n').filter(Boolean).slice(-maxLines);
+        for (const line of lines) logs.push({ source: logFile.name, line });
+      } catch {
+        // ignore log read error
       }
-    } catch {}
-  }
+    }
+    return { logs, count: logs.length };
+  };
 
-  // Sort by any embedded timestamps, most recent last
-  return new Response(JSON.stringify({ logs, count: logs.length }), {
+  return getCached(`logs-snapshot-${maxLines}`, { ttlMs: 2000, staleMs: 4000 }, loadSnapshot).then((payload) => new Response(JSON.stringify(payload), {
     headers: { 'Content-Type': 'application/json' },
-  });
+  }));
 }
 
 function streamLogs() {

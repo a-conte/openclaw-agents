@@ -8,7 +8,7 @@ export function useRepos() {
   const { data, error, isLoading } = useSWR<{ repos: RepoStatus[] }>(
     '/api/repos',
     fetcher,
-    { refreshInterval: POLL_INTERVAL }
+    { refreshInterval: POLL_INTERVAL * 2 }
   );
   return {
     repos: data?.repos || [],

@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import { Radar, AlertTriangle, Eye, Lightbulb } from 'lucide-react';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { cn } from '@/lib/utils';
 import { relativeTime } from '@/lib/utils';
 import type { RadarItem } from '@/lib/types';
@@ -23,8 +24,14 @@ const SIGNAL_COLORS = {
 };
 
 export default function RadarPage() {
+  const { filters } = useDashboardFilters();
   const { data, isLoading } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
-  const items: RadarItem[] = data?.items || [];
+  const items: RadarItem[] = (data?.items || []).filter((item: RadarItem) => {
+    const needle = filters.search.trim().toLowerCase();
+    if (filters.focus === 'signals' && item.signal === 'low') return false;
+    if (!needle) return true;
+    return [item.title, item.body || '', item.source, item.type].join(' ').toLowerCase().includes(needle);
+  });
 
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
@@ -44,8 +51,8 @@ export default function RadarPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={<Radar size={32} />}
-          title="Radar is clear"
-          description="No signals detected. Agent inboxes are empty."
+          title={filters.search || filters.focus ? 'No signals match the current filters' : 'Radar is clear'}
+          description={filters.search || filters.focus ? `Try clearing search or focus${filters.focus ? ` (${filters.focus})` : ''}.` : 'No signals detected. Agent inboxes are empty.'}
         />
       ) : (
         <div className="space-y-3">

@@ -5,15 +5,15 @@ import { useTasks } from '@/hooks/useTasks';
 import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { TaskFilters } from '@/components/tasks/TaskFilters';
 import { TaskModal } from '@/components/tasks/TaskModal';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { PIPELINE_STAGES, AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List } from 'lucide-react';
 
 export default function PipelinePage() {
+  const { filters, setSearch, setAgentId } = useDashboardFilters();
   const { tasks, isLoading, createTask, updateTask, deleteTask } = useTasks();
-  const [search, setSearch] = useState('');
-  const [agentFilter, setAgentFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [view, setView] = useState<'funnel' | 'board'>('funnel');
@@ -31,8 +31,10 @@ export default function PipelinePage() {
   }, []);
 
   const filteredTasks = tasks.filter(t => {
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (agentFilter && t.agentId !== agentFilter) return false;
+    const needle = filters.search.trim().toLowerCase();
+    if (filters.focus === 'pipeline-hotspots' && !['in_progress', 'review'].includes(t.status) && !['urgent', 'high'].includes(t.priority)) return false;
+    if (needle && ![t.title, t.description, t.labels.join(' ')].join(' ').toLowerCase().includes(needle)) return false;
+    if (filters.agentId && t.agentId !== filters.agentId) return false;
     if (priorityFilter && t.priority !== priorityFilter) return false;
     return true;
   });
@@ -81,10 +83,10 @@ export default function PipelinePage() {
 
       <div className="mb-4">
         <TaskFilters
-          search={search}
+          search={filters.search}
           onSearchChange={setSearch}
-          agentFilter={agentFilter}
-          onAgentFilterChange={setAgentFilter}
+          agentFilter={filters.agentId}
+          onAgentFilterChange={setAgentId}
           priorityFilter={priorityFilter}
           onPriorityFilterChange={setPriorityFilter}
           onNewTask={() => setNewTaskOpen(true)}
@@ -134,7 +136,7 @@ export default function PipelinePage() {
               </thead>
               <tbody>
                 {filteredTasks.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">No tasks</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">No tasks match the current filters{filters.focus ? ` (${filters.focus})` : ''}</td></tr>
                 ) : (
                   filteredTasks.map((task) => {
                     const stage = PIPELINE_STAGES[task.status] || { label: task.status, color: '#555' };

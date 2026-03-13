@@ -6,12 +6,14 @@ import { FolderKanban, Plus, Users } from 'lucide-react';
 import { AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { useTasks } from '@/hooks/useTasks';
 import type { Project } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function ProjectsPage() {
+  const { filters } = useDashboardFilters();
   const { data: projects, isLoading, mutate } = useSWR<Project[]>('/api/projects', fetcher);
   const { tasks } = useTasks();
   const [showNew, setShowNew] = useState(false);
@@ -31,13 +33,22 @@ export default function ProjectsPage() {
     mutate();
   };
 
+  const searchNeedle = filters.search.trim().toLowerCase();
+  const visibleProjects = (projects || []).filter((project) => {
+    const projectTasks = tasks.filter(t => t.projectId === project.id || t.labels.includes(project.name));
+    if (filters.agentId && !project.agentIds.includes(filters.agentId)) return false;
+    if (filters.focus === 'active-projects' && !projectTasks.some((task) => task.status === 'in_progress' || task.status === 'review')) return false;
+    if (!searchNeedle) return true;
+    return [project.name, project.description, project.labels.join(' ')].join(' ').toLowerCase().includes(searchNeedle);
+  });
+
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-semibold text-text-primary font-[var(--font-heading)]">Projects</h1>
           <p className="text-sm text-text-tertiary mt-1">
-            {(projects || []).length} project{(projects || []).length !== 1 ? 's' : ''}
+            {visibleProjects.length} project{visibleProjects.length !== 1 ? 's' : ''}
           </p>
         </div>
         <button
@@ -77,15 +88,15 @@ export default function ProjectsPage() {
             <div key={i} className="h-[140px] bg-surface-2 border border-border rounded-lg animate-pulse" />
           ))}
         </div>
-      ) : !projects || projects.length === 0 ? (
+      ) : visibleProjects.length === 0 ? (
         <EmptyState
           icon={<FolderKanban size={32} />}
-          title="No projects yet"
-          description="Create a project to organize your tasks"
+          title="No projects match the current filters"
+          description={`No projects match the current workspace filters${filters.focus ? ` (${filters.focus})` : ''}. Try clearing search, agent, or focus.`}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {projects.map((project) => {
+          {visibleProjects.map((project) => {
             const projectTasks = tasks.filter(t => t.projectId === project.id || t.labels.includes(project.name));
             const completed = projectTasks.filter(t => t.status === 'done').length;
             const total = projectTasks.length;

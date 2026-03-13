@@ -13,6 +13,8 @@ import { SessionSidebar } from '@/components/sessions/SessionSidebar';
 import { ChatView } from '@/components/sessions/ChatView';
 import { AGENT_EMOJIS } from '@/lib/constants';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { VirtualList } from '@/components/shared/VirtualList';
 import useSWR from 'swr';
 import type { Session } from '@/lib/types';
 
@@ -28,6 +30,7 @@ const TABS = [
 ] as const;
 
 function SystemContent() {
+  const { filters, setFocus } = useDashboardFilters();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams.get('tab');
@@ -38,6 +41,12 @@ function SystemContent() {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
+
+  useEffect(() => {
+    if (filters.focus === 'system-check') {
+      setActiveTab('health');
+    }
+  }, [filters.focus]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -50,6 +59,11 @@ function SystemContent() {
       <div className="p-6 pb-0">
         <h1 className="text-lg font-semibold text-text-primary font-[var(--font-heading)]">System</h1>
         <p className="text-sm text-text-tertiary mt-1">Health, schedule, sessions, and configuration</p>
+        {filters.focus === 'system-check' && (
+          <button onClick={() => setFocus('')} className="mt-3 rounded-md border border-accent/25 bg-accent/10 px-2.5 py-1 text-xs text-accent transition hover:bg-accent/15">
+            Focused on system check - clear focus
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -298,23 +312,31 @@ function LogsTab() {
           {isStreaming ? 'Streaming' : 'Stream'}
         </button>
       </div>
-      <div ref={containerRef} className="flex-1 bg-surface-0 border border-border rounded-lg overflow-auto font-mono text-xs">
+      <div className="flex-1">
         {isLoading ? (
-          <div className="p-4 text-text-tertiary">Loading logs...</div>
+          <div className="flex h-full items-start rounded-lg border border-border bg-surface-0 p-4 font-mono text-xs text-text-tertiary">Loading logs...</div>
         ) : filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-text-tertiary gap-2">
+          <div className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-surface-0 font-mono text-xs text-text-tertiary">
             <Terminal size={24} /><span>No log entries</span>
           </div>
         ) : (
-          <div className="p-2">
-            {filteredLogs.map((log, i) => (
-              <div key={i} className={cn('py-0.5 px-2 hover:bg-white/5 rounded flex gap-2', log.source === 'stderr' && 'text-red-400')}>
-                <span className="text-text-tertiary select-none shrink-0 w-8 text-right">{i + 1}</span>
-                <span className={cn('select-none shrink-0 w-12', log.source === 'stderr' ? 'text-red-500' : 'text-blue-500')}>[{log.source}]</span>
-                <span className="text-gray-300 break-all">{log.line}</span>
+          <VirtualList
+            items={filteredLogs}
+            itemHeight={24}
+            height={560}
+            overscan={20}
+            className="rounded-lg border border-border bg-surface-0 font-mono text-xs"
+            containerRef={containerRef}
+            renderItem={(log, i) => (
+              <div key={`${log.source}-${i}`} className="px-2">
+                <div className={cn('flex gap-2 rounded px-2 py-0.5 hover:bg-white/5', log.source === 'stderr' && 'text-red-400')}>
+                  <span className="w-8 shrink-0 select-none text-right text-text-tertiary">{i + 1}</span>
+                  <span className={cn('w-12 shrink-0 select-none', log.source === 'stderr' ? 'text-red-500' : 'text-blue-500')}>[{log.source}]</span>
+                  <span className="break-all text-gray-300">{log.line}</span>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
     </div>

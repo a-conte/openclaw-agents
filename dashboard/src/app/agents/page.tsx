@@ -2,19 +2,33 @@
 
 import { useAgents } from '@/hooks/useAgents';
 import { AgentGrid } from '@/components/agents/AgentGrid';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { Bot } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { MISSION_STATEMENT } from '@/lib/constants';
+import { getAgentStatus } from '@/lib/utils';
 
 export default function AgentsPage() {
+  const { filters } = useDashboardFilters();
   const { agents, isLoading } = useAgents();
+  const searchNeedle = filters.search.trim().toLowerCase();
+
+  const filteredAgents = agents.filter((agent: any) => {
+    if (filters.agentId && agent.agentId !== filters.agentId) return false;
+    if (filters.focus === 'quiet-agents') {
+      const lastActivity = agent.sessions?.recent?.[0]?.updatedAt;
+      if (getAgentStatus(lastActivity) === 'online') return false;
+    }
+    if (!searchNeedle) return true;
+    return [agent.agentId, agent.name || '', agent.model || ''].join(' ').toLowerCase().includes(searchNeedle);
+  });
 
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-text-primary font-[var(--font-heading)]">Agents</h1>
         <p className="text-sm text-text-tertiary mt-1">
-          {agents.length} agent{agents.length !== 1 ? 's' : ''} configured
+          {filteredAgents.length} agent{filteredAgents.length !== 1 ? 's' : ''} shown
         </p>
       </div>
 
@@ -30,14 +44,14 @@ export default function AgentsPage() {
             <div key={i} className="h-[160px] bg-surface-2 border border-border rounded-lg animate-pulse" />
           ))}
         </div>
-      ) : agents.length === 0 ? (
+      ) : filteredAgents.length === 0 ? (
         <EmptyState
           icon={<Bot size={32} />}
-          title="No agents found"
-          description="Make sure the OpenClaw gateway is running"
+          title="No agents match the current filters"
+          description={`No agents match the current workspace filters${filters.focus ? ` (${filters.focus})` : ''}. Try clearing search, agent, or focus.`}
         />
       ) : (
-        <AgentGrid agents={agents} />
+        <AgentGrid agents={filteredAgents} />
       )}
     </div>
   );

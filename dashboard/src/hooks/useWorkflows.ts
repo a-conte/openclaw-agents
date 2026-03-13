@@ -8,7 +8,7 @@ export function useWorkflows() {
   const { data, error, isLoading } = useSWR<{ workflows: Workflow[] }>(
     '/api/workflows',
     fetcher,
-    { refreshInterval: POLL_INTERVAL }
+    { refreshInterval: POLL_INTERVAL * 4 }
   );
   return {
     workflows: data?.workflows || [],

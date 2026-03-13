@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { useAgent } from '@/hooks/useAgents';
@@ -13,6 +13,7 @@ import { MODEL_DISPLAY, AGENT_FILES, AGENT_COLORS, AGENT_ROLES } from '@/lib/con
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { FileEditor } from '@/components/agents/FileEditor';
+import { useDashboardFilters, useToast, useStatusBanners } from '@/components/providers/DashboardProviders';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -48,6 +49,8 @@ function RecItem({ rec, agentId, onDone, variant }: {
   onDone: () => void;
   variant: 'active' | 'available' | 'suggested';
 }) {
+  const { pushToast } = useToast();
+  const { setStatusBanner, clearStatusBanner } = useStatusBanners();
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.suggestion;
@@ -74,9 +77,23 @@ function RecItem({ rec, agentId, onDone, variant }: {
       });
       if (res.ok) {
         setRunning(true);
-        setTimeout(onDone, 2000);
+        setStatusBanner(`rec-${agentId}-${rec.id}`, {
+          title: `${agentId} is working on a recommendation`,
+          description: rec.title,
+          tone: 'info',
+        });
+        pushToast({ title: `${agentId} started work`, description: rec.title, tone: 'success' });
+        setTimeout(() => {
+          clearStatusBanner(`rec-${agentId}-${rec.id}`);
+          onDone();
+        }, 8000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        pushToast({ title: 'Failed to start recommendation', description: data.error || rec.title, tone: 'error' });
       }
-    } catch {}
+    } catch {
+      pushToast({ title: 'Failed to start recommendation', description: 'Network error while triggering the agent.', tone: 'error' });
+    }
     setLoading(false);
   };
 
@@ -118,6 +135,9 @@ function RecItem({ rec, agentId, onDone, variant }: {
 export default function AgentDetailPage() {
   const { agentId } = useParams<{ agentId: string }>();
   const router = useRouter();
+  const { setAgentId } = useDashboardFilters();
+  const { pushToast } = useToast();
+  const { setStatusBanner, clearStatusBanner } = useStatusBanners();
   const { agent, isLoading, mutate } = useAgent(agentId);
   const [activeTab, setActiveTab] = useState<string>('Overview');
   const { data: recData, mutate: mutateRecs } = useSWR<{ recommendations: Recommendation[] }>(
@@ -139,14 +159,31 @@ export default function AgentDetailPage() {
       const data = await res.json();
       setImproveStatus(data.ok ? 'Agent is reviewing its sessions and updating its files...' : data.error);
       if (data.ok) {
+        setStatusBanner(`improve-${agentId}`, {
+          title: `${agentId} self-improvement is running`,
+          description: 'The agent is reviewing sessions and may update its files in the background.',
+          tone: 'info',
+        });
+        pushToast({ title: 'Self-improvement started', description: `${agentId} is reviewing sessions and updating its files.`, tone: 'success' });
         // Refresh agent data after a delay to show updated files
-        setTimeout(() => mutate(), 30_000);
+        setTimeout(() => {
+          clearStatusBanner(`improve-${agentId}`);
+          mutate();
+        }, 30_000);
+      } else {
+        pushToast({ title: 'Failed to start self-improve', description: data.error || agentId, tone: 'error' });
       }
     } catch (err: any) {
       setImproveStatus('Failed to start improvement session');
+      pushToast({ title: 'Failed to start self-improve', description: 'Network error while starting the session.', tone: 'error' });
     }
     setImproving(false);
-  }, [agentId, improving, mutate]);
+  }, [agentId, clearStatusBanner, improving, mutate, pushToast, setStatusBanner]);
+
+  useEffect(() => {
+    setAgentId(agentId);
+    return () => setAgentId('');
+  }, [agentId, setAgentId]);
 
   const handleRecDone = useCallback(() => {
     mutateRecs();

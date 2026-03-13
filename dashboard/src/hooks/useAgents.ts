@@ -28,7 +28,7 @@ export function useHealth() {
 
 export function useActivity() {
   const { data, error, isLoading } = useSWR('/api/activity', fetcher, {
-    refreshInterval: POLL_INTERVAL,
+    refreshInterval: POLL_INTERVAL * 2,
   });
   return { events: data || [], error, isLoading };
 }

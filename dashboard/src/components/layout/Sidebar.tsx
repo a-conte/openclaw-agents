@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type MouseEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import {
   Diamond,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
+import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -40,9 +42,51 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
+  const { filters, setFocus } = useDashboardFilters();
   const { data: health } = useSWR('/api/health', fetcher, { refreshInterval: 15000 });
+  const { data: summary } = useSWR('/api/dashboard-summary', fetcher, { refreshInterval: 15000 });
+  const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
   const [clock, setClock] = useState('');
+
+  const dirtyRepoCount = summary?.counts?.dirtyRepos || 0;
+  const failedRunCount = summary?.counts?.failedRuns || 0;
+  const inProgressCount = summary?.counts?.inProgressTasks || 0;
+  const staleTaskCount = summary?.counts?.staleTasks || 0;
+  const radarCount = radarData?.items?.length || 0;
+  const quietAgentCount = summary?.counts?.quietAgents || 0;
+
+  const badgeCounts: Record<string, number> = {
+    '/command': failedRunCount + dirtyRepoCount + staleTaskCount,
+    '/agents': health?.ok ? quietAgentCount : 1,
+    '/projects': inProgressCount,
+    '/pipeline': failedRunCount + inProgressCount,
+    '/radar': radarCount,
+    '/system': health?.ok ? dirtyRepoCount : dirtyRepoCount + 1,
+  };
+
+  const focusMap: Record<string, string> = {
+    '/command': 'attention',
+    '/agents': 'quiet-agents',
+    '/projects': 'active-projects',
+    '/pipeline': 'pipeline-hotspots',
+    '/radar': 'signals',
+    '/system': 'system-check',
+  };
+
+  const handleBadgeClick = (event: MouseEvent, href: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setFocus(focusMap[href] || '');
+    router.push(href);
+  };
+
+  const handleNavClick = (href: string) => {
+    if (filters.focus && focusMap[href] !== filters.focus) {
+      setFocus('');
+    }
+  };
 
   useEffect(() => {
     const tick = () => {
@@ -83,19 +127,38 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             ? pathname === '/command' || pathname === '/'
             : pathname.startsWith(item.href);
           return (
-            <Link
+            <div
               key={item.href}
-              href={item.href}
               className={cn(
-                'flex items-center gap-3 px-2.5 py-2 rounded-md text-sm transition-colors duration-200',
+                'flex items-center gap-2 rounded-md text-sm transition-colors duration-200',
                 active
                   ? 'bg-accent-subtle text-accent border-r-2 border-accent'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
               )}
             >
-              <item.icon size={16} />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
+              <Link
+                href={item.href}
+                onClick={() => handleNavClick(item.href)}
+                className="flex min-w-0 flex-1 items-center gap-3 px-2.5 py-2"
+              >
+                <item.icon size={16} />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </Link>
+              {!collapsed && badgeCounts[item.href] > 0 && (
+                <button
+                  onClick={(event) => handleBadgeClick(event, item.href)}
+                  className={cn(
+                    'ml-auto min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] transition',
+                    filters.focus === focusMap[item.href]
+                      ? 'bg-accent text-surface-0'
+                      : 'bg-accent/15 text-accent hover:bg-accent/25'
+                  )}
+                  title={`Focus ${item.label.toLowerCase()}`}
+                >
+                  {badgeCounts[item.href]}
+                </button>
+              )}
+            </div>
           );
         })}
       </nav>

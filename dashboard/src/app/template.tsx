@@ -2,6 +2,8 @@
 
 import { Sidebar } from '@/components/layout/Sidebar';
 import { CommandPalette } from '@/components/layout/CommandPalette';
+import { GlobalWorkspaceFilters } from '@/components/layout/GlobalWorkspaceFilters';
+import { DashboardProviders } from '@/components/providers/DashboardProviders';
 import { useState, useEffect } from 'react';
 
 export default function Template({ children }: { children: React.ReactNode }) {
@@ -25,12 +27,15 @@ export default function Template({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(v => !v)} />
-      <main className="flex-1 overflow-auto bg-surface-1/60">
-        {children}
-      </main>
-      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
-    </div>
+    <DashboardProviders>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(v => !v)} />
+        <main className="flex flex-1 flex-col overflow-auto bg-surface-1/60">
+          <GlobalWorkspaceFilters />
+          <div className="min-h-0 flex-1">{children}</div>
+        </main>
+        <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      </div>
+    </DashboardProviders>
   );
 }
