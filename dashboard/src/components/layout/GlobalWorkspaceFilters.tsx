@@ -1,12 +1,11 @@
 'use client';
 
 import { Filter, Search, X } from 'lucide-react';
-import { AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
-const AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
 const VISIBLE_PATHS = new Set(['/command', '/agents', '/projects', '/pipeline', '/radar', '/system']);
 const FOCUS_PATHS: Record<string, string> = {
   attention: '/command',
@@ -55,7 +54,7 @@ export function GlobalWorkspaceFilters() {
           className="rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-border-active"
         >
           <option value="">All agents</option>
-          {AGENT_IDS.map((id) => (
+          {ACTIVE_AGENT_IDS.map((id) => (
             <option key={id} value={id}>{AGENT_EMOJIS[id]} {id}</option>
           ))}
         </select>

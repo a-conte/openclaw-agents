@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Bot, LayoutGrid, Calendar, MessageSquare } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { cn } from '@/lib/utils';
-import { AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
 
 interface CommandItem {
   id: string;
@@ -26,8 +26,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const agentIds = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
-
   const commands: CommandItem[] = [
     { id: 'nav-command', label: 'Go to Command', category: 'Navigation', action: () => router.push('/command'), icon: <LayoutGrid size={16} /> },
     { id: 'nav-agents', label: 'Go to Agents', category: 'Navigation', action: () => router.push('/agents'), icon: <Bot size={16} /> },
@@ -36,7 +34,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     { id: 'nav-pipeline', label: 'Go to Pipeline', category: 'Navigation', action: () => router.push('/pipeline'), icon: <MessageSquare size={16} /> },
     { id: 'nav-radar', label: 'Go to Radar', category: 'Navigation', action: () => router.push('/radar'), icon: <Search size={16} /> },
     { id: 'nav-system', label: 'Go to System', category: 'Navigation', action: () => router.push('/system'), icon: <Search size={16} /> },
-    ...agentIds.map(id => ({
+    ...ACTIVE_AGENT_IDS.map(id => ({
       id: `agent-${id}`,
       label: `${AGENT_EMOJIS[id] || ''} ${id}`,
       category: 'Agents',

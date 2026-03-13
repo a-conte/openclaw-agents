@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog } from '@/components/shared/Dialog';
 import { Button } from '@/components/shared/Button';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
-import { TASK_STATUSES, TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, TASK_STATUSES, TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
 import { Trash2, Eye, Edit3 } from 'lucide-react';
 import type { Task } from '@/lib/types';
 
@@ -16,8 +16,6 @@ interface TaskModalProps {
   onCreate: (task: Partial<Task>) => void;
   onDelete: (id: string) => void;
 }
-
-const AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
 
 export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: TaskModalProps) {
   const [title, setTitle] = useState('');
@@ -128,7 +126,7 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: T
             <label className="text-xs text-text-tertiary mb-1 block">Agent</label>
             <select value={agentId} onChange={e => setAgentId(e.target.value)} className={selectClass + ' w-full'}>
               <option value="">Unassigned</option>
-              {AGENT_IDS.map(id => (
+              {ACTIVE_AGENT_IDS.map(id => (
                 <option key={id} value={id}>{AGENT_EMOJIS[id]} {id}</option>
               ))}
             </select>

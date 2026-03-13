@@ -1,6 +1,6 @@
 {
   "name": "Daily Briefing",
-  "description": "Research scans feeds → Main summarizes → Mail drafts email",
+  "description": "Research scans feeds -> Main summarizes and delivers briefing",
   "trigger": "cron",
   "schedule": "0 8 * * *",
   "steps": [
@@ -16,12 +16,7 @@
     },
     {
       "agent": "main",
-      "action": "Read research summaries from inbox. Combine into a concise daily briefing. Send to shared/inbox/mail/ with subject 'Daily Briefing Draft'.",
-      "passOutput": true
-    },
-    {
-      "agent": "mail",
-      "action": "Read the daily briefing from inbox. Draft an email to Anthony with the combined summary. Save as draft — do not send without approval.",
+      "action": "Read research summaries from inbox. Combine them into a concise daily briefing and send it to Anthony via Telegram.",
       "passOutput": false
     }
   ]

@@ -3,6 +3,7 @@ import { getHealth } from '@/lib/gateway';
 import { getAllTasks } from '@/lib/tasks-store';
 import { getAllRuns } from '@/lib/workflow-runs-store';
 import { buildSystemRecommendations, loadBriefings, loadRadarItems, loadRepos, loadWorkflows } from '@/lib/dashboard-data';
+import { isActiveAgent } from '@/lib/constants';
 import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
@@ -18,9 +19,11 @@ async function loadCommandOverview() {
     loadRadarItems(),
   ]);
 
+  const activeAgents = (health?.agents || []).filter((agent) => isActiveAgent(agent.agentId));
+
   const systemRecommendations = buildSystemRecommendations({
     healthOk: Boolean(health?.ok),
-    agents: health?.agents || [],
+    agents: activeAgents,
     tasks,
     runs,
     repos,
@@ -30,7 +33,7 @@ async function loadCommandOverview() {
 
   return {
     health,
-    agents: health?.agents || [],
+    agents: activeAgents,
     tasks,
     runs,
     workflows,

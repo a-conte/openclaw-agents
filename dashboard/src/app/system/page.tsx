@@ -11,7 +11,7 @@ import { CronCalendar } from '@/components/schedule/CronCalendar';
 import { CronTimeline } from '@/components/schedule/CronTimeline';
 import { SessionSidebar } from '@/components/sessions/SessionSidebar';
 import { ChatView } from '@/components/sessions/ChatView';
-import { AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { VirtualList } from '@/components/shared/VirtualList';
@@ -203,7 +203,6 @@ function ScheduleTab() {
 }
 
 function SessionsTab() {
-  const AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
   const [agentId, setAgentId] = useState('main');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -223,7 +222,7 @@ function SessionsTab() {
             onChange={e => { setAgentId(e.target.value); setSelectedKey(null); setSelectedSession(null); }}
             className="w-full bg-surface-3 border border-border rounded-md px-2.5 py-1.5 text-xs text-text-primary focus:outline-none"
           >
-            {AGENT_IDS.map(id => (
+            {ACTIVE_AGENT_IDS.map(id => (
               <option key={id} value={id}>{AGENT_EMOJIS[id]} {id}</option>
             ))}
           </select>

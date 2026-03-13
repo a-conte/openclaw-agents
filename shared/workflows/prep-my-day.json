@@ -1,6 +1,6 @@
 {
   "name": "Prep My Day",
-  "description": "Calendar, weather, tasks overview + urgent emails → compiled morning briefing",
+  "description": "Calendar, weather, and tasks overview -> compiled morning briefing",
   "trigger": "on-demand",
   "keyword": "prep my day",
   "approvalRequired": false,
@@ -11,13 +11,8 @@
       "passOutput": true
     },
     {
-      "agent": "mail",
-      "action": "Run `himalaya list -s unseen` and identify any urgent or time-sensitive emails from the last 12 hours. Write a summary of urgent items to shared/inbox/main/ with subject 'Urgent Email Summary'.",
-      "passOutput": true
-    },
-    {
       "agent": "main",
-      "action": "Read the urgent email summary from inbox. Combine with calendar/weather/tasks overview into a single 'Your Day' briefing. Send to Anthony via Telegram.",
+      "action": "Turn the calendar, weather, and task overview into a single 'Your Day' briefing. Send it to Anthony via Telegram.",
       "passOutput": false
     }
   ]

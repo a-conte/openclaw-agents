@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import { getHealth } from '@/lib/gateway';
 import { readConfig } from '@/lib/openclaw';
-import { AGENT_EMOJIS } from '@/lib/constants';
+import { AGENT_EMOJIS, isActiveAgent } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,8 @@ function discoverAgentsFromDir(): string[] {
   try {
     return readdirSync(repoRoot, { withFileTypes: true })
       .filter(d => d.isDirectory() && !d.name.startsWith('.') && !EXCLUDED_DIRS.includes(d.name))
-      .map(d => d.name);
+      .map(d => d.name)
+      .filter((agentId) => isActiveAgent(agentId));
   } catch {
     return [];
   }
@@ -26,8 +27,8 @@ export async function GET() {
   const health = await getHealth();
   const config = readConfig();
 
-  const configAgents = config?.agents?.list || [];
-  const healthAgents = health?.agents || [];
+  const configAgents = (config?.agents?.list || []).filter((agent: any) => isActiveAgent(agent.id));
+  const healthAgents = (health?.agents || []).filter((agent: any) => isActiveAgent(agent.agentId));
 
   // Build agent list from health data, enriched with config
   const agents = healthAgents.map((ha: any) => {

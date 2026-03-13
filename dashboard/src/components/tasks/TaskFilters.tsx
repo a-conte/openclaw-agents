@@ -2,7 +2,7 @@
 
 import { Search, Plus } from 'lucide-react';
 import { Button } from '@/components/shared/Button';
-import { TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
 
 interface TaskFiltersProps {
   search: string;
@@ -13,8 +13,6 @@ interface TaskFiltersProps {
   onPriorityFilterChange: (v: string) => void;
   onNewTask: () => void;
 }
-
-const AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
 
 export function TaskFilters({
   search, onSearchChange,
@@ -38,7 +36,7 @@ export function TaskFilters({
 
       <select value={agentFilter} onChange={e => onAgentFilterChange(e.target.value)} className={selectClass}>
         <option value="">All agents</option>
-        {AGENT_IDS.map(id => (
+        {ACTIVE_AGENT_IDS.map(id => (
           <option key={id} value={id}>{AGENT_EMOJIS[id]} {id}</option>
         ))}
       </select>

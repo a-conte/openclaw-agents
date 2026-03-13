@@ -7,7 +7,7 @@ set -euo pipefail
 
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 OPENCLAW_AGENTS="${OPENCLAW_AGENTS:-$HOME/openclaw-agents}"
-AGENTS=("main" "mail" "docs" "research" "ai-research" "dev" "security")
+AGENTS=("main" "docs" "research" "ai-research" "dev" "security")
 
 # Max age in seconds before alert (2x heartbeat interval — default 30min heartbeat = 3600s)
 MAX_AGE=${WATCHDOG_MAX_AGE:-3600}
