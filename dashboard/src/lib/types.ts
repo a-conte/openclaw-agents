@@ -132,6 +132,24 @@ export interface RadarItem {
   timestamp: string;
 }
 
+export interface SystemRecommendation {
+  id: string;
+  title: string;
+  detail: string;
+  rationale: string;
+  href: string;
+  actionLabel: string;
+  tone: 'danger' | 'warn' | 'info';
+  impact: 'high' | 'medium';
+  effort: 'low' | 'medium';
+  taskDraft: {
+    title: string;
+    description: string;
+    priority: Task['priority'];
+    labels: string[];
+  };
+}
+
 export interface MemoryCategory {
   agentId: string;
   category: string;

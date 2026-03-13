@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getHealth } from '@/lib/gateway';
 import { getAllTasks } from '@/lib/tasks-store';
 import { getAllRuns } from '@/lib/workflow-runs-store';
-import { loadBriefings, loadRadarItems, loadRepos, loadWorkflows } from '@/lib/dashboard-data';
+import { buildSystemRecommendations, loadBriefings, loadRadarItems, loadRepos, loadWorkflows } from '@/lib/dashboard-data';
 import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,16 @@ async function loadCommandOverview() {
     loadRadarItems(),
   ]);
 
+  const systemRecommendations = buildSystemRecommendations({
+    healthOk: Boolean(health?.ok),
+    agents: health?.agents || [],
+    tasks,
+    runs,
+    repos,
+    briefings,
+    radarItems,
+  });
+
   return {
     health,
     agents: health?.agents || [],
@@ -27,6 +37,7 @@ async function loadCommandOverview() {
     repos,
     briefings,
     radarItems,
+    systemRecommendations,
   };
 }
 

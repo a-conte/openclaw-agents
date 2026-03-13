@@ -29,9 +29,10 @@ import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
 import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
-import type { Agent, Briefing, RepoStatus, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
+import type { Agent, Briefing, RepoStatus, SystemRecommendation, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
 import { formatDate, relativeTime } from '@/lib/utils';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -51,6 +52,7 @@ type AgentSummary = Agent & {
 
 export default function CommandPage() {
   const { filters } = useDashboardFilters();
+  const { createTask } = useTasks();
   const { data } = useSWR<{
     health: any;
     agents: Agent[];
@@ -60,6 +62,7 @@ export default function CommandPage() {
     runs: WorkflowRun[];
     briefings: Briefing[];
     radarItems: Array<{ id: string }>;
+    systemRecommendations: SystemRecommendation[];
   }>('/api/command-overview', fetcher, { refreshInterval: POLL_INTERVAL });
 
   const health = data?.health;
@@ -70,7 +73,9 @@ export default function CommandPage() {
   const runs = data?.runs || [];
   const briefings = data?.briefings || [];
   const radarSignals = data?.radarItems?.length || 0;
+  const systemRecommendations = data?.systemRecommendations || [];
   const searchNeedle = filters.search.trim().toLowerCase();
+  const [creatingRecommendationId, setCreatingRecommendationId] = useState<string | null>(null);
 
   const agentSummaries = useMemo<AgentSummary[]>(() => {
     const now = Date.now();
@@ -245,6 +250,31 @@ export default function CommandPage() {
             <StatCard label="Runs in flight" value={runningRuns.length.toString()} note="live workflows" tone="info" />
             <StatCard label="Tasks moving" value={inProgressTasks.length.toString()} note={`${overdueTasks.length} stale`} tone="warn" />
             <StatCard label="Signals" value={radarSignals.toString()} note={`${pendingBriefings.length} pending briefings`} tone="neutral" />
+          </div>
+        </Panel>
+      </section>
+
+      <section>
+        <Panel title="Improve the System" eyebrow="Fresh Recommendations" icon={<Sparkles size={15} className="text-accent-purple" />}>
+          <div className="grid gap-3 xl:grid-cols-2">
+            {systemRecommendations.map((recommendation) => (
+              <RecommendationCard
+                key={recommendation.id}
+                recommendation={recommendation}
+                creating={creatingRecommendationId === recommendation.id}
+                onCreateTask={async () => {
+                  setCreatingRecommendationId(recommendation.id);
+                  try {
+                    await createTask({
+                      ...recommendation.taskDraft,
+                      status: 'todo',
+                    });
+                  } finally {
+                    setCreatingRecommendationId((current) => (current === recommendation.id ? null : current));
+                  }
+                }}
+              />
+            ))}
           </div>
         </Panel>
       </section>
@@ -683,6 +713,58 @@ function AttentionCard({ item }: { item: AttentionItem }) {
   );
 
   return item.href ? <Link href={item.href}>{content}</Link> : content;
+}
+
+function RecommendationCard({
+  recommendation,
+  creating,
+  onCreateTask,
+}: {
+  recommendation: SystemRecommendation;
+  creating: boolean;
+  onCreateTask: () => Promise<void>;
+}) {
+  const toneClass = {
+    danger: 'border-red-500/20 bg-red-500/8',
+    warn: 'border-yellow-500/20 bg-yellow-500/8',
+    info: 'border-border bg-surface-2/75',
+  }[recommendation.tone];
+
+  const impactColor = recommendation.impact === 'high' ? '#e94560' : '#4A9EFF';
+  const effortColor = recommendation.effort === 'low' ? '#06d6a0' : '#ffd166';
+
+  return (
+    <div className={`rounded-xl border p-4 transition-colors hover:border-border-hover ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-text-primary">{recommendation.title}</div>
+          <div className="text-xs leading-relaxed text-text-secondary">{recommendation.detail}</div>
+        </div>
+      </div>
+
+      <div className="mt-3 text-xs leading-relaxed text-text-tertiary">{recommendation.rationale}</div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Badge color={impactColor}>{`${recommendation.impact} impact`}</Badge>
+        <Badge color={effortColor}>{`${recommendation.effort} effort`}</Badge>
+        <Badge variant="outline">{recommendation.actionLabel}</Badge>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <Button size="sm" variant="primary" onClick={onCreateTask} disabled={creating}>
+          {creating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          <span className="ml-1">{creating ? 'Creating...' : 'Create Task'}</span>
+        </Button>
+        <Link
+          href={recommendation.href}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-3 px-2.5 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-4"
+        >
+          <span>{recommendation.actionLabel}</span>
+          <ArrowRight size={12} className="text-text-tertiary" />
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 function StatCard({ label, value, note, tone }: { label: string; value: string; note: string; tone: 'accent' | 'info' | 'warn' | 'neutral' }) {

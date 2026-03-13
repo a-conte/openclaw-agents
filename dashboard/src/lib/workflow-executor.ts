@@ -1,27 +1,18 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import type { Workflow } from './types';
 import { updateRunStep, completeRun } from './workflow-runs-store';
-
-const execFileAsync = promisify(execFile);
+import { runOpenClaw } from './openclaw-cli';
 
 export async function executeWorkflowInBackground(runId: string, workflow: Workflow): Promise<void> {
   let previousOutput = '';
 
-  // Strip OPENCLAW_AGENTS and OPENCLAW_HOME from env — the .env.local values
-  // point to the workspace repo/config, which conflicts with the CLI's
-  // internal agent registry lookup.
-  const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
-
   // Notify via Telegram if this workflow requires approval
   if (workflow.approvalRequired) {
-    execFileAsync(
-      '/usr/local/bin/openclaw',
+    runOpenClaw(
       [
         'send', '--channel', 'telegram', '--account', 'main', '--to', '1858496116',
         '--message', `⏳ Workflow "${workflow.name}" requires approval.\nReason: ${workflow.approvalReason || 'No reason provided'}\nReview in the dashboard.`,
       ],
-      { timeout: 30_000, encoding: 'utf-8', env: cleanEnv }
+      { timeout: 30_000 }
     ).catch(err => {
       console.error(`Telegram approval notification failed for ${workflow.name}:`, err.stderr || err.message);
     });
@@ -50,13 +41,10 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
         args.push('--deliver', '--reply-channel', 'telegram', '--reply-account', 'main', '--reply-to', '1858496116');
       }
 
-      const { stdout } = await execFileAsync(
-        '/usr/local/bin/openclaw',
+      const { stdout } = await runOpenClaw(
         args,
         {
           timeout: 600_000,
-          encoding: 'utf-8',
-          env: cleanEnv,
           cwd: process.env.HOME || '/Users/a_conte',
         }
       );

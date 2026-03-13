@@ -1,23 +1,16 @@
 import { NextResponse } from 'next/server';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import { updateTask, createTask } from '@/lib/tasks-store';
-
-const execFileAsync = promisify(execFile);
+import { runOpenClaw } from '@/lib/openclaw-cli';
 
 function runAgent(agentId: string, message: string, taskId?: string) {
-  const { OPENCLAW_AGENTS: _a, OPENCLAW_HOME: _h, ...cleanEnv } = process.env;
   // Fire and forget — don't block the response
-  execFileAsync(
-    '/usr/local/bin/openclaw',
+  runOpenClaw(
     [
       'agent', '--agent', agentId, '--message', message, '--json',
       '--deliver', '--reply-channel', 'telegram', '--reply-account', 'main', '--reply-to', '1858496116',
     ],
     {
       timeout: 600_000,
-      encoding: 'utf-8',
-      env: cleanEnv,
       cwd: process.env.HOME || '/Users/a_conte',
     }
   ).then(() => {
