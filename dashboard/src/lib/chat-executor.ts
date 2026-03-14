@@ -10,10 +10,20 @@ export async function executeChatInBackground(chatId: string, agentId: string, m
 
     let response = stdout.trim();
 
-    // Try to extract the response text from JSON output
+    // Extract the response text from OpenClaw's JSON output
     try {
       const parsed = JSON.parse(response);
-      response = parsed.response || parsed.content || parsed.text || parsed.result || response;
+
+      // OpenClaw wraps agent replies in { payloads: [{ text, mediaUrl }], meta: {...} }
+      if (parsed.payloads && Array.isArray(parsed.payloads)) {
+        const texts = parsed.payloads
+          .map((p: any) => p.text)
+          .filter(Boolean);
+        response = texts.join('\n\n') || response;
+      } else {
+        response = parsed.response || parsed.content || parsed.text || parsed.result || response;
+      }
+
       if (typeof response !== 'string') response = JSON.stringify(response, null, 2);
     } catch {
       // Not JSON — use raw stdout
