@@ -195,6 +195,27 @@ export interface RepoStatus {
   lastCommitDate: string | null;
 }
 
+export type ChatStatus = 'pending' | 'done' | 'failed';
+
+export interface ChatRequest {
+  id: string;
+  agentId: string;
+  userMessage: string;
+  status: ChatStatus;
+  response?: string;
+  error?: string;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  agentId?: string;
+  error?: boolean;
+}
+
 export type TaskStatus = Task['status'];
 export type TaskPriority = Task['priority'];
 export type AgentStatus = 'online' | 'warning' | 'offline';

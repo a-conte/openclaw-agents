@@ -16,10 +16,11 @@ import {
   Calendar,
   Settings,
   Circle,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
-import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useDashboardFilters, useChatPanel } from '@/components/providers/DashboardProviders';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -45,6 +46,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { filters, setFocus } = useDashboardFilters();
+  const { openChat } = useChatPanel();
   const { data: health } = useSWR('/api/health', fetcher, { refreshInterval: 15000 });
   const { data: summary } = useSWR('/api/dashboard-summary', fetcher, { refreshInterval: 15000 });
   const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
@@ -162,6 +164,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           );
         })}
       </nav>
+
+      <div className="px-2 pb-1">
+        <button
+          onClick={() => openChat()}
+          className={cn(
+            'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-2 hover:text-text-primary',
+          )}
+          title="Chat with agents (Cmd+J)"
+        >
+          <MessageCircle size={16} />
+          {!collapsed && <span>Chat</span>}
+          {!collapsed && (
+            <kbd className="ml-auto rounded border border-border bg-surface-3 px-1.5 py-0.5 text-[10px] text-text-tertiary">
+              J
+            </kbd>
+          )}
+        </button>
+      </div>
 
       <div className="p-3 border-t border-border space-y-2">
         <div className="flex items-center gap-2">

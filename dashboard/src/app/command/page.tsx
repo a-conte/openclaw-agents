@@ -16,6 +16,7 @@ import {
   GitBranch,
   GitCommitHorizontal,
   Loader2,
+  MessageCircle,
   Minus,
   Play,
   Radar,
@@ -28,7 +29,7 @@ import {
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
-import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useDashboardFilters, useChatPanel } from '@/components/providers/DashboardProviders';
 import { useNow } from '@/hooks/useNow';
 import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
@@ -595,21 +596,31 @@ function RepoCard({ repo }: { repo: RepoStatus }) {
 
 function AgentPulseRow({ agent }: { agent: AgentSummary }) {
   const tone = agent.state === 'active' ? 'text-status-online' : agent.state === 'quiet' ? 'text-status-warning' : 'text-status-error';
+  const { openChat } = useChatPanel();
 
   return (
-    <Link href={`/agents/${agent.agentId}`} className="flex items-start gap-3 rounded-lg border border-border bg-surface-2/65 px-3 py-2 transition-colors hover:border-border-hover">
-      <div className="text-base">{AGENT_EMOJIS[agent.agentId] || '🤖'}</div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-text-primary">{agent.agentId}</span>
-          <span className={`text-[10px] uppercase tracking-[0.18em] ${tone}`}>{agent.state}</span>
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-2/65 px-3 py-2 transition-colors hover:border-border-hover">
+      <Link href={`/agents/${agent.agentId}`} className="flex min-w-0 flex-1 items-start gap-3">
+        <div className="text-base">{AGENT_EMOJIS[agent.agentId] || '🤖'}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary">{agent.agentId}</span>
+            <span className={`text-[10px] uppercase tracking-[0.18em] ${tone}`}>{agent.state}</span>
+          </div>
+          <div className="truncate text-xs text-text-tertiary">{AGENT_ROLES[agent.agentId] || 'Agent workspace'}</div>
         </div>
-        <div className="truncate text-xs text-text-tertiary">{AGENT_ROLES[agent.agentId] || 'Agent workspace'}</div>
-      </div>
-      <div className="text-right text-xs text-text-tertiary">
-        {agent.lastActivity ? relativeTime(agent.lastActivity) : 'no activity'}
-      </div>
-    </Link>
+        <div className="text-right text-xs text-text-tertiary">
+          {agent.lastActivity ? relativeTime(agent.lastActivity) : 'no activity'}
+        </div>
+      </Link>
+      <button
+        onClick={() => openChat(agent.agentId)}
+        className="mt-0.5 shrink-0 rounded-md p-1 text-text-tertiary transition-colors hover:bg-surface-3 hover:text-accent"
+        title={`Chat with ${agent.agentId}`}
+      >
+        <MessageCircle size={14} />
+      </button>
+    </div>
   );
 }
 

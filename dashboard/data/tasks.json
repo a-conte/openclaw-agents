@@ -28,5 +28,19 @@
     "createdAt": "2026-03-14T02:34:10.591Z",
     "updatedAt": "2026-03-14T02:45:45.122Z",
     "agentId": "main"
+  },
+  {
+    "id": "5bac2046-0db8-433d-ba3e-b5d38992cf46",
+    "title": "Competitor tracking",
+    "description": "Weekly scan of competitor repos, blogs, and releases",
+    "status": "done",
+    "priority": "medium",
+    "agentId": "research",
+    "labels": [
+      "auto-suggested"
+    ],
+    "order": 0,
+    "createdAt": "2026-03-14T05:22:28.984Z",
+    "updatedAt": "2026-03-14T05:25:12.869Z"
   }
 ]

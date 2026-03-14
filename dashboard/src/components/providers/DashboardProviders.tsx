@@ -29,6 +29,10 @@ interface DashboardContextValue {
   pushToast: (toast: Omit<ToastItem, 'id'>) => void;
   setStatusBanner: (key: string, banner: Omit<StatusBannerItem, 'key'>) => void;
   clearStatusBanner: (key: string) => void;
+  isChatOpen: boolean;
+  chatAgentId: string;
+  openChat: (agentId?: string) => void;
+  closeChat: () => void;
 }
 
 interface StatusBannerItem {
@@ -46,6 +50,17 @@ export function DashboardProviders({ children }: { children: React.ReactNode }) 
   const [filters, setFilters] = useState<DashboardFiltersState>({ search: '', agentId: '', focus: '' });
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [statusBanners, setStatusBanners] = useState<StatusBannerItem[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatAgentId, setChatAgentId] = useState('main');
+
+  const openChat = useCallback((agentId?: string) => {
+    if (agentId) setChatAgentId(agentId);
+    setIsChatOpen(true);
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setIsChatOpen(false);
+  }, []);
 
   useEffect(() => {
     try {
@@ -106,8 +121,8 @@ export function DashboardProviders({ children }: { children: React.ReactNode }) 
   }, []);
 
   const value = useMemo(
-    () => ({ filters, setSearch, setAgentId, setFocus, resetFilters, pushToast, setStatusBanner, clearStatusBanner }),
-    [clearStatusBanner, filters, pushToast, resetFilters, setAgentId, setFocus, setSearch, setStatusBanner]
+    () => ({ filters, setSearch, setAgentId, setFocus, resetFilters, pushToast, setStatusBanner, clearStatusBanner, isChatOpen, chatAgentId, openChat, closeChat }),
+    [clearStatusBanner, filters, pushToast, resetFilters, setAgentId, setFocus, setSearch, setStatusBanner, isChatOpen, chatAgentId, openChat, closeChat]
   );
 
   return (
@@ -197,6 +212,17 @@ export function useToast() {
   if (!context) throw new Error('useToast must be used within DashboardProviders');
   return {
     pushToast: context.pushToast,
+  };
+}
+
+export function useChatPanel() {
+  const context = useContext(DashboardContext);
+  if (!context) throw new Error('useChatPanel must be used within DashboardProviders');
+  return {
+    isChatOpen: context.isChatOpen,
+    chatAgentId: context.chatAgentId,
+    openChat: context.openChat,
+    closeChat: context.closeChat,
   };
 }
 
