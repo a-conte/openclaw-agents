@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import {
   AlertTriangle,
@@ -29,6 +29,7 @@ import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useNow } from '@/hooks/useNow';
 import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
 import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
@@ -76,12 +77,7 @@ export default function CommandPage() {
   const systemRecommendations = data?.systemRecommendations || [];
   const searchNeedle = filters.search.trim().toLowerCase();
   const [creatingRecommendationId, setCreatingRecommendationId] = useState<string | null>(null);
-  const [now, setNow] = useState(0);
-  const hydrated = now > 0;
-
-  useEffect(() => {
-    setNow(Date.now());
-  }, [data]);
+  const { now, hydrated } = useNow([data]);
 
   const agentSummaries = useMemo<AgentSummary[]>(() => {
     return agents.map((agent: Agent) => {

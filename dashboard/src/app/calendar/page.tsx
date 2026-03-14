@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCron } from '@/hooks/useCron';
+import { useNow } from '@/hooks/useNow';
 import { AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -51,10 +52,11 @@ export default function CalendarPage() {
 
   const events = useMemo(() => parseCronToEvents(cronJobs), [cronJobs]);
 
-  // Get current day/hour for highlighting
-  const now = new Date();
-  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1; // Mon=0
-  const currentHour = now.getHours();
+  // Get current day/hour for highlighting (deferred to client to avoid hydration mismatch)
+  const { now: nowMs, hydrated } = useNow([cronJobs]);
+  const nowDate = hydrated ? new Date(nowMs) : null;
+  const currentDay = nowDate ? (nowDate.getDay() === 0 ? 6 : nowDate.getDay() - 1) : -1; // Mon=0
+  const currentHour = nowDate ? nowDate.getHours() : -1;
 
   return (
     <div className="p-6 overflow-auto h-full">
