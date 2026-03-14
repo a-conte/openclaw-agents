@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Settings, Activity, Calendar, MessageSquare, Terminal, MessageCircle, Wrench, Circle, Pause, Play, Trash2 } from 'lucide-react';
+import { Settings, Activity, Calendar, MessageSquare, Terminal, MessageCircle, Wrench, Circle, Pause, Play, Trash2, Inbox, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHealth } from '@/hooks/useAgents';
 import { useCron } from '@/hooks/useCron';
@@ -11,7 +11,7 @@ import { CronCalendar } from '@/components/schedule/CronCalendar';
 import { CronTimeline } from '@/components/schedule/CronTimeline';
 import { SessionSidebar } from '@/components/sessions/SessionSidebar';
 import { ChatView } from '@/components/sessions/ChatView';
-import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, ALL_AGENT_IDS, AGENT_EMOJIS, AGENT_ROLES, AGENT_COLORS, PRIORITY_COLORS } from '@/lib/constants';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { VirtualList } from '@/components/shared/VirtualList';
@@ -23,6 +23,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json());
 const TABS = [
   { id: 'health', label: 'Health', icon: Activity },
   { id: 'schedule', label: 'Schedule', icon: Calendar },
+  { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'sessions', label: 'Sessions', icon: MessageSquare },
   { id: 'logs', label: 'Logs', icon: Terminal },
   { id: 'feedback', label: 'Feedback', icon: MessageCircle },
@@ -91,6 +92,7 @@ function SystemContent() {
       <div className="flex-1 overflow-auto p-6">
         {activeTab === 'health' && <HealthTab />}
         {activeTab === 'schedule' && <ScheduleTab />}
+        {activeTab === 'inbox' && <InboxTab />}
         {activeTab === 'sessions' && <SessionsTab />}
         {activeTab === 'logs' && <LogsTab />}
         {activeTab === 'feedback' && <FeedbackTab />}
@@ -110,6 +112,7 @@ export default function SystemPage() {
 
 function HealthTab() {
   const { health, isLoading } = useHealth();
+  const { data: heartbeats } = useSWR('/api/metrics/heartbeats', fetcher, { refreshInterval: 15000 });
 
   const components = [
     { name: 'Gateway', status: health?.ok ? 'online' : 'offline' },
@@ -120,31 +123,84 @@ function HealthTab() {
     { name: 'Session Manager', status: health?.ok ? 'online' : 'offline' },
   ];
 
+  function getHeartbeatAge(timestamp: string | null): string {
+    if (!timestamp) return 'never';
+    const age = Date.now() - new Date(timestamp).getTime();
+    const mins = Math.floor(age / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
+
+  function getHeartbeatStatus(timestamp: string | null): 'online' | 'warning' | 'offline' {
+    if (!timestamp) return 'offline';
+    const age = Date.now() - new Date(timestamp).getTime();
+    if (age < 45 * 60 * 1000) return 'online'; // 1.5x 30min interval
+    if (age < 2 * 60 * 60 * 1000) return 'warning';
+    return 'offline';
+  }
+
   return (
-    <div className="max-w-2xl space-y-4">
-      <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">System Components</h2>
-      <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
-        {components.map((comp) => (
-          <div key={comp.name} className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-text-primary">{comp.name}</span>
-            <div className="flex items-center gap-2">
-              <Circle
-                size={8}
-                className={cn(
-                  'fill-current',
-                  comp.status === 'online' ? 'text-status-online' : 'text-status-error'
-                )}
-              />
-              <span className={cn(
-                'text-xs',
-                comp.status === 'online' ? 'text-status-online' : 'text-status-error'
-              )}>
-                {comp.status}
-              </span>
+    <div className="max-w-3xl space-y-6">
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">System Components</h2>
+        <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
+          {components.map((comp) => (
+            <div key={comp.name} className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-text-primary">{comp.name}</span>
+              <div className="flex items-center gap-2">
+                <Circle size={8} className={cn('fill-current', comp.status === 'online' ? 'text-status-online' : 'text-status-error')} />
+                <span className={cn('text-xs', comp.status === 'online' ? 'text-status-online' : 'text-status-error')}>{comp.status}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      {heartbeats?.agents && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">Agent Heartbeats</h2>
+          <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
+            {heartbeats.agents.map((agent: { agentId: string; lastHeartbeat: string | null; lastDurationMs: number | null; heartbeatCount24h: number; avgDurationMs: number | null; inboxCount: number }) => {
+              const status = getHeartbeatStatus(agent.lastHeartbeat);
+              return (
+                <div key={agent.agentId} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">{AGENT_EMOJIS[agent.agentId]}</span>
+                    <div>
+                      <span className="text-sm text-text-primary font-medium">{agent.agentId}</span>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs text-text-tertiary">{agent.heartbeatCount24h} beats/24h</span>
+                        {agent.avgDurationMs != null && (
+                          <span className="text-xs text-text-tertiary">avg {(agent.avgDurationMs / 1000).toFixed(1)}s</span>
+                        )}
+                        {agent.inboxCount > 0 && (
+                          <span className="text-xs text-accent">{agent.inboxCount} in inbox</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {agent.lastDurationMs != null && agent.lastDurationMs > 0 && (
+                      <span className="text-xs text-text-tertiary font-mono">{(agent.lastDurationMs / 1000).toFixed(1)}s</span>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Circle size={8} className={cn('fill-current', status === 'online' ? 'text-status-online' : status === 'warning' ? 'text-yellow-500' : 'text-status-error')} />
+                      <span className={cn('text-xs', status === 'online' ? 'text-status-online' : status === 'warning' ? 'text-yellow-500' : 'text-status-error')}>
+                        {getHeartbeatAge(agent.lastHeartbeat)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-xs text-text-tertiary">
+            Total heartbeats logged: {heartbeats.totalHeartbeats}
+          </div>
+        </div>
+      )}
 
       {health && (
         <div className="bg-surface-1 border border-border rounded-lg p-4">
@@ -378,13 +434,148 @@ function FeedbackTab() {
 }
 
 function ConfigTab() {
+  const { data: config, isLoading } = useSWR('/api/config', fetcher, { refreshInterval: 30000 });
+
+  if (isLoading || !config) {
+    return <div className="max-w-3xl space-y-4">
+      {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-surface-2 rounded-lg animate-pulse" />)}
+    </div>;
+  }
+
   return (
-    <div className="max-w-2xl">
-      <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em] mb-4">Configuration</h2>
-      <div className="bg-surface-1 border border-border rounded-lg p-8 text-center">
-        <Wrench size={24} className="mx-auto text-text-tertiary mb-3" />
-        <p className="text-sm text-text-tertiary">Configuration settings coming soon.</p>
+    <div className="max-w-3xl space-y-6">
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">Agent Configuration</h2>
+        <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
+          {config.agents.map((agent: { agentId: string; role: string; active: boolean; hasHeartbeat: boolean; hasTools: boolean; hasSoul: boolean; hasMemory: boolean; tools: string[]; model: string | null; heartbeatInterval: number | null }) => (
+            <div key={agent.agentId} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{AGENT_EMOJIS[agent.agentId]}</span>
+                  <span className="text-sm font-medium text-text-primary">{agent.agentId}</span>
+                  {!agent.active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500">disabled</span>}
+                </div>
+                <span className="text-xs text-text-tertiary font-mono">{agent.model || 'default'}</span>
+              </div>
+              <p className="text-xs text-text-tertiary mb-2">{agent.role}</p>
+              <div className="flex items-center gap-4 text-xs">
+                <span className={agent.hasHeartbeat ? 'text-status-online' : 'text-status-error'}>
+                  {agent.hasHeartbeat ? <CheckCircle size={11} className="inline mr-1" /> : <AlertTriangle size={11} className="inline mr-1" />}
+                  HEARTBEAT
+                </span>
+                <span className={agent.hasTools ? 'text-status-online' : 'text-text-tertiary'}>
+                  {agent.hasTools ? <CheckCircle size={11} className="inline mr-1" /> : <Circle size={11} className="inline mr-1" />}
+                  TOOLS
+                </span>
+                <span className={agent.hasSoul ? 'text-status-online' : 'text-text-tertiary'}>
+                  {agent.hasSoul ? <CheckCircle size={11} className="inline mr-1" /> : <Circle size={11} className="inline mr-1" />}
+                  SOUL
+                </span>
+                <span className={agent.hasMemory ? 'text-status-online' : 'text-text-tertiary'}>
+                  {agent.hasMemory ? <CheckCircle size={11} className="inline mr-1" /> : <Circle size={11} className="inline mr-1" />}
+                  MEMORY
+                </span>
+                {agent.heartbeatInterval && (
+                  <span className="text-text-tertiary ml-auto">
+                    <Clock size={11} className="inline mr-1" />
+                    {agent.heartbeatInterval / 60}min interval
+                  </span>
+                )}
+              </div>
+              {agent.tools.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {agent.tools.map(tool => (
+                    <span key={tool} className="text-[10px] px-1.5 py-0.5 rounded bg-surface-3 text-text-secondary">{tool}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
+
+      <div className="bg-surface-1 border border-border rounded-lg p-4">
+        <h3 className="text-xs uppercase tracking-[0.1em] text-text-tertiary mb-3">System Overview</h3>
+        <div className="flex items-center gap-6 text-xs text-text-secondary">
+          <span>{config.agents.length} agents configured</span>
+          <span>{config.agents.filter((a: { active: boolean }) => a.active).length} active</span>
+          <span>{config.workflows} workflows</span>
+          <span>{config.pipelines} pipelines</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InboxTab() {
+  const { data: inbox, isLoading } = useSWR('/api/inbox', fetcher, { refreshInterval: 10000 });
+
+  if (isLoading || !inbox) {
+    return <div className="max-w-3xl space-y-4">
+      {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-surface-2 rounded-lg animate-pulse" />)}
+    </div>;
+  }
+
+  if (inbox.totalCount === 0) {
+    return (
+      <div className="max-w-3xl">
+        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em] mb-4">Inter-Agent Inbox</h2>
+        <EmptyState
+          icon={<Inbox size={32} />}
+          title="All inboxes empty"
+          description="No inter-agent messages currently pending"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">Inter-Agent Inbox</h2>
+        <span className="text-xs text-text-tertiary">{inbox.totalCount} message{inbox.totalCount !== 1 ? 's' : ''}</span>
+      </div>
+
+      {(ALL_AGENT_IDS as readonly string[]).map(agentId => {
+        const messages = inbox.byAgent[agentId] || [];
+        if (messages.length === 0) return null;
+
+        return (
+          <div key={agentId} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">{AGENT_EMOJIS[agentId]}</span>
+              <span className="text-sm font-medium text-text-primary">{agentId}</span>
+              <span className="text-xs text-text-tertiary">({messages.length})</span>
+            </div>
+            <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
+              {messages.map((msg: { filename: string; from: string; subject: string; priority: string; status: string; timestamp: string; body: string; workflow?: string; pipeline?: string }) => (
+                <div key={msg.filename} className="px-4 py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-text-primary">{msg.subject}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: `${PRIORITY_COLORS[msg.priority] || '#555'}20`, color: PRIORITY_COLORS[msg.priority] || '#555' }}>
+                        {msg.priority}
+                      </span>
+                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded', msg.status === 'unread' ? 'bg-accent/10 text-accent' : 'bg-surface-3 text-text-tertiary')}>
+                        {msg.status}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-text-tertiary">{msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                    <span>from: {msg.from}</span>
+                    {msg.workflow && <span>workflow: {msg.workflow}</span>}
+                    {msg.pipeline && <span>pipeline: {msg.pipeline}</span>}
+                  </div>
+                  {msg.body && (
+                    <p className="mt-1 text-xs text-text-secondary line-clamp-2">{msg.body}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

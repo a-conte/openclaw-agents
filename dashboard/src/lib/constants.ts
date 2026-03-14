@@ -63,7 +63,7 @@ export const PIPELINE_STAGES: Record<string, { label: string; color: string }> =
 export const AGENT_FILES = ['SOUL.md', 'IDENTITY.md', 'TOOLS.md', 'HEARTBEAT.md', 'MEMORY.md'] as const;
 
 export const ALL_AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'] as const;
-export const ACTIVE_AGENT_IDS = ['main', 'docs', 'research', 'ai-research', 'dev', 'security'] as const;
+export const ACTIVE_AGENT_IDS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'] as const;
 
 export function isActiveAgent(agentId: string): boolean {
   return (ACTIVE_AGENT_IDS as readonly string[]).includes(agentId);

@@ -7,7 +7,7 @@ set -euo pipefail
 
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 OPENCLAW_AGENTS="${OPENCLAW_AGENTS:-$HOME/openclaw-agents}"
-AGENTS=("main" "docs" "research" "ai-research" "dev" "security")
+AGENTS=("main" "mail" "docs" "research" "ai-research" "dev" "security")
 
 # Max age in seconds before alert (2x heartbeat interval — default 30min heartbeat = 3600s)
 MAX_AGE=${WATCHDOG_MAX_AGE:-3600}
@@ -15,6 +15,15 @@ MAX_AGE=${WATCHDOG_MAX_AGE:-3600}
 # Gotify notification (if available)
 GOTIFY_URL="${GOTIFY_URL:-}"
 GOTIFY_TOKEN="${GOTIFY_TOKEN:-}"
+
+# Load Telegram direct alert config (fallback when gateway is down)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/.watchdog.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/.watchdog.env"
+fi
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 
 send_alert() {
   local agent="$1"
@@ -38,6 +47,15 @@ send_alert() {
     openclaw gateway call sendMessage --json \
       --agent main \
       --message "[WATCHDOG] $message" \
+      > /dev/null 2>&1 || true
+  fi
+
+  # Fallback: direct Telegram Bot API (works even when gateway is down)
+  if [[ -n "$TELEGRAM_BOT_TOKEN" && -n "$TELEGRAM_CHAT_ID" ]]; then
+    curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      -d "chat_id=${TELEGRAM_CHAT_ID}" \
+      -d "text=[WATCHDOG] $message" \
+      -d "parse_mode=Markdown" \
       > /dev/null 2>&1 || true
   fi
 }
@@ -74,20 +92,66 @@ check_agent() {
   fi
 }
 
-echo "[WATCHDOG] $(date '+%Y-%m-%d %H:%M:%S') — Checking agent heartbeats..."
+rotate_activity_log() {
+  local log_file="$OPENCLAW_AGENTS/shared/logs/activity.jsonl"
+  local max_lines=10000
 
+  if [[ ! -f "$log_file" ]]; then
+    return
+  fi
+
+  local line_count
+  line_count=$(wc -l < "$log_file" | tr -d ' ')
+
+  if [[ $line_count -gt $max_lines ]]; then
+    local today
+    today=$(date +%Y-%m-%d)
+    local archive="$OPENCLAW_AGENTS/shared/logs/activity-${today}.jsonl.gz"
+
+    echo "[WATCHDOG] Rotating activity log (${line_count} lines > ${max_lines} threshold)"
+    gzip -c "$log_file" > "$archive"
+    tail -n 1000 "$log_file" > "$log_file.tmp"
+    mv "$log_file.tmp" "$log_file"
+    echo "[WATCHDOG] Rotated to $archive, kept last 1000 lines"
+
+    # Clean up archives older than 30 days
+    find "$OPENCLAW_AGENTS/shared/logs/" -name "activity-*.jsonl.gz" -mtime +30 -delete 2>/dev/null || true
+  fi
+}
+
+check_service_health() {
+  # Check gateway health via HTTP
+  if curl -s -o /dev/null -w '' --connect-timeout 5 "http://localhost:18789/health" 2>/dev/null; then
+    echo "[WATCHDOG] Gateway: OK (HTTP health check)"
+  else
+    echo "[WATCHDOG] ALERT: Gateway HTTP health check failed!"
+    send_alert "gateway" "0"
+    # Attempt auto-restart via launchctl
+    launchctl kickstart -k "gui/$(id -u)/com.openclaw.gateway" 2>/dev/null || true
+  fi
+
+  # Check dashboard health via HTTP
+  if curl -s -o /dev/null -w '' --connect-timeout 5 "http://localhost:3000" 2>/dev/null; then
+    echo "[WATCHDOG] Dashboard: OK (HTTP health check)"
+  else
+    echo "[WATCHDOG] ALERT: Dashboard HTTP health check failed!"
+    send_alert "dashboard" "0"
+    # Attempt auto-restart via launchctl
+    launchctl kickstart -k "gui/$(id -u)/com.openclaw.dashboard" 2>/dev/null || true
+  fi
+}
+
+echo "[WATCHDOG] $(date '+%Y-%m-%d %H:%M:%S') — Starting checks..."
+
+# Check agent heartbeats
 for agent in "${AGENTS[@]}"; do
   check_agent "$agent"
 done
 
-# Check gateway health
-if command -v openclaw &> /dev/null; then
-  if openclaw gateway call health --json > /dev/null 2>&1; then
-    echo "[WATCHDOG] Gateway: OK"
-  else
-    echo "[WATCHDOG] ALERT: Gateway unreachable!"
-    send_alert "gateway" "0"
-  fi
-fi
+# Check service health (gateway + dashboard)
+check_service_health
+
+# Rotate activity log if needed
+rotate_activity_log
 
 echo "[WATCHDOG] Check complete."

@@ -1,5 +1,11 @@
 # HEARTBEAT.md - Periodic Tasks
 
+## Timing
+
+Record the current epoch milliseconds at the very start of the heartbeat (before any other work).
+At the end, compute `duration_ms = end_epoch_ms - start_epoch_ms`. Use this value in the activity log.
+Never hardcode or estimate `duration_ms`.
+
 ## State Management
 
 Before starting, read `heartbeat-state.json` from this agent's directory. Use it to:
@@ -9,10 +15,18 @@ Before starting, read `heartbeat-state.json` from this agent's directory. Use it
 
 After completing all steps, write the updated state back to `heartbeat-state.json`.
 
+## State Cleanup
+
+Remove any entries from `processedMessages` that reference files no longer present in `shared/inbox/main/`. This prevents unbounded state growth.
+
+## Resilience
+
+If any step fails (tool not found, command error, timeout), log the failure and continue to the next step. Never abort the entire heartbeat because one step failed. Record which steps succeeded and which failed in the activity log's `details` field.
+
 ## Routine Checks
 
-1. **Email triage** - Run `himalaya list -s unseen` to check for unread/urgent messages. Summarize anything important.
-2. **Calendar** - Check today's upcoming events via `gog cal today`. Flag anything in the next 2 hours.
+1. **Email triage** - Run `himalaya list -s unseen` to check for unread/urgent messages. Summarize anything important. If himalaya is not configured, skip gracefully.
+2. **Calendar** - Check today's upcoming events via `gog cal today`. Flag anything in the next 2 hours. If gog is not configured, skip gracefully.
 3. **Weather** - Quick weather check for current location if relevant to upcoming plans.
 
 ## Self-Improvement
@@ -26,13 +40,20 @@ After completing all steps, write the updated state back to `heartbeat-state.jso
 7. **Check inbox** - Read all `*.json` files in `shared/inbox/main/`. Process unread messages by priority (urgent first). Update each message's `status` to `"read"` or `"actioned"`. Reply by writing to the sender's inbox if needed. See `shared/PROTOCOL.md` for format.
 8. **Pipeline orchestration** - If an inbox message is part of a pipeline (has `pipeline` field), check `shared/pipelines/` for the pipeline definition and route the next step to the appropriate agent.
 
+## Daily Briefing
+
+9. **Daily briefing** - Check `heartbeat-state.json` for `lastBriefingDate`. If it is not today's date (YYYY-MM-DD):
+    - Read `shared/pipelines/daily-briefing.json` and execute its steps in order.
+    - After completion, update `lastBriefingDate` to today's date in `heartbeat-state.json`.
+    - This ensures the briefing runs exactly once per day, on the first heartbeat of the day.
+
 ## Workspace Hygiene
 
-9. **Git status** - Check `git -C ~/openclaw-agents status`. If there are uncommitted changes, commit and push via `~/openclaw-agents/scripts/push.sh`.
+10. **Git status** - Check `git -C ~/openclaw-agents status`. If there are uncommitted changes, commit and push via `~/openclaw-agents/scripts/push.sh`.
 
 ## Power Workflows
 
-10. **Workflow dispatch** - If the user sends one of these trigger phrases, read the matching workflow definition from `shared/workflows/` and execute its steps in order:
+11. **Workflow dispatch** - If the user sends one of these trigger phrases, read the matching workflow definition from `shared/workflows/` and execute its steps in order:
     - `"prep my day"` → `shared/workflows/prep-my-day.json`
     - `"what needs attention"` → `shared/workflows/needs-attention.json`
     - `"clean workspace"` → `shared/workflows/clean-workspace.json`
@@ -43,7 +64,7 @@ After completing all steps, write the updated state back to `heartbeat-state.jso
 
 ## Logging
 
-11. **Activity log** - After completing all steps, append one JSONL line to `shared/logs/activity.jsonl`:
+12. **Activity log** - After completing all steps, append one JSONL line to `shared/logs/activity.jsonl`:
     ```json
-    {"timestamp":"...","type":"heartbeat","agent":"main","inbox_processed":N,"duration_ms":N}
+    {"timestamp":"...","type":"heartbeat","agent":"main","inbox_processed":N,"duration_ms":N,"details":{"steps_ok":[...],"steps_failed":[...]}}
     ```

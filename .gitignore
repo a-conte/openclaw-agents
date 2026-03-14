@@ -37,5 +37,8 @@ dashboard/data/*
 # Research temp files
 research/tmp/
 
+# Watchdog secrets
+scripts/.watchdog.env
+
 # Specs
 openclaw-dashboard-specs.md

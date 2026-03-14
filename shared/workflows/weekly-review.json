@@ -1,6 +1,6 @@
 {
   "name": "Weekly Review",
-  "description": "Summarize the week's merged PRs, closed issues, and research findings",
+  "description": "Summarize the week's merged PRs, closed issues, research findings, and security posture",
   "trigger": "cron",
   "schedule": "0 18 * * 0",
   "keyword": "weekly review",
@@ -8,7 +8,7 @@
   "steps": [
     {
       "agent": "dev",
-      "action": "For each repo in shared/repos.json: list PRs merged this week (`gh pr list --state merged --search 'merged:>={{7_DAYS_AGO}}'`), closed issues, and notable commits. Write findings to shared/inbox/main/ with subject 'Weekly Dev Summary'.",
+      "action": "For each repo in shared/repos.json: list PRs merged this week (`gh pr list --state merged --search 'merged:>={{7_DAYS_AGO}}'`), closed issues, notable commits, and current CI status. Write findings to shared/inbox/main/ with subject 'Weekly Dev Summary'.",
       "passOutput": true
     },
     {
@@ -17,8 +17,18 @@
       "passOutput": true
     },
     {
+      "agent": "ai-research",
+      "action": "Compile this week's notable AI research findings: new model releases, significant papers, industry moves. Highlight top 3-5 items. Write to shared/inbox/main/ with subject 'Weekly AI Research Summary'.",
+      "passOutput": true
+    },
+    {
+      "agent": "security",
+      "action": "Compile this week's security posture: any alerts triggered, scans completed, open issues, and current threat landscape. Write to shared/inbox/main/ with subject 'Weekly Security Summary'.",
+      "passOutput": true
+    },
+    {
       "agent": "main",
-      "action": "Read weekly summaries from dev and research. Compile into a 'Week in Review' report covering: (1) code shipped, (2) issues resolved, (3) notable research/news, (4) upcoming priorities. Send to Anthony via Telegram.",
+      "action": "Read weekly summaries from dev, research, ai-research, and security. Compile into a 'Week in Review' report covering: (1) code shipped, (2) issues resolved, (3) notable research/news, (4) security posture, (5) upcoming priorities. Send to Anthony via Telegram.",
       "passOutput": false
     }
   ]

@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-json:
+    name: Validate JSON configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate workflow JSON files
+        run: |
+          echo "Validating shared/workflows/*.json..."
+          for f in shared/workflows/*.json; do
+            if ! python3 -m json.tool "$f" > /dev/null 2>&1; then
+              echo "INVALID JSON: $f"
+              python3 -m json.tool "$f"
+              exit 1
+            fi
+            echo "  OK: $f"
+          done
+
+      - name: Validate pipeline JSON files
+        run: |
+          echo "Validating shared/pipelines/*.json..."
+          for f in shared/pipelines/*.json; do
+            if ! python3 -m json.tool "$f" > /dev/null 2>&1; then
+              echo "INVALID JSON: $f"
+              python3 -m json.tool "$f"
+              exit 1
+            fi
+            echo "  OK: $f"
+          done
+
+      - name: Validate repos.json
+        run: python3 -m json.tool shared/repos.json > /dev/null
+
+  dashboard:
+    name: Dashboard type check & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: dashboard/package-lock.json
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx next lint
