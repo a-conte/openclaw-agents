@@ -3,6 +3,11 @@
 ## Email & Calendar
 - **himalaya** - IMAP/SMTP email (antconte92@gmail.com). Never send without approval.
 - **gog** - Google Workspace CLI (Gmail, Calendar, Drive, Contacts, Sheets, Docs)
+- **Known config check:**
+  - `himalaya --output json envelope list 'flag unseen'`
+  - If missing config, error points to: `~/Library/Application Support/himalaya/config.toml`
+  - `gog auth status --json --results-only --no-input`
+  - If missing config, expected file is: `~/Library/Application Support/gogcli/config.json`
 
 ## Notes & Documents
 - **apple-notes** - Apple Notes via `memo` CLI
@@ -31,6 +36,7 @@
 - **github** - GitHub ops via `gh` CLI (issues, PRs, CI)
 - **gh-issues** - Fetch issues, spawn agents for fixes, open PRs
 - **coding-agent** - Delegate coding tasks to Codex/Claude Code/Pi
+- **Useful repo check:** `git -C ~/openclaw-agents status --short --branch`
 
 ## Research & Web
 - **weather** - Weather via wttr.in / Open-Meteo
@@ -40,6 +46,11 @@
 - **summarize** - Summarize URLs, podcasts, transcripts
 - **wikipedia-oc** - Wikipedia search and summarization
 - **gemini** - Gemini CLI for Q&A and generation
+- **Reliable local weather fallback:**
+  - `python3 - <<'PY'
+import urllib.request
+print(urllib.request.urlopen('https://wttr.in/?format=j1', timeout=20).read().decode())
+PY`
 
 ## Smart Home & IoT
 - **openhue** - Philips Hue lights
@@ -71,6 +82,11 @@
 - **healthcheck** - Host security hardening
 - **gotify** - Push notifications
 - **oracle** - Prompt bundling CLI
+- **Recent session-log patterns:**
+  - List recent session files:
+    `for f in ~/.openclaw/agents/main/sessions/*.jsonl; do date=$(head -1 "$f" | jq -r '.timestamp' | cut -dT -f1); size=$(ls -lh "$f" | awk '{print $5}'); echo "$date $size $(basename "$f")"; done | sort -r | head -20`
+  - Tool usage breakdown:
+    `jq -r '.message.content[]? | select(.type=="toolCall") | .name' ~/.openclaw/agents/main/sessions/*.jsonl | sort | uniq -c | sort -rn | head -30`
 
 ## Memory
 - **memoclaw** - Semantic vector memory service

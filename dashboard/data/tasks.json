@@ -42,5 +42,93 @@
     "order": 0,
     "createdAt": "2026-03-14T05:22:28.984Z",
     "updatedAt": "2026-03-14T05:25:12.869Z"
+  },
+  {
+    "id": "1be2bc5c-b0cd-4734-9800-5632b50a5823",
+    "title": "Agent health monitoring",
+    "description": "Track agent response times and error rates, alert on degradation",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "main",
+    "labels": [
+      "auto-suggested"
+    ],
+    "order": 2,
+    "createdAt": "2026-03-12T08:20:33.418Z",
+    "updatedAt": "2026-03-12T08:20:33.418Z"
+  },
+  {
+    "id": "89b06ea1-12f3-457f-a313-50a1298253bb",
+    "title": "Model benchmark tracking",
+    "description": "Monitor new model releases and benchmark scores weekly",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "ai-research",
+    "labels": [
+      "auto-suggested"
+    ],
+    "order": 3,
+    "createdAt": "2026-03-12T08:25:23.711Z",
+    "updatedAt": "2026-03-12T08:25:23.711Z"
+  },
+  {
+    "id": "905aef48-76f5-4597-82ca-bf29a253868d",
+    "title": "Paper digest",
+    "description": "Scan arxiv for relevant AI/ML papers and summarize key findings",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "ai-research",
+    "labels": [
+      "auto-suggested",
+      "stale"
+    ],
+    "order": 4,
+    "createdAt": "2026-03-12T08:32:19.025Z",
+    "updatedAt": "2026-03-12T22:33:44.474Z"
+  },
+  {
+    "id": "77edfbb2-02fa-4a93-b371-bf49c8671015",
+    "title": "Could contribute to \"Clean Workspace\"",
+    "description": "Involves documentation or content",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "docs",
+    "labels": [
+      "auto-suggested",
+      "stale"
+    ],
+    "order": 5,
+    "createdAt": "2026-03-12T08:33:00.281Z",
+    "updatedAt": "2026-03-12T22:33:44.474Z"
+  },
+  {
+    "id": "9b9a92a9-a752-4510-a6d6-55f3c6e28478",
+    "title": "Could contribute to \"Daily Briefing\"",
+    "description": "Involves code or infrastructure",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "dev",
+    "labels": [
+      "auto-suggested",
+      "stale"
+    ],
+    "order": 6,
+    "createdAt": "2026-03-12T08:37:50.275Z",
+    "updatedAt": "2026-03-12T22:33:44.474Z"
+  },
+  {
+    "id": "280d9351-3e71-4575-bb80-1d3779a14e05",
+    "title": "Dependency audit",
+    "description": "Weekly check for outdated or vulnerable dependencies",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "dev",
+    "labels": [
+      "auto-suggested",
+      "stale"
+    ],
+    "order": 7,
+    "createdAt": "2026-03-12T08:38:01.462Z",
+    "updatedAt": "2026-03-12T22:33:44.474Z"
   }
 ]
