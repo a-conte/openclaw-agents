@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAgents } from '@/hooks/useAgents';
+import { useAgents, useActivity } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
-import { AGENT_COLORS, AGENT_ROLES, AGENT_EMOJIS } from '@/lib/constants';
-import { getAgentStatus } from '@/lib/utils';
+import { useChatPanel } from '@/components/providers/DashboardProviders';
+import { AGENT_COLORS, AGENT_ROLES, AGENT_EMOJIS, ACTIVE_AGENT_IDS } from '@/lib/constants';
+import { getAgentStatus, relativeTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { Circle, Scroll, Shield, Sword, Sparkles } from 'lucide-react';
+import { Circle, MessageCircle, Scroll, Shield, Sword, Sparkles, Activity, Zap } from 'lucide-react';
+import { useNow } from '@/hooks/useNow';
 
 // --- Grid & Canvas ---
 const PX = 3;
 const GRID_W = 56;
-const GRID_H = 40;
+const GRID_H = 32;
 const T = 8;
 const VW = GRID_W * T;
 const VH = GRID_H * T;
@@ -103,13 +105,13 @@ const QUEST_BUBBLES = [
 
 // Agent positions in the guild hall
 const STATIONS = [
-  { x: 10, y: 10, homeX: 10, homeY: 12 },
-  { x: 18, y: 10, homeX: 18, homeY: 12 },
-  { x: 26, y: 10, homeX: 26, homeY: 12 },
-  { x: 10, y: 20, homeX: 10, homeY: 22 },
-  { x: 18, y: 20, homeX: 18, homeY: 22 },
-  { x: 26, y: 20, homeX: 26, homeY: 22 },
-  { x: 34, y: 10, homeX: 34, homeY: 12 },
+  { x: 10, y: 8, homeX: 10, homeY: 10 },
+  { x: 18, y: 8, homeX: 18, homeY: 10 },
+  { x: 26, y: 8, homeX: 26, homeY: 10 },
+  { x: 10, y: 17, homeX: 10, homeY: 19 },
+  { x: 18, y: 17, homeX: 18, homeY: 19 },
+  { x: 26, y: 17, homeX: 26, homeY: 19 },
+  { x: 34, y: 8, homeX: 34, homeY: 10 },
 ];
 
 // --- Drawing helpers ---
@@ -132,7 +134,6 @@ function drawStoneFloor(ctx: CanvasRenderingContext2D) {
     for (let tx = 0; tx < GRID_W; tx++) {
       const base = (tx + ty) % 2 === 0 ? PAL.floor1 : PAL.floor2;
       px(ctx, tx * T, ty * T, T, T, base);
-      // Stone grout lines
       px(ctx, tx * T, ty * T, T, 1, PAL.wallDark + '40');
       px(ctx, tx * T, ty * T, 1, T, PAL.wallDark + '40');
     }
@@ -145,7 +146,6 @@ function drawWallH(ctx: CanvasRenderingContext2D, tx: number, ty: number, len: n
     const y = ty * T;
     px(ctx, x, y, T, 2, PAL.wallTop);
     px(ctx, x, y + 2, T, T - 2, PAL.wall);
-    // Stone texture
     if ((tx + i) % 3 === 0) {
       px(ctx, x + 1, y + 3, 3, 2, PAL.wallBrick);
       px(ctx, x + 5, y + 5, 2, 2, PAL.wallBrick);
@@ -172,14 +172,12 @@ function drawWallV(ctx: CanvasRenderingContext2D, tx: number, ty: number, len: n
 }
 
 function drawCarpet(ctx: CanvasRenderingContext2D, cx: number, cy: number, cw: number, ch: number) {
-  // Fill
   for (let ty = 0; ty < ch; ty++) {
     for (let tx = 0; tx < cw; tx++) {
       const color = (tx + ty) % 2 === 0 ? PAL.carpet : PAL.carpetB;
       px(ctx, (cx + tx) * T, (cy + ty) * T, T, T, color);
     }
   }
-  // Gold border
   for (let i = 0; i < cw; i++) {
     px(ctx, (cx + i) * T, cy * T, T, 1, PAL.carpetGold);
     px(ctx, (cx + i) * T, (cy + ch) * T - 1, T, 1, PAL.carpetGold);
@@ -193,14 +191,11 @@ function drawCarpet(ctx: CanvasRenderingContext2D, cx: number, cy: number, cw: n
 function drawTorch(ctx: CanvasRenderingContext2D, tx: number, ty: number, tick: number) {
   const x = tx * T;
   const y = ty * T;
-  // Bracket
   px(ctx, x + 3, y + 3, 2, 5, PAL.wallDark);
-  // Flame (animated)
   const flicker = tick % 4;
   px(ctx, x + 2, y, 4, 3, PAL.fire1);
   px(ctx, x + 3, y - 1 - (flicker % 2), 2, 2, PAL.fire2);
   px(ctx, x + 3, y - 2 - (flicker > 1 ? 1 : 0), 1, 1, PAL.fire3);
-  // Glow
   ctx.save();
   ctx.globalAlpha = 0.06 + Math.sin(tick * 0.3) * 0.02;
   ctx.fillStyle = PAL.torch;
@@ -213,42 +208,31 @@ function drawTorch(ctx: CanvasRenderingContext2D, tx: number, ty: number, tick: 
 function drawBanner(ctx: CanvasRenderingContext2D, tx: number, ty: number, color: string) {
   const x = tx * T;
   const y = ty * T;
-  // Banner rod
   px(ctx, x, y, T, 1, PAL.gold);
-  // Banner body (tapers to point)
   px(ctx, x + 1, y + 1, T - 2, T * 2 - 2, color);
   px(ctx, x + 2, y + 1, T - 4, T * 2 - 2, color);
-  // Banner point
   px(ctx, x + 2, y + T * 2 - 1, 1, 1, color);
   px(ctx, x + T - 3, y + T * 2 - 1, 1, 1, color);
   px(ctx, x + 3, y + T * 2, 1, 1, color);
   px(ctx, x + T - 4, y + T * 2, 1, 1, color);
-  // Emblem (simple diamond)
-  const cx = x + T / 2;
-  const cy = y + T;
-  px(ctx, cx, cy - 2, 1, 1, PAL.gold);
-  px(ctx, cx - 1, cy - 1, 3, 1, PAL.gold);
-  px(ctx, cx - 2, cy, 5, 1, PAL.gold);
-  px(ctx, cx - 1, cy + 1, 3, 1, PAL.gold);
-  px(ctx, cx, cy + 2, 1, 1, PAL.gold);
+  const cx2 = x + T / 2;
+  const cy2 = y + T;
+  px(ctx, cx2, cy2 - 2, 1, 1, PAL.gold);
+  px(ctx, cx2 - 1, cy2 - 1, 3, 1, PAL.gold);
+  px(ctx, cx2 - 2, cy2, 5, 1, PAL.gold);
+  px(ctx, cx2 - 1, cy2 + 1, 3, 1, PAL.gold);
+  px(ctx, cx2, cy2 + 2, 1, 1, PAL.gold);
 }
 
 function drawWorkbench(ctx: CanvasRenderingContext2D, tx: number, ty: number, agentColor: string, isActive: boolean) {
   const x = tx * T;
   const y = ty * T;
-
-  // Table surface
   px(ctx, x - T, y, T * 3, T, PAL.wood);
   px(ctx, x - T + 1, y + 1, T * 3 - 2, T - 3, PAL.woodLight);
-  px(ctx, x - T, y + T - 1, T * 3, 1, PAL.woodDark); // shadow edge
-
-  // Table legs
+  px(ctx, x - T, y + T - 1, T * 3, 1, PAL.woodDark);
   px(ctx, x - T + 1, y + T, 2, 3, PAL.woodDark);
   px(ctx, x + T * 2 - 3, y + T, 2, 3, PAL.woodDark);
-
-  // Crystal ball / scrying orb (instead of monitor)
   if (isActive) {
-    // Glowing orb
     ctx.save();
     ctx.globalAlpha = 0.15;
     ctx.fillStyle = agentColor;
@@ -258,7 +242,6 @@ function drawWorkbench(ctx: CanvasRenderingContext2D, tx: number, ty: number, ag
     ctx.restore();
     px(ctx, x + 1, y - 4, T - 2, 4, agentColor + '80');
     px(ctx, x + 2, y - 3, T - 4, 2, agentColor + 'bb');
-    // Sparkle
     if (Math.random() > 0.5) {
       px(ctx, x + 2 + Math.floor(Math.random() * 3), y - 3, 1, 1, '#fff');
     }
@@ -266,21 +249,16 @@ function drawWorkbench(ctx: CanvasRenderingContext2D, tx: number, ty: number, ag
     px(ctx, x + 1, y - 4, T - 2, 4, PAL.crystal + '60');
     px(ctx, x + 2, y - 3, T - 4, 2, PAL.crystal + '40');
   }
-  // Orb stand
   px(ctx, x + 3, y - 1, 2, 1, PAL.goldDark);
-
-  // Scattered items on desk
-  px(ctx, x - T + 2, y + 2, 3, 2, PAL.bookRed); // book
-  px(ctx, x + T + 2, y + 3, 2, 3, PAL.gold + '80'); // scroll
+  px(ctx, x - T + 2, y + 2, 3, 2, PAL.bookRed);
+  px(ctx, x + T + 2, y + 3, 2, 3, PAL.gold + '80');
 }
 
 function drawBookshelf(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   const x = tx * T;
   const y = ty * T;
-  // Shelf frame
   px(ctx, x, y, T * 3, T, PAL.wood);
   px(ctx, x + 1, y + 1, T * 3 - 2, T - 2, PAL.woodDark);
-  // Books
   const books = [
     { dx: 1, w: 2, h: 5, c: PAL.bookRed },
     { dx: 3, w: 2, h: 6, c: PAL.bookBlue },
@@ -300,7 +278,6 @@ function drawPotionShelf(ctx: CanvasRenderingContext2D, tx: number, ty: number) 
   const y = ty * T;
   px(ctx, x, y, T * 2, T, PAL.wood);
   px(ctx, x + 1, y + 1, T * 2 - 2, T - 2, PAL.woodDark);
-  // Potion bottles
   px(ctx, x + 2, y + 2, 2, 4, PAL.potion1);
   px(ctx, x + 2, y + 1, 2, 1, PAL.potion1 + '80');
   px(ctx, x + 6, y + 3, 2, 3, PAL.potion2);
@@ -313,10 +290,8 @@ function drawPotionShelf(ctx: CanvasRenderingContext2D, tx: number, ty: number) 
 function drawQuestBoard(ctx: CanvasRenderingContext2D, tx: number, ty: number, activeQuests: number) {
   const x = tx * T;
   const y = ty * T;
-  // Board frame
   px(ctx, x, y, T * 3, T * 2, PAL.wood);
   px(ctx, x + 1, y + 1, T * 3 - 2, T * 2 - 2, PAL.woodDark);
-  // "Papers" pinned to board
   const papers = [
     { dx: 2, dy: 2, w: 5, h: 4, c: '#d4c8a8' },
     { dx: 8, dy: 3, w: 4, h: 5, c: '#c8bca0' },
@@ -328,14 +303,12 @@ function drawQuestBoard(ctx: CanvasRenderingContext2D, tx: number, ty: number, a
   for (let i = 0; i < papers.length; i++) {
     const p = papers[i];
     if (i < activeQuests) {
-      // Active quest — has a colored pin
       px(ctx, x + p.dx, y + p.dy, p.w, p.h, p.c);
-      px(ctx, x + p.dx + 1, y + p.dy, 1, 1, '#cc3333'); // red pin
+      px(ctx, x + p.dx + 1, y + p.dy, 1, 1, '#cc3333');
     } else {
       px(ctx, x + p.dx, y + p.dy, p.w, p.h, p.c + '40');
     }
   }
-  // "QUESTS" header
 }
 
 function drawTreasureChest(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
@@ -344,24 +317,19 @@ function drawTreasureChest(ctx: CanvasRenderingContext2D, tx: number, ty: number
   px(ctx, x, y + 2, T, T - 2, PAL.woodDark);
   px(ctx, x + 1, y + 3, T - 2, T - 4, PAL.wood);
   px(ctx, x, y + 2, T, 2, PAL.woodLight);
-  // Lock
   px(ctx, x + 3, y + 4, 2, 2, PAL.gold);
 }
 
 function drawFireplace(ctx: CanvasRenderingContext2D, tx: number, ty: number, tick: number) {
   const x = tx * T;
   const y = ty * T;
-  // Stone frame
   px(ctx, x, y, T * 3, T * 2, PAL.stone);
   px(ctx, x + 1, y, T * 3 - 2, 2, PAL.stoneDark);
-  // Opening
   px(ctx, x + 3, y + 4, T * 3 - 6, T * 2 - 5, PAL.black);
-  // Fire (animated)
   const f = tick % 3;
   px(ctx, x + 5, y + T + 2, T - 2, 4, PAL.fire1);
   px(ctx, x + 6, y + T + 1 - f % 2, T - 4, 3, PAL.fire2);
   px(ctx, x + 7, y + T - f, T - 6, 2, PAL.fire3);
-  // Warm glow
   ctx.save();
   ctx.globalAlpha = 0.04 + Math.sin(tick * 0.2) * 0.02;
   ctx.fillStyle = PAL.torch;
@@ -383,19 +351,13 @@ function drawLabel(ctx: CanvasRenderingContext2D, vx: number, vy: number, text: 
   const bh = fontSize + padY * 2;
   const bx = vx * PX - bw / 2;
   const by = vy * PX - fontSize - padY;
-
-  // Dark plate behind text
   ctx.fillStyle = 'rgba(13,11,9,0.75)';
   ctx.beginPath();
   ctx.roundRect(bx, by, bw, bh, 2 * PX);
   ctx.fill();
-
-  // Gold border
   ctx.strokeStyle = PAL.goldDark;
   ctx.lineWidth = PX;
   ctx.stroke();
-
-  // Bright text
   ctx.fillStyle = PAL.gold;
   ctx.fillText(text, vx * PX, vy * PX);
   ctx.restore();
@@ -407,24 +369,19 @@ function drawAgent(ctx: CanvasRenderingContext2D, vx: number, vy: number, color:
   const dark = `rgb(${Math.floor(r * 0.5)},${Math.floor(g * 0.5)},${Math.floor(b * 0.5)})`;
   const mid = `rgb(${Math.floor(r * 0.75)},${Math.floor(g * 0.75)},${Math.floor(b * 0.75)})`;
 
-  // Shadow
   px(ctx, vx + 1, vy + 12, 6, 1, 'rgba(0,0,0,0.25)');
 
-  // Boots
   const step = frame % 4;
   const leftOff = step < 2 ? 0 : 1;
   const rightOff = step < 2 ? 1 : 0;
   px(ctx, vx + 1, vy + 10 + leftOff, 2, 2 - leftOff, PAL.woodDark);
   px(ctx, vx + 5, vy + 10 + rightOff, 2, 2 - rightOff, PAL.woodDark);
 
-  // Cloak/robe body
   px(ctx, vx + 1, vy + 5, 6, 5, mid);
   px(ctx, vx + 2, vy + 5, 4, 5, color);
 
-  // Belt
   px(ctx, vx + 1, vy + 7, 6, 1, PAL.goldDark);
 
-  // Arms
   const armBob = frame % 2;
   if (isWorking) {
     px(ctx, vx, vy + 5, 1, 3, mid);
@@ -434,21 +391,16 @@ function drawAgent(ctx: CanvasRenderingContext2D, vx: number, vy: number, color:
     px(ctx, vx + 7, vy + 6 - armBob, 1, 3, mid);
   }
 
-  // Head
   px(ctx, vx + 1, vy + 1, 6, 4, PAL.skin);
-
-  // Hood/hair
   px(ctx, vx + 1, vy, 6, 2, dark);
   px(ctx, vx, vy + 1, 1, 2, dark);
   px(ctx, vx + 7, vy + 1, 1, 2, dark);
 
-  // Face
   if (dir !== 1) {
     px(ctx, vx + 2, vy + 2, 1, 1, PAL.black);
     px(ctx, vx + 5, vy + 2, 1, 1, PAL.black);
   }
 
-  // Class indicator — small colored particle above head when working
   if (isWorking) {
     ctx.save();
     ctx.globalAlpha = 0.5 + Math.sin(frame * 0.5) * 0.3;
@@ -460,7 +412,6 @@ function drawAgent(ctx: CanvasRenderingContext2D, vx: number, vy: number, color:
 function drawBubble(ctx: CanvasRenderingContext2D, vx: number, vy: number, text: string, alpha: number) {
   ctx.save();
   ctx.globalAlpha = alpha;
-
   const fontSize = 6 * PX;
   ctx.font = `${fontSize}px monospace`;
   const textW = ctx.measureText(text).width;
@@ -470,8 +421,6 @@ function drawBubble(ctx: CanvasRenderingContext2D, vx: number, vy: number, text:
   const bh = fontSize + padY * 2;
   const bx = (vx + 4) * PX - bw / 2;
   const by = (vy - 12) * PX;
-
-  // Parchment-style bubble
   ctx.fillStyle = '#3a3228';
   ctx.strokeStyle = PAL.goldDark;
   ctx.lineWidth = PX;
@@ -479,18 +428,27 @@ function drawBubble(ctx: CanvasRenderingContext2D, vx: number, vy: number, text:
   ctx.roundRect(bx, by, bw, bh, 2 * PX);
   ctx.fill();
   ctx.stroke();
-
-  // Tail
   ctx.beginPath();
   ctx.moveTo((vx + 2) * PX, by + bh);
   ctx.lineTo((vx + 4) * PX, by + bh + 3 * PX);
   ctx.lineTo((vx + 6) * PX, by + bh);
   ctx.fillStyle = '#3a3228';
   ctx.fill();
-
   ctx.fillStyle = PAL.text;
   ctx.textAlign = 'center';
   ctx.fillText(text, (vx + 4) * PX, by + padY + fontSize - PX);
+  ctx.restore();
+}
+
+// --- Highlight ring for selected/hovered agent in canvas ---
+function drawHighlight(ctx: CanvasRenderingContext2D, vx: number, vy: number, color: string, tick: number) {
+  ctx.save();
+  ctx.globalAlpha = 0.3 + Math.sin(tick * 0.15) * 0.15;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = PX;
+  ctx.beginPath();
+  ctx.ellipse((vx + 4) * PX, (vy + 12) * PX, 7 * PX, 3 * PX, 0, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -502,11 +460,22 @@ export default function OfficePage() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const { agents } = useAgents();
   const { tasks } = useTasks();
+  const { events } = useActivity();
+  const { openChat } = useChatPanel();
+  const { now, hydrated } = useNow();
   const animFrameRef = useRef<number>(0);
   const tickRef = useRef(0);
 
-  // Count active quests
   const activeQuests = tasks.filter((t: any) => t.status === 'in_progress' || t.status === 'todo').length;
+  const completedQuests = tasks.filter((t: any) => t.status === 'done').length;
+
+  const agentList = agents.map((a: any) => {
+    const lastActivity = a.sessions?.recent?.[0]?.updatedAt;
+    const status = getAgentStatus(lastActivity);
+    return { ...a, status, lastActivity };
+  });
+
+  const onlineCount = agentList.filter((a: any) => a.status === 'online').length;
 
   useEffect(() => {
     const existing = spritesRef.current;
@@ -567,7 +536,7 @@ export default function OfficePage() {
           sprite.dir = 1;
         } else {
           if (tickRef.current % 50 === 0 && Math.random() < 0.35) {
-            const wanderR = 28;
+            const wanderR = 24;
             sprite.targetX = sprite.homeX + (Math.random() - 0.5) * wanderR * 2;
             sprite.targetY = sprite.homeY + (Math.random() - 0.5) * wanderR * 2;
             sprite.targetX = Math.max(T * 3, Math.min(sprite.targetX, (GRID_W - 3) * T));
@@ -604,47 +573,37 @@ export default function OfficePage() {
       const tick = tickRef.current;
       ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // Stone floor
       drawStoneFloor(ctx);
 
-      // Carpets
-      drawCarpet(ctx, 6, 7, 31, 18);
-      drawCarpet(ctx, 40, 7, 12, 10);
+      drawCarpet(ctx, 6, 5, 31, 16);
+      drawCarpet(ctx, 40, 5, 12, 10);
 
-      // Walls
       drawWallH(ctx, 0, 0, GRID_W);
       drawWallH(ctx, 0, GRID_H - 1, GRID_W);
       drawWallV(ctx, 0, 1, GRID_H - 2);
       drawWallV(ctx, GRID_W - 1, 1, GRID_H - 2);
 
-      // Interior wall dividing main hall from war room
-      drawWallV(ctx, 38, 1, 5);
-      drawWallV(ctx, 38, 8, 10); // doorway gap at y=6-7
-      drawWallV(ctx, 38, 20, GRID_H - 21);
+      drawWallV(ctx, 38, 1, 4);
+      drawWallV(ctx, 38, 7, 8);
+      drawWallV(ctx, 38, 17, GRID_H - 18);
 
-      // War room top/bottom walls
-      drawWallH(ctx, 38, 6, GRID_W - 39);
-      drawWallH(ctx, 38, 18, GRID_W - 39);
+      drawWallH(ctx, 38, 5, GRID_W - 39);
+      drawWallH(ctx, 38, 16, GRID_W - 39);
 
-      // --- Furniture ---
-      // Fireplace (center top wall)
       drawFireplace(ctx, 17, 1, tick);
 
-      // Torches along walls
       drawTorch(ctx, 6, 2, tick);
       drawTorch(ctx, 14, 2, tick);
       drawTorch(ctx, 22, 2, tick);
       drawTorch(ctx, 30, 2, tick);
-      drawTorch(ctx, 2, 15, tick);
-      drawTorch(ctx, 2, 25, tick);
-      drawTorch(ctx, 35, 15, tick);
-      drawTorch(ctx, 35, 25, tick);
+      drawTorch(ctx, 2, 14, tick);
+      drawTorch(ctx, 2, 22, tick);
+      drawTorch(ctx, 35, 14, tick);
+      drawTorch(ctx, 35, 22, tick);
 
-      // Banners on walls
       drawBanner(ctx, 8, 2, PAL.banner);
       drawBanner(ctx, 28, 2, PAL.bannerDark);
 
-      // Workbenches
       const sprites = spritesRef.current;
       for (let i = 0; i < STATIONS.length; i++) {
         const ws = STATIONS[i];
@@ -654,40 +613,35 @@ export default function OfficePage() {
         drawWorkbench(ctx, ws.x, ws.y, color, isActive);
       }
 
-      // Bookshelves along walls
       drawBookshelf(ctx, 3, 3);
       drawBookshelf(ctx, 32, 3);
-      drawBookshelf(ctx, 3, 28);
+      drawBookshelf(ctx, 3, 24);
 
-      // Potion shelf
-      drawPotionShelf(ctx, 33, 28);
-
-      // Quest board (left wall)
-      drawQuestBoard(ctx, 3, 32, activeQuests);
-
-      // Treasure chest
-      drawTreasureChest(ctx, 34, 32);
+      drawPotionShelf(ctx, 33, 24);
+      drawQuestBoard(ctx, 3, 26, activeQuests);
+      drawTreasureChest(ctx, 34, 26);
 
       // War room table
       const warTableX = 42;
-      const warTableY = 10;
+      const warTableY = 8;
       px(ctx, warTableX * T, warTableY * T, T * 5, T * 3, PAL.wood);
       px(ctx, warTableX * T + 1, warTableY * T + 1, T * 5 - 2, T * 3 - 2, PAL.woodDark);
-      // Map on table
       px(ctx, warTableX * T + 3, warTableY * T + 3, T * 5 - 6, T * 3 - 6, '#c4b898');
-      px(ctx, warTableX * T + 6, warTableY * T + 5, 8, 5, '#8b7060'); // terrain
-      px(ctx, warTableX * T + 18, warTableY * T + 8, 5, 4, '#607080'); // water
-      // War room torch
-      drawTorch(ctx, 50, 8, tick);
-      drawTorch(ctx, 50, 15, tick);
+      px(ctx, warTableX * T + 6, warTableY * T + 5, 8, 5, '#8b7060');
+      px(ctx, warTableX * T + 18, warTableY * T + 8, 5, 4, '#607080');
+      drawTorch(ctx, 50, 7, tick);
+      drawTorch(ctx, 50, 13, tick);
 
-      // Room labels
       drawLabel(ctx, 21 * T, (GRID_H - 2) * T, 'GUILD HALL');
-      drawLabel(ctx, 46 * T, 19 * T - 2, 'WAR ROOM');
+      drawLabel(ctx, 46 * T, 17 * T - 2, 'WAR ROOM');
 
-      // --- Draw agents (sorted by Y for overlap) ---
+      // Draw agents (sorted by Y for overlap)
       const sorted = [...sprites].sort((a, b) => a.y - b.y);
       for (const sprite of sorted) {
+        // Highlight selected agent
+        if (selectedAgent === sprite.id) {
+          drawHighlight(ctx, sprite.x, sprite.y, sprite.color, tick);
+        }
         drawAgent(ctx, sprite.x, sprite.y, sprite.color, sprite.frame, sprite.dir, sprite.state === 'questing');
         if (sprite.bubble && sprite.bubbleTimer > 0) {
           const alpha = sprite.bubbleTimer < 15 ? sprite.bubbleTimer / 15 : 1;
@@ -719,11 +673,12 @@ export default function OfficePage() {
 
     animFrameRef.current = requestAnimationFrame(loop);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [activeQuests]);
+  }, [activeQuests, selectedAgent]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Hit-test for canvas clicks and hovers
+  const hitTestSprite = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const scaleX = CANVAS_W / rect.width;
     const scaleY = CANVAS_H / rect.height;
@@ -731,37 +686,54 @@ export default function OfficePage() {
     const my = (e.clientY - rect.top) * scaleY / PX;
 
     const sprites = spritesRef.current;
-    let found = false;
     for (const sprite of sprites) {
       if (mx >= sprite.x - 2 && mx <= sprite.x + 10 && my >= sprite.y - 2 && my <= sprite.y + 14) {
-        setTooltip({ x: e.clientX, y: e.clientY, id: sprite.id, state: sprite.state });
-        found = true;
-        break;
+        return sprite;
       }
     }
-    if (!found) setTooltip(null);
+    return null;
   }, []);
 
-  const agentList = agents.map((a: any) => {
-    const lastActivity = a.sessions?.recent?.[0]?.updatedAt;
-    const status = getAgentStatus(lastActivity);
-    return { ...a, status };
-  });
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const sprite = hitTestSprite(e);
+    if (sprite) {
+      setTooltip({ x: e.clientX, y: e.clientY, id: sprite.id, state: sprite.state });
+      (e.target as HTMLCanvasElement).style.cursor = 'pointer';
+    } else {
+      setTooltip(null);
+      (e.target as HTMLCanvasElement).style.cursor = 'default';
+    }
+  }, [hitTestSprite]);
 
-  // Per-agent quest counts
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const sprite = hitTestSprite(e);
+    if (sprite) {
+      setSelectedAgent(sprite.id);
+      openChat(sprite.id);
+    }
+  }, [hitTestSprite, openChat]);
+
   const agentQuests = (id: string) => tasks.filter((t: any) => t.agentId === id && (t.status === 'in_progress' || t.status === 'todo'));
 
   return (
     <div className="p-6 overflow-auto h-full">
-      <div className="mb-6">
-        <h1 className="text-lg font-bold text-text-primary tracking-tight">Guild Hall</h1>
-        <p className="text-sm text-text-tertiary mt-1">
-          {activeQuests} active quest{activeQuests !== 1 ? 's' : ''} &middot; {agentList.length} heroes
-        </p>
+      {/* Stats bar */}
+      <div className="flex items-center gap-6 mb-5">
+        <div>
+          <h1 className="text-lg font-bold text-text-primary tracking-tight">Guild Hall</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">Click a hero to chat</p>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-4">
+          <StatPill icon={<Zap size={12} />} label="Online" value={hydrated ? onlineCount : '-'} color="text-status-online" />
+          <StatPill icon={<Sword size={12} />} label="Quests" value={activeQuests} color="text-accent" />
+          <StatPill icon={<Shield size={12} />} label="Done" value={completedQuests} color="text-text-tertiary" />
+        </div>
       </div>
 
-      <div className="flex gap-6 flex-col xl:flex-row">
-        <div className="flex-1 min-w-0">
+      <div className="flex gap-5 flex-col xl:flex-row">
+        {/* Canvas */}
+        <div className="flex-1 min-w-0 space-y-4">
           <div className="relative glass bg-surface-1/50 rounded-lg overflow-hidden p-2">
             <canvas
               ref={canvasRef}
@@ -770,7 +742,8 @@ export default function OfficePage() {
               className="w-full rounded"
               style={{ imageRendering: 'pixelated' }}
               onMouseMove={handleMouseMove}
-              onMouseLeave={() => setTooltip(null)}
+              onMouseLeave={() => { setTooltip(null); }}
+              onClick={handleCanvasClick}
             />
 
             {tooltip && (
@@ -797,15 +770,42 @@ export default function OfficePage() {
                   <span className="text-[10px] text-text-secondary capitalize">
                     {tooltip.state === 'questing' ? 'On Quest' : 'Resting'}
                   </span>
+                  <span className="text-[10px] text-text-tertiary ml-1">Click to chat</span>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Activity Feed */}
+          <div className="glass bg-surface-1/40 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity size={12} className="text-accent" />
+              <span className="text-[11px] text-text-tertiary uppercase tracking-wider">Activity Feed</span>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {events.length === 0 && (
+                <p className="text-xs text-text-tertiary italic">No recent activity</p>
+              )}
+              {events.slice(0, 10).map((event: any) => (
+                <div key={event.id} className="flex items-start gap-2.5 group">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+                    style={{ backgroundColor: AGENT_COLORS[event.agentId] || '#555' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-text-secondary">{event.message}</span>
+                  </div>
+                  <span className="text-[10px] text-text-tertiary shrink-0">
+                    {hydrated && event.timestamp ? relativeTime(event.timestamp) : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Hero roster + quest log */}
+        {/* Hero roster */}
         <div className="xl:w-80 shrink-0 space-y-4">
-          {/* Hero Cards */}
           <div>
             <div className="flex items-center gap-2 mb-3 px-1">
               <Shield size={12} className="text-text-tertiary" />
@@ -817,67 +817,89 @@ export default function OfficePage() {
                 const cls = AGENT_CLASS[agent.agentId];
                 const quests = agentQuests(agent.agentId);
                 const isSelected = selectedAgent === agent.agentId;
+                const isActive = (ACTIVE_AGENT_IDS as readonly string[]).includes(agent.agentId);
                 return (
-                  <button
+                  <div
                     key={agent.agentId}
-                    onClick={() => setSelectedAgent(isSelected ? null : agent.agentId)}
                     className={cn(
-                      'w-full text-left glass rounded-lg p-3 transition-all duration-200 cursor-pointer',
+                      'glass rounded-lg p-3 transition-all duration-200',
                       isSelected
-                        ? 'bg-surface-2/80'
+                        ? 'bg-surface-2/80 ring-1 ring-accent/30'
                         : 'bg-surface-1/40 hover:bg-surface-2/60'
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-md flex items-center justify-center text-sm"
-                        style={{ backgroundColor: (AGENT_COLORS[agent.agentId] || '#555') + '20' }}
+                      <button
+                        onClick={() => setSelectedAgent(isSelected ? null : agent.agentId)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
                       >
-                        {AGENT_EMOJIS[agent.agentId] || '?'}
+                        <div
+                          className="w-9 h-9 rounded-md flex items-center justify-center text-sm shrink-0"
+                          style={{ backgroundColor: (AGENT_COLORS[agent.agentId] || '#555') + '20' }}
+                        >
+                          {AGENT_EMOJIS[agent.agentId] || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-text-primary">{agent.agentId}</span>
+                            <Circle
+                              size={6}
+                              className={cn(
+                                'fill-current shrink-0',
+                                agent.status === 'online' ? 'text-status-online' :
+                                agent.status === 'warning' ? 'text-status-warning' : 'text-text-tertiary'
+                              )}
+                            />
+                          </div>
+                          <div className="text-[10px] text-text-tertiary mt-0.5 truncate">
+                            {cls?.title || 'Adventurer'}
+                            {hydrated && agent.lastActivity ? ` · ${relativeTime(agent.lastActivity)}` : ''}
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {quests.length > 0 && (
+                          <div className="flex items-center gap-1 text-[10px] text-text-tertiary">
+                            <Scroll size={10} />
+                            <span>{quests.length}</span>
+                          </div>
+                        )}
+                        {isActive && (
+                          <button
+                            onClick={() => openChat(agent.agentId)}
+                            className="p-1.5 rounded-md hover:bg-surface-2/80 text-text-tertiary hover:text-accent transition-colors cursor-pointer"
+                            title={`Chat with ${agent.agentId}`}
+                          >
+                            <MessageCircle size={14} />
+                          </button>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-text-primary">{agent.agentId}</span>
-                          <Circle
-                            size={6}
-                            className={cn(
-                              'fill-current shrink-0',
-                              agent.status === 'online' ? 'text-status-online' :
-                              agent.status === 'warning' ? 'text-status-warning' : 'text-text-tertiary'
-                            )}
-                          />
-                        </div>
-                        <div className="text-[10px] text-accent mt-0.5">
-                          {cls?.title || 'Adventurer'}
-                        </div>
-                      </div>
-                      {quests.length > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-text-tertiary">
-                          <Scroll size={10} />
-                          <span>{quests.length}</span>
-                        </div>
-                      )}
                     </div>
 
-                    {isSelected && quests.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border space-y-1.5">
-                        {quests.slice(0, 3).map((q: any) => (
-                          <div key={q.id} className="flex items-start gap-2">
-                            <Sword size={9} className="text-accent mt-0.5 shrink-0" />
-                            <span className="text-[10px] text-text-secondary leading-tight">{q.title}</span>
+                    {isSelected && (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="text-[10px] text-text-secondary leading-relaxed mb-2">
+                          {AGENT_ROLES[agent.agentId] || 'General purpose agent'}
+                        </p>
+                        {quests.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {quests.slice(0, 3).map((q: any) => (
+                              <div key={q.id} className="flex items-start gap-2">
+                                <Sword size={9} className="text-accent mt-0.5 shrink-0" />
+                                <span className="text-[10px] text-text-secondary leading-tight">{q.title}</span>
+                              </div>
+                            ))}
+                            {quests.length > 3 && (
+                              <div className="text-[10px] text-text-tertiary pl-4">+{quests.length - 3} more</div>
+                            )}
                           </div>
-                        ))}
-                        {quests.length > 3 && (
-                          <div className="text-[10px] text-text-tertiary pl-4">+{quests.length - 3} more</div>
+                        ) : (
+                          <span className="text-[10px] text-text-tertiary italic">No active quests</span>
                         )}
                       </div>
                     )}
-                    {isSelected && quests.length === 0 && (
-                      <div className="mt-2 pt-2 border-t border-border">
-                        <span className="text-[10px] text-text-tertiary italic">No active quests</span>
-                      </div>
-                    )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -915,6 +937,16 @@ export default function OfficePage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatPill({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number | string; color: string }) {
+  return (
+    <div className="flex items-center gap-2 glass bg-surface-1/40 rounded-md px-3 py-1.5">
+      <span className={color}>{icon}</span>
+      <span className="text-[10px] text-text-tertiary uppercase">{label}</span>
+      <span className="text-xs font-bold text-text-primary">{value}</span>
     </div>
   );
 }
