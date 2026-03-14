@@ -1,7 +1,7 @@
 'use client';
 
 import { useAgents } from '@/hooks/useAgents';
-import { AgentGrid } from '@/components/agents/AgentGrid';
+import { AgentOrgChart } from '@/components/agents/AgentOrgChart';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { Bot } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -51,7 +51,7 @@ export default function AgentsPage() {
           description={`No agents match the current workspace filters${filters.focus ? ` (${filters.focus})` : ''}. Try clearing search, agent, or focus.`}
         />
       ) : (
-        <AgentGrid agents={filteredAgents} />
+        <AgentOrgChart agents={filteredAgents} />
       )}
     </div>
   );
