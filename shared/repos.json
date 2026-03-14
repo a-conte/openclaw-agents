@@ -3,7 +3,7 @@
     {
       "owner": "a-conte",
       "name": "openclaw-agents",
-      "local": "~/openclaw-agents",
+      "local": "~/dev/openclaw-agents",
       "watch": ["ci", "prs", "branches"],
       "default_branch": "main"
     }

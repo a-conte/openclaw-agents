@@ -159,7 +159,7 @@ export default function CommandPage() {
       items.push({
         id: 'dirty-repos',
         tone: 'warn',
-        title: `${dirtyRepos.length} repo${dirtyRepos.length === 1 ? '' : 's'} need attention`,
+        title: `${dirtyRepos.length} repo${dirtyRepos.length === 1 ? ' needs' : 's need'} attention`,
         detail: dirtyRepos
           .slice(0, 2)
           .map((repo) => `${repo.owner}/${repo.name} (${repo.status}${repo.uncommittedCount ? `, ${repo.uncommittedCount} changes` : ''})`)
@@ -172,7 +172,7 @@ export default function CommandPage() {
       items.push({
         id: 'stale-tasks',
         tone: 'warn',
-        title: `${overdueTasks.length} in-progress task${overdueTasks.length === 1 ? '' : 's'} look stale`,
+        title: `${overdueTasks.length} in-progress task${overdueTasks.length === 1 ? ' looks' : 's look'} stale`,
         detail: 'These tasks have not been updated in more than 2 hours and may need reassignment or a progress check.',
         href: '/projects',
       });
@@ -182,7 +182,7 @@ export default function CommandPage() {
       items.push({
         id: 'stale-agents',
         tone: 'info',
-        title: `${staleAgents.length} agent${staleAgents.length === 1 ? '' : 's'} are quiet`,
+        title: `${staleAgents.length} agent${staleAgents.length === 1 ? ' is' : 's are'} quiet`,
         detail: staleAgents.slice(0, 3).map((agent) => agent.agentId).join(' · '),
         href: '/agents',
       });
