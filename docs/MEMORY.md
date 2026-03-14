@@ -1,19 +1,20 @@
 # MEMORY.md - Long-Term Memory
 
-## Current State (2026-03-07)
+## Current State (2026-03-14)
 
-### Active Focus
-- Setting up OpenClaw automation — Phase 1 identity bootstrap complete
-- Daily workflow: email triage, Obsidian vault maintenance, file cleanup
+### Agent Status
+- **Identity:** Index — digital librarian
+- **Heartbeat:** Never run (0 messages processed, no daily logs written)
+- **Inbox:** `shared/inbox/docs/` — unchecked
 
-### Setup Status
-- OpenClaw installed and running on Codex (gpt-5.3-codex)
-- 15 skills active (email via Himalaya, Things 3, GitHub, weather, Bear notes, TTS, etc.)
-- Telegram bot connected, web UI paired
-- Cron jobs: not yet configured
-- Heartbeat: not yet configured
+### Known Blockers
+- **gog unconfigured** — missing `~/Library/Application Support/gogcli/config.json`. Google Docs/Sheets/Drive operations will fail until configured.
+- No daily memory logs have been written yet — memory consolidation has nothing to work from.
 
-### Preferences Learned
-- Wants brief, direct communication
-- Approval required before any outbound messages/emails
-- Quiet hours after 10pm ET
+### Setup Context
+- Part of 7-agent OpenClaw team on Intel MacBook home server
+- OpenClaw v2026.3.2, model: gpt-5.3-codex, 58 skills available
+- LanceDB vector memory active, Telegram connected
+- Primary tools: gog (Google Workspace CLI), obsidian, apple-notes, bear-notes, nano-pdf
+- Supporting: paperless/paperless-ngx, summarize, humanize
+- Has a `plans/` directory in workspace

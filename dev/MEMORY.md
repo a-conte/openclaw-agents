@@ -1,19 +1,23 @@
 # MEMORY.md - Long-Term Memory
 
-## Current State (2026-03-07)
+## Current State (2026-03-14)
 
-### Active Focus
-- Setting up OpenClaw automation — Phase 1 identity bootstrap complete
-- Daily workflow: email triage, Obsidian vault maintenance, file cleanup
+### Agent Status
+- **Identity:** Forge — code spirit
+- **Heartbeat:** Never run (0 messages processed, no daily logs written)
+- **Inbox:** `shared/inbox/dev/` — unchecked but main has processed 23 messages, many from dev
 
-### Setup Status
-- OpenClaw installed and running on Codex (gpt-5.3-codex)
-- 15 skills active (email via Himalaya, Things 3, GitHub, weather, Bear notes, TTS, etc.)
-- Telegram bot connected, web UI paired
-- Cron jobs: not yet configured
-- Heartbeat: not yet configured
+### Watched Repos
+- `openclaw-agents` — monorepo at `~/dev/openclaw-agents`, default branch `main` (per `shared/repos.json`)
 
-### Preferences Learned
-- Wants brief, direct communication
-- Approval required before any outbound messages/emails
-- Quiet hours after 10pm ET
+### Active Work Context
+- Dashboard (Next.js) under `dashboard/` — recent commits include SSE chat, agent org chart, command recommendations, office tab upgrades
+- 15 workflow runs recently failed with "Clean Workspace - Gateway agent failed; falling back to embedded: Error: gateway closed (1006 abnormal)"
+- Workflow definitions in `shared/workflows/` — clean-workspace, needs-attention, prep-my-day, review-repos, weekly-review
+
+### Setup Context
+- Part of 7-agent OpenClaw team on Intel MacBook home server
+- OpenClaw v2026.3.2, model: gpt-5.3-codex, 58 skills available
+- LanceDB vector memory active, Telegram connected
+- Primary tools: github/gh CLI, gh-issues, coding-agent
+- Supporting: things-mac, session-logs, tmux, peekaboo, skill-creator

@@ -1,19 +1,21 @@
 # MEMORY.md - Long-Term Memory
 
-## Current State (2026-03-07)
+## Current State (2026-03-14)
 
-### Active Focus
-- Setting up OpenClaw automation — Phase 1 identity bootstrap complete
-- Daily workflow: email triage, Obsidian vault maintenance, file cleanup
+### Agent Status
+- **Identity:** Postie — carrier pigeon AI
+- **Status:** Disabled in dashboard (since ~2026-03-12)
+- **Heartbeat:** Never run (0 messages processed, no daily logs written)
+- **Inbox:** `shared/inbox/mail/` — unchecked
 
-### Setup Status
-- OpenClaw installed and running on Codex (gpt-5.3-codex)
-- 15 skills active (email via Himalaya, Things 3, GitHub, weather, Bear notes, TTS, etc.)
-- Telegram bot connected, web UI paired
-- Cron jobs: not yet configured
-- Heartbeat: not yet configured
+### Known Blockers
+- **Himalaya unconfigured** on this machine — missing `~/Library/Application Support/himalaya/config.toml`. Email heartbeat checks will fail until this is set up.
+- **gog unconfigured** — missing `~/Library/Application Support/gogcli/config.json`. Calendar checks will fail until configured.
+- Agent was disabled in dashboard workflows; unclear if Telegram bot is still receiving messages.
 
-### Preferences Learned
-- Wants brief, direct communication
-- Approval required before any outbound messages/emails
-- Quiet hours after 10pm ET
+### Setup Context
+- Part of 7-agent OpenClaw team on Intel MacBook home server
+- OpenClaw v2026.3.2, model: gpt-5.3-codex, 58 skills available
+- LanceDB vector memory active, Telegram connected
+- Primary tools: himalaya (IMAP/SMTP), gog (Google Workspace CLI)
+- Supporting: summarize, things-mac, apple-reminders, gotify
