@@ -17,7 +17,7 @@
     "id": "ea27b713-6f20-4732-9828-df7400aed983",
     "title": "Reduce repo drift in watched workspaces",
     "description": "Audit 1 watched repo with local changes, checkpoint valid work, and clean up stale branches or uncommitted edits.",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "labels": [
       "system-improvement",
@@ -26,6 +26,7 @@
     ],
     "order": 1,
     "createdAt": "2026-03-14T02:34:10.591Z",
-    "updatedAt": "2026-03-14T02:34:10.591Z"
+    "updatedAt": "2026-03-14T02:45:45.122Z",
+    "agentId": "main"
   }
 ]

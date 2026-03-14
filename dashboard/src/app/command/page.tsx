@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import {
   AlertTriangle,
@@ -76,12 +76,17 @@ export default function CommandPage() {
   const systemRecommendations = data?.systemRecommendations || [];
   const searchNeedle = filters.search.trim().toLowerCase();
   const [creatingRecommendationId, setCreatingRecommendationId] = useState<string | null>(null);
+  const [now, setNow] = useState(0);
+  const hydrated = now > 0;
+
+  useEffect(() => {
+    setNow(Date.now());
+  }, [data]);
 
   const agentSummaries = useMemo<AgentSummary[]>(() => {
-    const now = Date.now();
     return agents.map((agent: Agent) => {
       const lastActivity = agent.sessions?.recent?.[0]?.updatedAt;
-      const ageMs = lastActivity ? now - lastActivity : Infinity;
+      const ageMs = hydrated && lastActivity ? now - lastActivity : Infinity;
       const state = ageMs < 60 * 60 * 1000 ? 'active' : ageMs < 6 * 60 * 60 * 1000 ? 'quiet' : 'stale';
 
       return {
@@ -90,7 +95,7 @@ export default function CommandPage() {
         state,
       };
     });
-  }, [agents]);
+  }, [agents, now, hydrated]);
 
   const filteredWorkflows = useMemo(() => workflows.filter((workflow) => {
     if (filters.agentId && !workflow.steps.some((step) => step.agent === filters.agentId)) return false;
@@ -129,7 +134,7 @@ export default function CommandPage() {
   const activeAgents = agentSummaries.filter((agent) => agent.state === 'active');
   const staleAgents = agentSummaries.filter((agent) => agent.state === 'stale');
   const inProgressTasks = tasks.filter((task) => task.status === 'in_progress');
-  const overdueTasks = inProgressTasks.filter((task) => Date.now() - new Date(task.updatedAt).getTime() > 2 * 60 * 60 * 1000);
+  const overdueTasks = hydrated ? inProgressTasks.filter((task) => now - new Date(task.updatedAt).getTime() > 2 * 60 * 60 * 1000) : [];
   const pendingBriefings = filteredBriefings.filter((briefing) => briefing.status !== 'delivered');
 
   const attentionItems = useMemo<AttentionItem[]>(() => {
@@ -651,8 +656,8 @@ function RunStatusBadge({ status }: { status: WorkflowRun['status'] }) {
   return <Badge color={colors[status]}>{status}</Badge>;
 }
 
-function formatDuration(start: string, end?: string): string {
-  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+function formatDuration(start: string, end?: string, now?: number): string {
+  const ms = (end ? new Date(end).getTime() : (now || Date.now())) - new Date(start).getTime();
   const secs = Math.max(0, Math.floor(ms / 1000));
   if (secs < 60) return `${secs}s`;
   const mins = Math.floor(secs / 60);
