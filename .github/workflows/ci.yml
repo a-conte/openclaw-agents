@@ -41,7 +41,7 @@ jobs:
         run: python3 -m json.tool shared/repos.json > /dev/null
 
   dashboard:
-    name: Dashboard type check & lint
+    name: Dashboard type check & build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,5 +60,5 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Lint
-        run: npx next lint
+      - name: Build
+        run: npx next build
