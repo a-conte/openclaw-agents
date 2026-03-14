@@ -1,0 +1,72 @@
+name: Validate Agent Configs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*/SOUL.md'
+      - '*/HEARTBEAT.md'
+      - '*/AGENTS.md'
+      - 'shared/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-agents:
+    name: Validate agent directory structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required agent files exist
+        run: |
+          AGENTS="main mail docs research ai-research dev security"
+          REQUIRED="SOUL.md HEARTBEAT.md MEMORY.md AGENTS.md"
+          FAILED=0
+
+          for agent in $AGENTS; do
+            for file in $REQUIRED; do
+              if [ ! -f "$agent/$file" ]; then
+                echo "MISSING: $agent/$file"
+                FAILED=1
+              fi
+            done
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "FAILED: Required agent files are missing."
+            exit 1
+          fi
+
+          echo "All agent directories have required files."
+
+      - name: Validate shared JSON configs
+        run: |
+          FAILED=0
+
+          for f in shared/workflows/*.json shared/pipelines/*.json; do
+            if [ -f "$f" ]; then
+              if ! python3 -m json.tool "$f" > /dev/null 2>&1; then
+                echo "INVALID JSON: $f"
+                FAILED=1
+              else
+                echo "  OK: $f"
+              fi
+            fi
+          done
+
+          if [ -f shared/repos.json ]; then
+            if ! python3 -m json.tool shared/repos.json > /dev/null 2>&1; then
+              echo "INVALID JSON: shared/repos.json"
+              FAILED=1
+            else
+              echo "  OK: shared/repos.json"
+            fi
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo "All JSON configs are valid."

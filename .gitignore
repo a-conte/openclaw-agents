@@ -42,3 +42,7 @@ scripts/.watchdog.env
 
 # Specs
 openclaw-dashboard-specs.md
+
+# Thoughts system - personal notes are private
+thoughts/anthony/
+thoughts/searchable/

@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "description": "Protect agent identity files (SOUL.md, IDENTITY.md, USER.md) from accidental edits",
+        "matcher": "Edit|Write",
+        "command": "python3 -c \"\nimport sys, json\ndata = json.load(sys.stdin)\npath = data.get('tool_input', {}).get('file_path', '') or data.get('tool_input', {}).get('content', '')\nprotected = ['SOUL.md', 'IDENTITY.md', 'USER.md', 'PROTOCOL.md']\nfor f in protected:\n    if path.endswith(f) or f'/{f}' in path:\n        print(json.dumps({'decision': 'block', 'reason': f'{f} defines agent identity/protocol and must not be modified without explicit user confirmation. Ask the user first.'}))\n        sys.exit(0)\n\""
+      },
+      {
+        "description": "Block dangerous git operations (force push, hard reset, etc.)",
+        "matcher": "Bash",
+        "command": "python3 -c \"\nimport sys, json, re\ndata = json.load(sys.stdin)\ncmd = data.get('tool_input', {}).get('command', '')\ndangerous = [\n    r'push\\s+(-f|--force)',\n    r'reset\\s+--hard',\n    r'checkout\\s+--\\s+\\.',\n    r'restore\\s+\\.',\n    r'clean\\s+-f',\n    r'branch\\s+-D'\n]\nfor pattern in dangerous:\n    if re.search(pattern, cmd):\n        print(json.dumps({'decision': 'block', 'reason': f'Dangerous git operation detected. This could cause data loss. Ask the user for explicit confirmation first.'}))\n        sys.exit(0)\n\""
+      },
+      {
+        "description": "Block writing to .env files",
+        "matcher": "Edit|Write",
+        "command": "python3 -c \"\nimport sys, json\ndata = json.load(sys.stdin)\npath = data.get('tool_input', {}).get('file_path', '')\nif path and '.env' in path.split('/')[-1]:\n    print(json.dumps({'decision': 'block', 'reason': '.env files may contain secrets and should not be written by Claude Code.'}))\n\""
+      }
+    ]
+  }
+}

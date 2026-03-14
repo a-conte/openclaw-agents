@@ -1,0 +1,42 @@
+name: Safe Push Check
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    name: Check for accidental commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for committed .env files
+        run: |
+          ENV_FILES=$(find . -name '*.env' -o -name '*.env.*' -o -name '.env' | grep -v node_modules | grep -v .git || true)
+          if [ -n "$ENV_FILES" ]; then
+            echo "WARNING: .env files found in repository:"
+            echo "$ENV_FILES"
+            exit 1
+          fi
+          echo "No .env files found."
+
+      - name: Check for large files (>1MB)
+        run: |
+          LARGE=$(find . -type f -size +1M -not -path './.git/*' -not -path '*/node_modules/*' || true)
+          if [ -n "$LARGE" ]; then
+            echo "WARNING: Files larger than 1MB found:"
+            echo "$LARGE"
+            exit 1
+          fi
+          echo "No large files found."
+
+      - name: Check inbox not committed
+        run: |
+          INBOX=$(find shared/inbox -name '*.json' 2>/dev/null || true)
+          if [ -n "$INBOX" ]; then
+            echo "WARNING: Inter-agent inbox messages committed to repo:"
+            echo "$INBOX"
+            exit 1
+          fi
+          echo "No inbox messages committed."

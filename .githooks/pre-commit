@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Pre-commit hook: scan staged files for secrets and block dangerous file types
+
+set -euo pipefail
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+FOUND=0
+
+# Block .env / credentials / secret files
+for f in $STAGED; do
+  case "$f" in
+    *.env|*.env.*|*credentials*|*secret*)
+      echo "BLOCKED: Refusing to commit sensitive file: $f"
+      FOUND=1
+      ;;
+  esac
+done
+
+# Scan staged diff content for secret patterns
+DIFF=$(git diff --cached -U0)
+
+# OpenAI keys
+if echo "$DIFF" | grep -qE 'sk-proj-[A-Za-z0-9_-]{20,}'; then
+  echo "BLOCKED: OpenAI API key detected in staged changes!"
+  FOUND=1
+fi
+
+# Google/Gemini keys
+if echo "$DIFF" | grep -qE 'AIzaSy[A-Za-z0-9_-]{30,}'; then
+  echo "BLOCKED: Google/Gemini API key detected in staged changes!"
+  FOUND=1
+fi
+
+# GitHub tokens
+if echo "$DIFF" | grep -qE 'gh[ps]_[A-Za-z0-9_]{36,}'; then
+  echo "BLOCKED: GitHub token detected in staged changes!"
+  FOUND=1
+fi
+
+# Telegram bot tokens
+if echo "$DIFF" | grep -qE '[0-9]{8,10}:[A-Za-z0-9_-]{35}'; then
+  echo "BLOCKED: Telegram bot token detected in staged changes!"
+  FOUND=1
+fi
+
+# Slack tokens
+if echo "$DIFF" | grep -qE 'xox[bpars]-[A-Za-z0-9-]{10,}'; then
+  echo "BLOCKED: Slack token detected in staged changes!"
+  FOUND=1
+fi
+
+# Generic long hex secrets (64+ chars)
+if echo "$DIFF" | grep -qE '"[a-f0-9]{64,}"'; then
+  echo "BLOCKED: Possible hex token detected in staged changes!"
+  FOUND=1
+fi
+
+# Warn if too many files staged (git add -A footgun)
+FILE_COUNT=$(echo "$STAGED" | wc -l | tr -d ' ')
+if [ "$FILE_COUNT" -gt 50 ]; then
+  echo "WARNING: $FILE_COUNT files staged — did you mean to commit all of these?"
+fi
+
+if [ "$FOUND" -eq 1 ]; then
+  echo ""
+  echo "Commit blocked. Remove secrets or sensitive files before committing."
+  exit 1
+fi

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Pre-push hook: type-check dashboard if dashboard files changed
+
+set -euo pipefail
+
+REMOTE="$1"
+
+# Check if dashboard files changed vs remote main
+CHANGED=$(git diff --name-only "$REMOTE/main"..HEAD -- dashboard/ 2>/dev/null || true)
+
+if [ -z "$CHANGED" ]; then
+  exit 0
+fi
+
+echo "Dashboard files changed — running TypeScript check..."
+
+cd "$(git rev-parse --show-toplevel)/dashboard"
+
+if [ ! -d node_modules ]; then
+  echo "Installing dashboard dependencies..."
+  npm ci --silent
+fi
+
+npx tsc --noEmit
+
+echo "Dashboard type check passed."
