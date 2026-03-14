@@ -29,10 +29,13 @@ import {
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { useDashboardFilters, useChatPanel } from '@/components/providers/DashboardProviders';
 import { useNow } from '@/hooks/useNow';
 import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
+import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
 import type { Agent, Briefing, RepoStatus, SystemRecommendation, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
 import { formatDate, relativeTime } from '@/lib/utils';
@@ -55,7 +58,8 @@ type AgentSummary = Agent & {
 export default function CommandPage() {
   const { filters } = useDashboardFilters();
   const { createTask } = useTasks();
-  const { data } = useSWR<{
+  const refreshInterval = usePollingInterval(POLL_INTERVAL);
+  const { data, error: swrError, mutate } = useSWR<{
     health: any;
     agents: Agent[];
     tasks: any[];
@@ -65,7 +69,7 @@ export default function CommandPage() {
     briefings: Briefing[];
     radarItems: Array<{ id: string }>;
     systemRecommendations: SystemRecommendation[];
-  }>('/api/command-overview', fetcher, { refreshInterval: POLL_INTERVAL });
+  }>('/api/command-overview', fetcher, { refreshInterval });
 
   const health = data?.health;
   const agents = data?.agents || [];
@@ -204,6 +208,7 @@ export default function CommandPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 overflow-auto p-6">
+      {swrError && <InlineError message="Failed to load command overview." onRetry={() => mutate()} />}
       <section className="rounded-2xl border border-border bg-surface-1/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] glass">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl space-y-3">
@@ -238,6 +243,7 @@ export default function CommandPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <ErrorBoundary name="Needs Attention">
         <Panel title="Needs Attention" eyebrow="Triage" icon={<AlertTriangle size={15} className="text-accent" />}>
           <div className="grid gap-3 md:grid-cols-2">
             {attentionItems.map((item) => (
@@ -245,7 +251,9 @@ export default function CommandPage() {
             ))}
           </div>
         </Panel>
+        </ErrorBoundary>
 
+        <ErrorBoundary name="Operational Snapshot">
         <Panel title="Operational Snapshot" eyebrow="Now" icon={<Sparkles size={15} className="text-accent-blue" />}>
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Agents active" value={`${activeAgents.length}/${agentSummaries.length || 0}`} note="last hour" tone="accent" />
@@ -254,8 +262,10 @@ export default function CommandPage() {
             <StatCard label="Signals" value={radarSignals.toString()} note={`${pendingBriefings.length} pending briefings`} tone="neutral" />
           </div>
         </Panel>
+        </ErrorBoundary>
       </section>
 
+      <ErrorBoundary name="System Recommendations">
       <section>
         <Panel title="Improve the System" eyebrow="Fresh Recommendations" icon={<Sparkles size={15} className="text-accent-purple" />}>
           <div className="grid gap-3 xl:grid-cols-2">
@@ -280,8 +290,10 @@ export default function CommandPage() {
           </div>
         </Panel>
       </section>
+      </ErrorBoundary>
 
       <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <ErrorBoundary name="Workflow Queue">
         <Panel title="Workflow Queue" eyebrow="Execution" icon={<Zap size={15} className="text-accent-yellow" />}>
           {filteredWorkflows.length === 0 ? (
             <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No workflows match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No workflows defined yet.'} />
@@ -293,8 +305,10 @@ export default function CommandPage() {
             </div>
           )}
         </Panel>
+        </ErrorBoundary>
 
         <div className="grid gap-4">
+          <ErrorBoundary name="Running Now">
           <Panel title="Running Now" eyebrow="Focus" icon={<Loader2 size={15} className="text-accent-blue" />}>
             {runningRuns.length === 0 ? (
               <EmptyMessage message="No workflows are running right now." />
@@ -306,7 +320,9 @@ export default function CommandPage() {
               </div>
             )}
           </Panel>
+          </ErrorBoundary>
 
+          <ErrorBoundary name="Agent Pulse">
           <Panel title="Agent Pulse" eyebrow="Coverage" icon={<Users size={15} className="text-accent-teal" />}>
             <div className="space-y-2">
               {agentSummaries.slice(0, 7).map((agent) => (
@@ -314,10 +330,12 @@ export default function CommandPage() {
               ))}
             </div>
           </Panel>
+          </ErrorBoundary>
         </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_1fr]">
+        <ErrorBoundary name="Repos">
         <Panel title="Repos That Need You" eyebrow="Code" icon={<GitBranch size={15} className="text-accent" />}>
           {dirtyRepos.length === 0 ? (
             <EmptyMessage message={filters.search || filters.focus ? `No repos match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'Watched repos are clean.'} />
@@ -329,7 +347,9 @@ export default function CommandPage() {
             </div>
           )}
         </Panel>
+        </ErrorBoundary>
 
+        <ErrorBoundary name="Briefings">
         <Panel title="Upcoming Briefings" eyebrow="Schedule" icon={<CalendarClock size={15} className="text-accent-yellow" />}>
           {filteredBriefings.length === 0 ? (
             <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No briefings match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No briefings scheduled.'} />
@@ -341,10 +361,13 @@ export default function CommandPage() {
             </div>
           )}
         </Panel>
+        </ErrorBoundary>
 
+        <ErrorBoundary name="Activity">
         <Panel title="Recent Activity" eyebrow="Signals" icon={<Radar size={15} className="text-accent-purple" />}>
           <ActivityFeed />
         </Panel>
+        </ErrorBoundary>
       </section>
     </div>
   );

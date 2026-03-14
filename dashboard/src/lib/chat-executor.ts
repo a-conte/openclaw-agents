@@ -1,5 +1,8 @@
 import { updateChat } from './chat-store';
 import { runOpenClaw } from './openclaw-cli';
+import { createLogger } from './logger';
+
+const log = createLogger('chat-executor');
 
 export function extractResponse(stdout: string): string {
   let response = stdout.trim();

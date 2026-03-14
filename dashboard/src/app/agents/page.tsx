@@ -5,12 +5,13 @@ import { AgentOrgChart } from '@/components/agents/AgentOrgChart';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { Bot } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { InlineError } from '@/components/shared/InlineError';
 import { MISSION_STATEMENT } from '@/lib/constants';
 import { getAgentStatus } from '@/lib/utils';
 
 export default function AgentsPage() {
   const { filters } = useDashboardFilters();
-  const { agents, isLoading } = useAgents();
+  const { agents, isLoading, error } = useAgents();
   const searchNeedle = filters.search.trim().toLowerCase();
 
   const filteredAgents = agents.filter((agent: any) => {
@@ -37,6 +38,8 @@ export default function AgentsPage() {
         <h2 className="text-xs uppercase tracking-[0.1em] text-text-tertiary font-medium mb-2">Team Mission</h2>
         <p className="text-sm text-text-secondary leading-relaxed">{MISSION_STATEMENT}</p>
       </div>
+
+      {error && <InlineError message="Failed to load agents." />}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

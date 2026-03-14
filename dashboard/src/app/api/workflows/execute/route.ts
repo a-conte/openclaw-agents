@@ -67,16 +67,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Workflow has no steps' }, { status: 400 });
     }
 
-    const run = createRun(workflow);
+    const run = await createRun(workflow);
 
     // Fire and forget — do not await
-    executeWorkflowInBackground(run.id, workflow).catch(err => {
-      console.error(`Workflow run ${run.id} failed unexpectedly:`, err);
-    });
+    executeWorkflowInBackground(run.id, workflow).catch(() => {});
 
     return NextResponse.json({ runId: run.id, status: 'running' }, { status: 202 });
   } catch (err) {
-    console.error('Workflow execute failed:', err);
+    void err;
     return NextResponse.json({ error: 'Failed to execute workflow' }, { status: 500 });
   }
 }

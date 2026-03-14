@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, renameSync } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { WorkflowRun, WorkflowRunStep, Workflow } from './types';
+import { withFileLock } from './file-lock';
 
 const RUNS_FILE = path.join(process.cwd(), 'data', 'workflow-runs.json');
 const STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
@@ -48,49 +49,55 @@ export function getRun(id: string): WorkflowRun | null {
   return runs.find(r => r.id === id) || null;
 }
 
-export function createRun(workflow: Workflow, triggeredBy: WorkflowRun['triggeredBy'] = 'dashboard'): WorkflowRun {
-  const runs = readRuns();
-  const now = new Date().toISOString();
-  const run: WorkflowRun = {
-    id: uuidv4(),
-    workflowName: workflow.name,
-    status: 'running',
-    steps: workflow.steps.map((s, i): WorkflowRunStep => ({
-      stepIndex: i,
-      agent: s.agent,
-      action: s.action,
-      status: 'pending',
-    })),
-    startedAt: now,
-    triggeredBy,
-  };
-  runs.push(run);
-  writeRuns(runs);
-  return run;
+export function createRun(workflow: Workflow, triggeredBy: WorkflowRun['triggeredBy'] = 'dashboard'): Promise<WorkflowRun> {
+  return withFileLock(RUNS_FILE, () => {
+    const runs = readRuns();
+    const now = new Date().toISOString();
+    const run: WorkflowRun = {
+      id: uuidv4(),
+      workflowName: workflow.name,
+      status: 'running',
+      steps: workflow.steps.map((s, i): WorkflowRunStep => ({
+        stepIndex: i,
+        agent: s.agent,
+        action: s.action,
+        status: 'pending',
+      })),
+      startedAt: now,
+      triggeredBy,
+    };
+    runs.push(run);
+    writeRuns(runs);
+    return run;
+  });
 }
 
 export function updateRunStep(
   runId: string,
   stepIndex: number,
   data: Partial<Pick<WorkflowRunStep, 'status' | 'startedAt' | 'completedAt' | 'output' | 'error'>>
-): WorkflowRun | null {
-  const runs = readRuns();
-  const run = runs.find(r => r.id === runId);
-  if (!run) return null;
-  const step = run.steps.find(s => s.stepIndex === stepIndex);
-  if (!step) return null;
-  Object.assign(step, data);
-  writeRuns(runs);
-  return run;
+): Promise<WorkflowRun | null> {
+  return withFileLock(RUNS_FILE, () => {
+    const runs = readRuns();
+    const run = runs.find(r => r.id === runId);
+    if (!run) return null;
+    const step = run.steps.find(s => s.stepIndex === stepIndex);
+    if (!step) return null;
+    Object.assign(step, data);
+    writeRuns(runs);
+    return run;
+  });
 }
 
-export function completeRun(runId: string, status: 'completed' | 'failed', error?: string): WorkflowRun | null {
-  const runs = readRuns();
-  const run = runs.find(r => r.id === runId);
-  if (!run) return null;
-  run.status = status;
-  run.completedAt = new Date().toISOString();
-  if (error) run.error = error;
-  writeRuns(runs);
-  return run;
+export function completeRun(runId: string, status: 'completed' | 'failed', error?: string): Promise<WorkflowRun | null> {
+  return withFileLock(RUNS_FILE, () => {
+    const runs = readRuns();
+    const run = runs.find(r => r.id === runId);
+    if (!run) return null;
+    run.status = status;
+    run.completedAt = new Date().toISOString();
+    if (error) run.error = error;
+    writeRuns(runs);
+    return run;
+  });
 }

@@ -1,6 +1,9 @@
 import type { Workflow } from './types';
 import { updateRunStep, completeRun } from './workflow-runs-store';
 import { runOpenClaw } from './openclaw-cli';
+import { createLogger } from './logger';
+
+const log = createLogger('workflow-executor');
 
 export async function executeWorkflowInBackground(runId: string, workflow: Workflow): Promise<void> {
   let previousOutput = '';
@@ -14,7 +17,7 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
       ],
       { timeout: 30_000 }
     ).catch(err => {
-      console.error(`Telegram approval notification failed for ${workflow.name}:`, err.stderr || err.message);
+      log.error('Telegram approval notification failed', { workflow: workflow.name, err: err.stderr || err.message });
     });
   }
 
@@ -22,7 +25,7 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
     const step = workflow.steps[i];
     const isLastStep = i === workflow.steps.length - 1;
 
-    updateRunStep(runId, i, {
+    await updateRunStep(runId, i, {
       status: 'running',
       startedAt: new Date().toISOString(),
     });
@@ -51,7 +54,7 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
 
       previousOutput = stdout.trim();
 
-      updateRunStep(runId, i, {
+      await updateRunStep(runId, i, {
         status: 'done',
         completedAt: new Date().toISOString(),
         output: previousOutput.slice(0, 5000),
@@ -59,7 +62,7 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
     } catch (err: any) {
       const errorMsg = err.stderr || err.message || 'Unknown error';
 
-      updateRunStep(runId, i, {
+      await updateRunStep(runId, i, {
         status: 'failed',
         completedAt: new Date().toISOString(),
         error: errorMsg.slice(0, 2000),
@@ -67,13 +70,13 @@ export async function executeWorkflowInBackground(runId: string, workflow: Workf
 
       // Mark remaining steps as skipped
       for (let j = i + 1; j < workflow.steps.length; j++) {
-        updateRunStep(runId, j, { status: 'skipped' });
+        await updateRunStep(runId, j, { status: 'skipped' });
       }
 
-      completeRun(runId, 'failed', errorMsg.slice(0, 2000));
+      await completeRun(runId, 'failed', errorMsg.slice(0, 2000));
       return;
     }
   }
 
-  completeRun(runId, 'completed');
+  await completeRun(runId, 'completed');
 }

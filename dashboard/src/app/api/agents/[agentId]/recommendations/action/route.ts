@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { updateTask, createTask } from '@/lib/tasks-store';
 import { runOpenClaw } from '@/lib/openclaw-cli';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('recommendations-action');
 
 function runAgent(agentId: string, message: string, taskId?: string) {
   // Fire and forget — don't block the response
@@ -13,11 +16,11 @@ function runAgent(agentId: string, message: string, taskId?: string) {
       timeout: 600_000,
       cwd: process.env.HOME || '/Users/a_conte',
     }
-  ).then(() => {
-    if (taskId) updateTask(taskId, { status: 'done' });
-  }).catch(err => {
-    console.error(`Agent run failed for ${agentId}:`, err.stderr || err.message);
-    if (taskId) updateTask(taskId, { status: 'todo', labels: ['agent-failed'] });
+  ).then(async () => {
+    if (taskId) await updateTask(taskId, { status: 'done' });
+  }).catch(async (err) => {
+    log.error('Agent run failed', { agentId, err: err.stderr || err.message });
+    if (taskId) await updateTask(taskId, { status: 'todo', labels: ['agent-failed'] });
   });
 }
 
@@ -36,7 +39,7 @@ export async function POST(
 
     if (type === 'task' && taskId) {
       // Mark task as in_progress
-      updateTask(taskId, { agentId, status: 'in_progress' });
+      await updateTask(taskId, { agentId, status: 'in_progress' });
       runTaskId = taskId;
       message = `You have been assigned the following task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
     } else if (type === 'workflow') {
@@ -45,7 +48,7 @@ export async function POST(
       message = `Run your scheduled job now: "${title}"\n${description ? `Context: ${description}` : ''}`;
     } else if (type === 'suggestion') {
       // Create a task from the suggestion, then run it
-      const task = createTask({
+      const task = await createTask({
         title: title || 'Untitled',
         description: description || '',
         agentId,
@@ -69,7 +72,7 @@ export async function POST(
 
   // Legacy: "assign" — just assign without running
   if (action === 'assign' && taskId) {
-    const task = updateTask(taskId, { agentId, status: 'todo' });
+    const task = await updateTask(taskId, { agentId, status: 'todo' });
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
@@ -78,7 +81,7 @@ export async function POST(
 
   // Legacy: "create" — just create without running
   if (action === 'create') {
-    const task = createTask({
+    const task = await createTask({
       title: title || 'Untitled',
       description: description || '',
       agentId,

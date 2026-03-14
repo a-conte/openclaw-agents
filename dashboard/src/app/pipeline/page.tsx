@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTasks } from '@/hooks/useTasks';
+import { InlineError } from '@/components/shared/InlineError';
 import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { TaskFilters } from '@/components/tasks/TaskFilters';
 import { TaskModal } from '@/components/tasks/TaskModal';
@@ -13,7 +14,7 @@ import { LayoutGrid, List } from 'lucide-react';
 
 export default function PipelinePage() {
   const { filters, setSearch, setAgentId } = useDashboardFilters();
-  const { tasks, isLoading, createTask, updateTask, deleteTask } = useTasks();
+  const { tasks, isLoading, error, createTask, updateTask, deleteTask } = useTasks();
   const [priorityFilter, setPriorityFilter] = useState('');
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [view, setView] = useState<'funnel' | 'board'>('funnel');
@@ -80,6 +81,8 @@ export default function PipelinePage() {
           </div>
         </div>
       </div>
+
+      {error && <InlineError message="Failed to load tasks." />}
 
       <div className="mb-4">
         <TaskFilters

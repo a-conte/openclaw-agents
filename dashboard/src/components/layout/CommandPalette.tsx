@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Bot, LayoutGrid, Calendar, MessageSquare } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -26,7 +26,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const commands: CommandItem[] = [
+  const commands = useMemo<CommandItem[]>(() => [
     { id: 'nav-command', label: 'Go to Command', category: 'Navigation', action: () => router.push('/command'), icon: <LayoutGrid size={16} /> },
     { id: 'nav-agents', label: 'Go to Agents', category: 'Navigation', action: () => router.push('/agents'), icon: <Bot size={16} /> },
     { id: 'nav-projects', label: 'Go to Projects', category: 'Navigation', action: () => router.push('/projects'), icon: <LayoutGrid size={16} /> },
@@ -40,9 +40,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       category: 'Agents',
       action: () => router.push(`/agents/${id}`),
     })),
-  ];
+  ], [router]);
 
-  const fuse = new Fuse(commands, { keys: ['label', 'category'], threshold: 0.4 });
+  const fuse = useMemo(() => new Fuse(commands, { keys: ['label', 'category'], threshold: 0.4 }), [commands]);
   const results = query ? fuse.search(query).map(r => r.item) : commands;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

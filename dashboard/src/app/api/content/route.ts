@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +27,11 @@ function extractTitle(content: string, filename: string): string {
   return filename.replace(/\.md$/, '').replace(/[-_]/g, ' ');
 }
 
-export async function GET() {
+function loadDocuments() {
   const documents: any[] = [];
 
   if (!existsSync(OPENCLAW_AGENTS)) {
-    return NextResponse.json({ documents: [] });
+    return documents;
   }
 
   const agentDirs = readdirSync(OPENCLAW_AGENTS, { withFileTypes: true })
@@ -51,6 +51,11 @@ export async function GET() {
 
   documents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  return documents;
+}
+
+export async function GET() {
+  const documents = await getCached('content', { ttlMs: 30000, staleMs: 60000 }, loadDocuments);
   return NextResponse.json({ documents });
 }
 

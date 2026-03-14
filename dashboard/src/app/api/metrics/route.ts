@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
+import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,10 +56,10 @@ function getSessionCount(agentId: string): number {
   return readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl')).length;
 }
 
-export async function GET() {
+function loadMetrics() {
   const agentsDir = path.join(OPENCLAW_AGENTS);
   if (!existsSync(agentsDir)) {
-    return NextResponse.json({ agents: [] });
+    return { agents: [] as AgentMetrics[], system: { uptime: process.uptime(), memoryUsage: process.memoryUsage(), timestamp: Date.now() } };
   }
 
   const agentIds = readdirSync(agentsDir, { withFileTypes: true })
@@ -81,5 +82,10 @@ export async function GET() {
     timestamp: Date.now(),
   };
 
-  return NextResponse.json({ agents, system });
+  return { agents, system };
+}
+
+export async function GET() {
+  const data = await getCached('metrics', { ttlMs: 15000, staleMs: 30000 }, loadMetrics);
+  return NextResponse.json(data);
 }

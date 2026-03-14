@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, type MouseEvent } from 'react';
+import { useState, useEffect } from 'react';
+import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
@@ -19,10 +20,8 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import useSWR from 'swr';
 import { useDashboardFilters, useChatPanel } from '@/components/providers/DashboardProviders';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+import { useDashboardSummary } from '@/hooks/useDashboardSummary';
 
 const navItems = [
   { href: '/command', icon: Diamond, label: 'Command' },
@@ -47,17 +46,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { filters, setFocus } = useDashboardFilters();
   const { openChat } = useChatPanel();
-  const { data: health } = useSWR('/api/health', fetcher, { refreshInterval: 15000 });
-  const { data: summary } = useSWR('/api/dashboard-summary', fetcher, { refreshInterval: 15000 });
-  const { data: radarData } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
+  const { health, counts, radarCount } = useDashboardSummary();
   const [clock, setClock] = useState('');
 
-  const dirtyRepoCount = summary?.counts?.dirtyRepos || 0;
-  const failedRunCount = summary?.counts?.failedRuns || 0;
-  const inProgressCount = summary?.counts?.inProgressTasks || 0;
-  const staleTaskCount = summary?.counts?.staleTasks || 0;
-  const radarCount = radarData?.items?.length || 0;
-  const quietAgentCount = summary?.counts?.quietAgents || 0;
+  const dirtyRepoCount = counts?.dirtyRepos || 0;
+  const failedRunCount = counts?.failedRuns || 0;
+  const inProgressCount = counts?.inProgressTasks || 0;
+  const staleTaskCount = counts?.staleTasks || 0;
+  const quietAgentCount = counts?.quietAgents || 0;
 
   const badgeCounts: Record<string, number> = {
     '/command': failedRunCount + dirtyRepoCount + staleTaskCount,

@@ -1,8 +1,11 @@
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import type { Briefing, RadarItem, RepoStatus, SystemRecommendation, Task, Workflow, WorkflowRun } from './types';
 import { getCached } from './server-cache';
+
+const execFileAsync = promisify(execFile);
 
 export function resolveAgentsRoot(): string {
   if (process.env.OPENCLAW_AGENTS) return process.env.OPENCLAW_AGENTS;
@@ -44,7 +47,7 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
     return [];
   }
 
-  return reposConfig.repos.map((repo) => {
+  const results = await Promise.all(reposConfig.repos.map(async (repo) => {
     const localPath = expandHome(repo.local);
     const result: RepoStatus = {
       owner: repo.owner,
@@ -61,7 +64,8 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
     if (!existsSync(localPath)) return result;
 
     try {
-      const porcelain = execSync(`git -C "${localPath}" status --porcelain`, { encoding: 'utf-8', timeout: 5000 }).trim();
+      const { stdout } = await execFileAsync('git', ['-C', localPath, 'status', '--porcelain'], { encoding: 'utf-8', timeout: 5000 });
+      const porcelain = stdout.trim();
       const lines = porcelain ? porcelain.split('\n') : [];
       result.uncommittedCount = lines.length;
       result.status = lines.length === 0 ? 'clean' : 'dirty';
@@ -70,9 +74,10 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
     }
 
     try {
-      const log = execSync(`git -C "${localPath}" log --oneline --format="%h %s|||%ci" -1`, { encoding: 'utf-8', timeout: 5000 }).trim();
-      if (log) {
-        const [commitInfo, date] = log.split('|||');
+      const { stdout } = await execFileAsync('git', ['-C', localPath, 'log', '--oneline', '--format=%h %s|||%ci', '-1'], { encoding: 'utf-8', timeout: 5000 });
+      const logLine = stdout.trim();
+      if (logLine) {
+        const [commitInfo, date] = logLine.split('|||');
         result.lastCommit = commitInfo;
         result.lastCommitDate = date || null;
       }
@@ -81,7 +86,9 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
     }
 
     return result;
-  });
+  }));
+
+  return results;
 }
 
 async function loadWorkflowsUncached(): Promise<Workflow[]> {

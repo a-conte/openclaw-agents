@@ -2,17 +2,18 @@ import { NextResponse } from 'next/server';
 import { getHealth } from '@/lib/gateway';
 import { getAllTasks } from '@/lib/tasks-store';
 import { getAllRuns } from '@/lib/workflow-runs-store';
-import { loadRepos } from '@/lib/dashboard-data';
+import { loadRepos, loadRadarItems } from '@/lib/dashboard-data';
 import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
 async function loadDashboardSummary() {
-  const [health, tasks, runs, repos] = await Promise.all([
+  const [health, tasks, runs, repos, radarItems] = await Promise.all([
     getHealth(),
     Promise.resolve(getAllTasks()),
     Promise.resolve(getAllRuns()),
     loadRepos(),
+    loadRadarItems(),
   ]);
 
   const quietAgents = health?.agents?.filter((agent) => {
@@ -24,6 +25,7 @@ async function loadDashboardSummary() {
   const failedRuns = runs.filter((run) => run.status === 'failed').length;
   const inProgressTasks = tasks.filter((task) => task.status === 'in_progress').length;
   const dirtyRepos = repos.filter((repo) => repo.status !== 'clean').length;
+  const radarCount = radarItems.length;
 
   return {
     health: { ok: !!health?.ok },
@@ -33,6 +35,7 @@ async function loadDashboardSummary() {
       failedRuns,
       inProgressTasks,
       dirtyRepos,
+      radarCount,
     },
   };
 }
