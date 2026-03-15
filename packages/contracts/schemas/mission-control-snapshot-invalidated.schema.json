@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/mission-control-snapshot-invalidated",
+  "type": "object",
+  "required": ["reason"],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": ["counts-changed", "agent-added", "agent-removed", "resume-gap"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -54,6 +54,24 @@ export interface WorkflowRunContract {
   triggeredBy: 'dashboard' | 'cron' | 'api';
 }
 
+export interface MissionControlSnapshotContract {
+  sequence: number;
+  generatedAt: string;
+  agents: AgentSummaryContract[];
+  counts: MissionControlCountsContract;
+}
+
+export interface MissionControlAgentUpdatedContract {
+  agentId: string;
+  name?: string;
+  status?: 'online' | 'warning' | 'offline';
+  lastActivity?: number;
+}
+
+export interface MissionControlSnapshotInvalidatedContract {
+  reason: 'counts-changed' | 'agent-added' | 'agent-removed' | 'resume-gap';
+}
+
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   eventId: string;
   sequence: number;
