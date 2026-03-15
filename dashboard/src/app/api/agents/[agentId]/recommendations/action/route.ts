@@ -37,11 +37,13 @@ export async function POST(
     let message = '';
     let runTaskId: string | undefined;
 
+    const prInstruction = '\n\nIMPORTANT: When you are done with your changes, create a new branch and open a Pull Request to main for review. Do NOT push directly to main.';
+
     if (type === 'task' && taskId) {
       // Mark task as in_progress
       await updateTask(taskId, { agentId, status: 'in_progress' });
       runTaskId = taskId;
-      message = `You have been assigned the following task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
+      message = `You have been assigned the following task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}${prInstruction}`;
     } else if (type === 'workflow') {
       message = `Execute the following workflow: "${title}"\n${description ? `Context: ${description}` : ''}`;
     } else if (type === 'cron') {
@@ -57,9 +59,9 @@ export async function POST(
         labels: ['auto-suggested'],
       });
       runTaskId = task.id;
-      message = `You have been assigned a new task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}`;
+      message = `You have been assigned a new task. Complete it and report back with what you did.\n\nTask: ${title}\n${description ? `Details: ${description}` : ''}${prInstruction}`;
     } else {
-      message = `${title}\n${description || ''}`;
+      message = `${title}\n${description || ''}${prInstruction}`;
     }
 
     runAgent(agentId, message, runTaskId);

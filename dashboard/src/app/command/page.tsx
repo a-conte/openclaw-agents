@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
+import { AssignWorkModal, type AssignWorkContext } from '@/components/command/AssignWorkModal';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InlineError } from '@/components/shared/InlineError';
@@ -82,6 +83,7 @@ export default function CommandPage() {
   const systemRecommendations = data?.systemRecommendations || [];
   const searchNeedle = filters.search.trim().toLowerCase();
   const [creatingRecommendationId, setCreatingRecommendationId] = useState<string | null>(null);
+  const [assignContext, setAssignContext] = useState<AssignWorkContext | null>(null);
   const { now, hydrated } = useNow([data]);
 
   const agentSummaries = useMemo<AgentSummary[]>(() => {
@@ -247,7 +249,7 @@ export default function CommandPage() {
         <Panel title="Needs Attention" eyebrow="Triage" icon={<AlertTriangle size={15} className="text-accent" />}>
           <div className="grid gap-3 md:grid-cols-2">
             {attentionItems.map((item) => (
-              <AttentionCard key={item.id} item={item} />
+              <AttentionCard key={item.id} item={item} onAssign={(ctx) => setAssignContext(ctx)} />
             ))}
           </div>
         </Panel>
@@ -285,6 +287,7 @@ export default function CommandPage() {
                     setCreatingRecommendationId((current) => (current === recommendation.id ? null : current));
                   }
                 }}
+                onAssign={(ctx) => setAssignContext(ctx)}
               />
             ))}
           </div>
@@ -300,7 +303,7 @@ export default function CommandPage() {
           ) : (
             <div className="grid gap-3 xl:grid-cols-2">
               {filteredWorkflows.map((workflow) => (
-                <WorkflowCard key={workflow.name} workflow={workflow} runs={runs.filter((run) => run.workflowName === workflow.name)} />
+                <WorkflowCard key={workflow.name} workflow={workflow} runs={runs.filter((run) => run.workflowName === workflow.name)} onAssign={(ctx) => setAssignContext(ctx)} />
               ))}
             </div>
           )}
@@ -310,12 +313,25 @@ export default function CommandPage() {
         <div className="grid gap-4">
           <ErrorBoundary name="Running Now">
           <Panel title="Running Now" eyebrow="Focus" icon={<Loader2 size={15} className="text-accent-blue" />}>
-            {runningRuns.length === 0 ? (
-              <EmptyMessage message="No workflows are running right now." />
+            {runningRuns.length === 0 && inProgressTasks.length === 0 ? (
+              <EmptyMessage message="No workflows or tasks are running right now." />
             ) : (
               <div className="space-y-2">
                 {runningRuns.slice(0, 4).map((run) => (
                   <RunListItem key={run.id} run={run} />
+                ))}
+                {inProgressTasks.slice(0, 4).map((task) => (
+                  <div key={task.id} className="rounded-lg border border-border bg-surface-2/75 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm text-text-primary">{task.title}</div>
+                        <div className="text-xs text-text-tertiary">
+                          {task.agentId ? `${AGENT_EMOJIS[task.agentId] || ''} ${task.agentId}` : 'unassigned'} · {relativeTime(task.updatedAt)}
+                        </div>
+                      </div>
+                      <Badge color="#4A9EFF">in_progress</Badge>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -326,7 +342,7 @@ export default function CommandPage() {
           <Panel title="Agent Pulse" eyebrow="Coverage" icon={<Users size={15} className="text-accent-teal" />}>
             <div className="space-y-2">
               {agentSummaries.slice(0, 7).map((agent) => (
-                <AgentPulseRow key={agent.agentId} agent={agent} />
+                <AgentPulseRow key={agent.agentId} agent={agent} onAssign={(ctx) => setAssignContext(ctx)} />
               ))}
             </div>
           </Panel>
@@ -342,7 +358,7 @@ export default function CommandPage() {
           ) : (
             <div className="space-y-3">
               {dirtyRepos.slice(0, 5).map((repo) => (
-                <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} />
+                <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} onAssign={(ctx) => setAssignContext(ctx)} />
               ))}
             </div>
           )}
@@ -369,6 +385,12 @@ export default function CommandPage() {
         </Panel>
         </ErrorBoundary>
       </section>
+
+      <AssignWorkModal
+        context={assignContext}
+        onClose={() => setAssignContext(null)}
+        onAssigned={() => mutate()}
+      />
     </div>
   );
 }
@@ -393,7 +415,7 @@ function StepStatusIcon({ status }: { status: WorkflowRunStep['status'] }) {
   }
 }
 
-function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRun[] }) {
+function WorkflowCard({ workflow, runs, onAssign }: { workflow: Workflow; runs: WorkflowRun[]; onAssign: (ctx: AssignWorkContext) => void }) {
   const [executingRunId, setExecutingRunId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [runState, setRunState] = useState<'idle' | 'confirm' | 'starting' | 'error'>('idle');
@@ -471,6 +493,18 @@ function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRu
 
         <div className="flex shrink-0 items-center gap-2">
           <Badge color={workflow.source === 'workflow' ? '#06d6a0' : '#4A9EFF'}>{workflow.source}</Badge>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onAssign({
+              agentId: workflow.steps[0]?.agent,
+              title: workflow.name,
+              instructions: workflow.steps.map((s) => `${AGENT_EMOJIS[s.agent] || s.agent}: ${s.action}`).join('\n'),
+            })}
+          >
+            <Zap size={12} />
+            <span className="ml-1">Assign</span>
+          </Button>
           <Button size="sm" variant="secondary" onClick={handleRun} disabled={runState === 'starting' || isRunning}>
             {runState === 'starting' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
             <span className="ml-1">{runState === 'confirm' ? 'Confirm' : isRunning ? 'Running' : 'Run'}</span>
@@ -581,7 +615,7 @@ function WorkflowCard({ workflow, runs }: { workflow: Workflow; runs: WorkflowRu
   );
 }
 
-function RepoCard({ repo }: { repo: RepoStatus }) {
+function RepoCard({ repo, onAssign }: { repo: RepoStatus; onAssign: (ctx: AssignWorkContext) => void }) {
   const tone = repo.status === 'dirty' ? '#ffd166' : '#e94560';
 
   return (
@@ -591,7 +625,19 @@ function RepoCard({ repo }: { repo: RepoStatus }) {
           <div className="text-sm font-semibold text-text-primary">{repo.owner}/{repo.name}</div>
           <div className="mt-1 text-xs text-text-tertiary">{repo.local}</div>
         </div>
-        <Badge color={tone}>{repo.status}</Badge>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onAssign({
+              agentId: 'dev',
+              title: `Fix ${repo.owner}/${repo.name}`,
+              instructions: `Repo ${repo.owner}/${repo.name} is ${repo.status} with ${repo.uncommittedCount} uncommitted changes on branch ${repo.default_branch}.\nPath: ${repo.local}\n\nInvestigate and resolve the issues. When done, create a PR to main for review.`,
+            })}
+            className="rounded-md border border-border bg-surface-3 px-2 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-4"
+          >
+            Fix
+          </button>
+          <Badge color={tone}>{repo.status}</Badge>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-text-secondary">
@@ -617,7 +663,7 @@ function RepoCard({ repo }: { repo: RepoStatus }) {
   );
 }
 
-function AgentPulseRow({ agent }: { agent: AgentSummary }) {
+function AgentPulseRow({ agent, onAssign }: { agent: AgentSummary; onAssign: (ctx: AssignWorkContext) => void }) {
   const tone = agent.state === 'active' ? 'text-status-online' : agent.state === 'quiet' ? 'text-status-warning' : 'text-status-error';
   const { openChat } = useChatPanel();
 
@@ -636,6 +682,13 @@ function AgentPulseRow({ agent }: { agent: AgentSummary }) {
           {agent.lastActivity ? relativeTime(agent.lastActivity) : 'no activity'}
         </div>
       </Link>
+      <button
+        onClick={() => onAssign({ agentId: agent.agentId, title: '', instructions: '' })}
+        className="mt-0.5 shrink-0 rounded-md p-1 text-text-tertiary transition-colors hover:bg-surface-3 hover:text-accent-yellow"
+        title={`Assign work to ${agent.agentId}`}
+      >
+        <Zap size={14} />
+      </button>
       <button
         onClick={() => openChat(agent.agentId)}
         className="mt-0.5 shrink-0 rounded-md p-1 text-text-tertiary transition-colors hover:bg-surface-3 hover:text-accent"
@@ -728,12 +781,15 @@ function TrustPill({ label, value, tone }: { label: string; value: string; tone:
   );
 }
 
-function AttentionCard({ item }: { item: AttentionItem }) {
+function AttentionCard({ item, onAssign }: { item: AttentionItem; onAssign: (ctx: AssignWorkContext) => void }) {
   const toneClass = {
     danger: 'border-red-500/20 bg-red-500/8',
     warn: 'border-yellow-500/20 bg-yellow-500/8',
     info: 'border-border bg-surface-2/75',
   }[item.tone];
+
+  const isActionable = item.tone === 'danger' || item.tone === 'warn';
+  const defaultAgent = item.id === 'dirty-repos' ? 'dev' : item.id === 'failed-runs' ? 'main' : item.id === 'stale-tasks' ? 'main' : undefined;
 
   const content = (
     <div className={`rounded-xl border p-4 transition-colors hover:border-border-hover ${toneClass}`}>
@@ -742,7 +798,25 @@ function AttentionCard({ item }: { item: AttentionItem }) {
           <div className="text-sm font-semibold text-text-primary">{item.title}</div>
           <div className="mt-1 text-xs leading-relaxed text-text-secondary">{item.detail}</div>
         </div>
-        {item.href && <ArrowRight size={14} className="mt-1 shrink-0 text-text-tertiary" />}
+        <div className="flex shrink-0 items-center gap-2">
+          {isActionable && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAssign({
+                  agentId: defaultAgent,
+                  title: `Fix: ${item.title}`,
+                  instructions: `${item.title}\n\n${item.detail}\n\nInvestigate and resolve this issue. When done, create a PR to main for review.`,
+                });
+              }}
+              className="rounded-md border border-border bg-surface-3 px-2 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-4"
+            >
+              Fix
+            </button>
+          )}
+          {item.href && <ArrowRight size={14} className="mt-1 text-text-tertiary" />}
+        </div>
       </div>
     </div>
   );
@@ -754,10 +828,12 @@ function RecommendationCard({
   recommendation,
   creating,
   onCreateTask,
+  onAssign,
 }: {
   recommendation: SystemRecommendation;
   creating: boolean;
   onCreateTask: () => Promise<void>;
+  onAssign: (ctx: AssignWorkContext) => void;
 }) {
   const toneClass = {
     danger: 'border-red-500/20 bg-red-500/8',
@@ -789,6 +865,18 @@ function RecommendationCard({
         <Button size="sm" variant="primary" onClick={onCreateTask} disabled={creating}>
           {creating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
           <span className="ml-1">{creating ? 'Creating...' : 'Create Task'}</span>
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => onAssign({
+            title: recommendation.title,
+            instructions: `${recommendation.detail}\n\nRationale: ${recommendation.rationale}\n\nWhen done, create a PR to main for review.`,
+            priority: recommendation.taskDraft?.priority,
+          })}
+        >
+          <Zap size={12} />
+          <span className="ml-1">Assign</span>
         </Button>
         <Link
           href={recommendation.href}
