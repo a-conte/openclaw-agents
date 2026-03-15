@@ -1,0 +1,26 @@
+[
+  {
+    "id": "a51b8abf-2748-4fa2-9a5d-9e3f92868f3a",
+    "title": "Test task",
+    "description": "",
+    "status": "todo",
+    "priority": "high",
+    "agentId": "main",
+    "labels": ["test"],
+    "order": 0,
+    "createdAt": "2026-03-08T04:24:53.853Z",
+    "updatedAt": "2026-03-08T04:24:53.853Z"
+  },
+  {
+    "id": "ea27b713-6f20-4732-9828-df7400aed983",
+    "title": "Reduce repo drift in watched workspaces",
+    "description": "Audit 1 watched repo with local changes, checkpoint valid work, and clean up stale branches or uncommitted edits.",
+    "status": "done",
+    "priority": "medium",
+    "agentId": "main",
+    "labels": ["system-improvement", "repos", "hygiene"],
+    "order": 1,
+    "createdAt": "2026-03-14T02:34:10.591Z",
+    "updatedAt": "2026-03-14T02:45:45.122Z"
+  }
+]

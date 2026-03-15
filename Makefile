@@ -1,16 +1,16 @@
-.PHONY: test lint typecheck build watchdog backup validate-json restart-agents
+.PHONY: test typecheck build watchdog backup validate-json restart-agents check-dashboard-paths
 
 test:
-	cd dashboard && npm run test
-
-lint:
-	cd dashboard && npm run lint
+	npm run dashboard:test
 
 typecheck:
-	cd dashboard && npm run typecheck
+	npm run dashboard:typecheck
 
 build:
-	cd dashboard && npm run build
+	npm run dashboard:build
+
+check-dashboard-paths:
+	./scripts/check-dashboard-paths.sh
 
 watchdog:
 	./scripts/watchdog.sh

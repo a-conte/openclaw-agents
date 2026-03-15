@@ -1,0 +1,28 @@
+[
+  {
+    "id": "ec4016e5-25fa-4c82-ab19-374c37cf71f4",
+    "workflowName": "Review Repos",
+    "status": "failed",
+    "steps": [
+      {
+        "stepIndex": 0,
+        "agent": "dev",
+        "action": "For each repo in shared/repos.json: run `gh pr list`, `gh run list --limit 5`, and check for branches merged more than 14 days ago. Write a structured report to shared/inbox/main/ with subject 'Repo Review Report'.",
+        "status": "failed",
+        "startedAt": "2026-03-12T06:44:10.241Z",
+        "completedAt": "2026-03-12T06:44:13.981Z",
+        "error": "Gateway agent failed; falling back to embedded."
+      },
+      {
+        "stepIndex": 1,
+        "agent": "main",
+        "action": "Read repo review report from inbox and format a summary for Anthony.",
+        "status": "skipped"
+      }
+    ],
+    "startedAt": "2026-03-12T06:44:10.238Z",
+    "triggeredBy": "dashboard",
+    "completedAt": "2026-03-12T06:44:13.982Z",
+    "error": "Gateway agent failed; falling back to embedded."
+  }
+]

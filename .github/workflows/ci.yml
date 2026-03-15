@@ -43,22 +43,28 @@ jobs:
   dashboard:
     name: Dashboard type check & build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: dashboard
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify dashboard path migration
+        run: ./scripts/check-dashboard-paths.sh
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run dashboard:typecheck
+
+      - name: Test
+        run: npm run dashboard:test
+
+      - name: Contracts tests
+        run: npm run test --workspace @openclaw/contracts
 
       - name: Build
-        run: npx next build
+        run: npm run dashboard:build

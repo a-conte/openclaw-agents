@@ -1,0 +1,14 @@
+[
+  {
+    "agentId": "main",
+    "name": "main",
+    "status": "online",
+    "lastActivity": 1741977600000
+  },
+  {
+    "agentId": "dev",
+    "name": "dev",
+    "status": "warning",
+    "lastActivity": 1741974000000
+  }
+]

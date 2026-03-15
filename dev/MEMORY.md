@@ -11,7 +11,7 @@
 - `openclaw-agents` — monorepo at `~/dev/openclaw-agents`, default branch `main` (per `shared/repos.json`)
 
 ### Active Work Context
-- Dashboard (Next.js) under `dashboard/` — recent commits include SSE chat, agent org chart, command recommendations, office tab upgrades
+- Dashboard (Next.js) under `apps/dashboard/` — recent commits include SSE chat, agent org chart, command recommendations, office tab upgrades
 - 15 workflow runs recently failed with "Clean Workspace - Gateway agent failed; falling back to embedded: Error: gateway closed (1006 abnormal)"
 - Workflow definitions in `shared/workflows/` — clean-workspace, needs-attention, prep-my-day, review-repos, weekly-review
 

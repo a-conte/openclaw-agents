@@ -1,0 +1,38 @@
+name: OpenClawMissionControl
+options:
+  deploymentTarget:
+    iOS: 17.0
+targets:
+  OpenClawMissionControl:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - OpenClawMissionControl
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.openclaw.mission-control
+        PRODUCT_NAME: OpenClawMissionControl
+        SWIFT_VERSION: "5.10"
+        TARGETED_DEVICE_FAMILY: "2"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        INFOPLIST_KEY_CFBundleDisplayName: OpenClaw Mission Control
+        INFOPLIST_KEY_MissionControlBaseURL: ""
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIRequiresFullScreen: NO
+  OpenClawMissionControlTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - OpenClawMissionControlTests
+    dependencies:
+      - target: OpenClawMissionControl
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.openclaw.mission-control.tests
+        SWIFT_VERSION: "5.10"

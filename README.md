@@ -14,8 +14,12 @@ Monorepo containing all 7 agent workspaces — each with its own personality, me
 
 ## Repo Structure
 
+Current layout:
+
 ```
 openclaw-agents/
+├── apps/
+│   └── dashboard/     # Desktop Mission Control web app
 ├── main/              # General assistant, daily tasks, smart home
 │   ├── SOUL.md
 │   ├── IDENTITY.md
@@ -30,13 +34,31 @@ openclaw-agents/
 ├── research/          # General research
 ├── ai-research/       # AI/ML-specific research
 ├── dev/               # Software development
+├── security/          # Security monitoring and hardening
+├── shared/            # Shared data, inboxes, repos, workflows, pipelines
 ├── scripts/           # Utility scripts (push, etc.)
-├── .github/workflows/ # Secret scanning CI
+├── thoughts/          # Planning and research notes
+├── .github/workflows/ # CI, validation, and secret scanning
 ├── SETUP.md           # Full skill/plugin/infra reference
 └── README.md
 ```
 
 Each folder is symlinked from `~/.openclaw/workspace*` so OpenClaw reads/writes directly to this repo.
+
+Incoming Mission Control layout:
+
+```text
+openclaw-agents/
+├── apps/
+│   ├── dashboard/     # Desktop Mission Control web app
+│   └── ios/           # Native SwiftUI iPad / iPhone clients
+├── packages/
+│   └── contracts/     # Shared client-facing schemas and types
+├── docs/architecture/ios-mission-control/
+└── ...existing agent workspaces...
+```
+
+The repo is being migrated toward this structure incrementally so desktop and iOS clients can share stable contracts without forcing a full workspace reorganization up front.
 
 ## Agent Files
 

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/task",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "labels",
+    "order",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["backlog", "todo", "in_progress", "review", "done"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["urgent", "high", "medium", "low"]
+    },
+    "agentId": { "type": "string" },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "projectId": { "type": "string" },
+    "dueDate": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "order": { "type": "number" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

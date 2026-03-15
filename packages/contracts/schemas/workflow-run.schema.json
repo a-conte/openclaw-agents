@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/workflow-run",
+  "type": "object",
+  "required": ["id", "workflowName", "status", "steps", "startedAt", "triggeredBy"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "workflowName": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed"]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stepIndex", "agent", "action", "status"],
+        "properties": {
+          "stepIndex": { "type": "number" },
+          "agent": { "type": "string" },
+          "action": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "done", "failed", "skipped"]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "output": { "type": "string" },
+          "error": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": { "type": "string" },
+    "triggeredBy": {
+      "type": "string",
+      "enum": ["dashboard", "cron", "api"]
+    }
+  },
+  "additionalProperties": false
+}
