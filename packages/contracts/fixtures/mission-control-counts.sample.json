@@ -1,0 +1,8 @@
+{
+  "quietAgents": 1,
+  "staleTasks": 2,
+  "failedRuns": 1,
+  "inProgressTasks": 3,
+  "dirtyRepos": 1,
+  "radarCount": 4
+}

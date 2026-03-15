@@ -5,6 +5,15 @@ export interface AgentSummaryContract {
   lastActivity?: number;
 }
 
+export interface MissionControlCountsContract {
+  quietAgents: number;
+  staleTasks: number;
+  failedRuns: number;
+  inProgressTasks: number;
+  dirtyRepos: number;
+  radarCount: number;
+}
+
 export interface TaskContract {
   id: string;
   title: string;

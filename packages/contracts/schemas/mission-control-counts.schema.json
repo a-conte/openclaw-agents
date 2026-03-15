@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/mission-control-counts",
+  "type": "object",
+  "required": [
+    "quietAgents",
+    "staleTasks",
+    "failedRuns",
+    "inProgressTasks",
+    "dirtyRepos",
+    "radarCount"
+  ],
+  "properties": {
+    "quietAgents": { "type": "integer", "minimum": 0 },
+    "staleTasks": { "type": "integer", "minimum": 0 },
+    "failedRuns": { "type": "integer", "minimum": 0 },
+    "inProgressTasks": { "type": "integer", "minimum": 0 },
+    "dirtyRepos": { "type": "integer", "minimum": 0 },
+    "radarCount": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

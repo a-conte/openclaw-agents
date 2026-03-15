@@ -1,6 +1,7 @@
 export type {
   AgentSummaryContract,
   EventEnvelopeContract,
+  MissionControlCountsContract,
   TaskContract,
   WorkflowRunContract,
   WorkflowRunStatusContract,

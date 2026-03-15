@@ -5,21 +5,25 @@ import addFormats from 'ajv-formats';
 import type {
   AgentSummaryContract,
   EventEnvelopeContract,
+  MissionControlCountsContract,
   TaskContract,
   WorkflowRunContract,
 } from '../src';
 
 import agentSummarySchema from '../schemas/agent-summary.schema.json';
 import eventEnvelopeSchema from '../schemas/event-envelope.schema.json';
+import missionControlCountsSchema from '../schemas/mission-control-counts.schema.json';
 import taskSchema from '../schemas/task.schema.json';
 import workflowRunSchema from '../schemas/workflow-run.schema.json';
 
 import agentSummariesFixture from '../fixtures/agent-summaries.sample.json';
 import eventEnvelopeFixture from '../fixtures/event-envelope.sample.json';
+import missionControlCountsFixture from '../fixtures/mission-control-counts.sample.json';
 import tasksFixture from '../fixtures/tasks.sample.json';
 import workflowRunsFixture from '../fixtures/workflow-runs.sample.json';
 
 const typedAgentSummaries: AgentSummaryContract[] = agentSummariesFixture;
+const typedMissionControlCounts: MissionControlCountsContract = missionControlCountsFixture;
 const typedTasks: TaskContract[] = tasksFixture;
 const typedWorkflowRuns: WorkflowRunContract[] = workflowRunsFixture;
 const typedEventEnvelope: EventEnvelopeContract = eventEnvelopeFixture;
@@ -38,6 +42,39 @@ describe('contracts schemas', () => {
     for (const item of typedAgentSummaries) {
       expect(validate(item), JSON.stringify(validate.errors)).toBe(true);
     }
+  });
+
+  it('accepts representative mission control counts', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(missionControlCountsSchema);
+
+    const ok = validate(typedMissionControlCounts);
+
+    expect(ok, JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it('rejects positive decimal mission control counts', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(missionControlCountsSchema);
+
+    const ok = validate({
+      ...typedMissionControlCounts,
+      quietAgents: 1.5
+    });
+
+    expect(ok).toBe(false);
+  });
+
+  it('rejects negative decimal mission control counts', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(missionControlCountsSchema);
+
+    const ok = validate({
+      ...typedMissionControlCounts,
+      quietAgents: -1.5
+    });
+
+    expect(ok).toBe(false);
   });
 
   it('accepts representative tasks', () => {
