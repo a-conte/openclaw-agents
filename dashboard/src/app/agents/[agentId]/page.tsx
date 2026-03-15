@@ -13,6 +13,8 @@ import { MODEL_DISPLAY, AGENT_FILES, AGENT_COLORS, AGENT_ROLES } from '@/lib/con
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { FileEditor } from '@/components/agents/FileEditor';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { useDashboardFilters, useToast, useStatusBanners } from '@/components/providers/DashboardProviders';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
@@ -132,15 +134,15 @@ function RecItem({ rec, agentId, onDone, variant }: {
   );
 }
 
-export default function AgentDetailPage() {
+function AgentDetailContent() {
   const { agentId } = useParams<{ agentId: string }>();
   const router = useRouter();
   const { setAgentId } = useDashboardFilters();
   const { pushToast } = useToast();
   const { setStatusBanner, clearStatusBanner } = useStatusBanners();
-  const { agent, isLoading, mutate } = useAgent(agentId);
+  const { agent, isLoading, error, mutate } = useAgent(agentId);
   const [activeTab, setActiveTab] = useState<string>('Overview');
-  const { data: recData, mutate: mutateRecs } = useSWR<{ recommendations: Recommendation[] }>(
+  const { data: recData, error: recError, mutate: mutateRecs } = useSWR<{ recommendations: Recommendation[] }>(
     agentId ? `/api/agents/${agentId}/recommendations` : null,
     fetcher
   );
@@ -252,6 +254,8 @@ export default function AgentDetailPage() {
           Self-Improve
         </button>
       </div>
+
+      {(error || recError) && <div className="mb-4"><InlineError message="Failed to load agent data." onRetry={() => mutate()} /></div>}
 
       {improveStatus && (
         <div className="mb-4 p-3 rounded-md bg-accent/5 border border-accent/20 text-xs text-accent">
@@ -377,5 +381,13 @@ export default function AgentDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AgentDetailPage() {
+  return (
+    <ErrorBoundary name="Agent Detail">
+      <AgentDetailContent />
+    </ErrorBoundary>
   );
 }

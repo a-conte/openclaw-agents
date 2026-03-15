@@ -1,12 +1,15 @@
 import useSWR from 'swr';
 import { useToast } from '@/components/providers/DashboardProviders';
+import { usePollingInterval } from './usePageVisibility';
+import { POLL_INTERVAL } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export function useTasks() {
   const { pushToast } = useToast();
-  const { data, error, isLoading, mutate } = useSWR<Task[]>('/api/tasks', fetcher);
+  const refreshInterval = usePollingInterval(POLL_INTERVAL);
+  const { data, error, isLoading, mutate } = useSWR<Task[]>('/api/tasks', fetcher, { refreshInterval });
 
   const createTask = async (task: Partial<Task>) => {
     try {

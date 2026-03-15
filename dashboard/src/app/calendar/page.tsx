@@ -6,6 +6,8 @@ import { useNow } from '@/hooks/useNow';
 import { AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { cn } from '@/lib/utils';
 import type { CronJob } from '@/lib/types';
 
@@ -47,8 +49,8 @@ function parseCronToEvents(jobs: CronJob[]) {
   return events;
 }
 
-export default function CalendarPage() {
-  const { cronJobs, heartbeats, isLoading } = useCron();
+function CalendarContent() {
+  const { cronJobs, heartbeats, isLoading, error } = useCron();
 
   const events = useMemo(() => parseCronToEvents(cronJobs), [cronJobs]);
 
@@ -66,6 +68,8 @@ export default function CalendarPage() {
           {cronJobs.filter((j: CronJob) => j.enabled).length} scheduled events
         </p>
       </div>
+
+      {error && <div className="mb-4"><InlineError message="Failed to load calendar data." /></div>}
 
       {isLoading ? (
         <div className="h-[500px] bg-surface-2 rounded-lg animate-pulse" />
@@ -129,5 +133,13 @@ export default function CalendarPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <ErrorBoundary name="Calendar">
+      <CalendarContent />
+    </ErrorBoundary>
   );
 }

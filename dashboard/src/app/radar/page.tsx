@@ -4,7 +4,10 @@ import useSWR from 'swr';
 import { Radar, AlertTriangle, Eye, Lightbulb } from 'lucide-react';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { cn } from '@/lib/utils';
 import { relativeTime } from '@/lib/utils';
 import type { RadarItem } from '@/lib/types';
@@ -23,9 +26,10 @@ const SIGNAL_COLORS = {
   low: '#555555',
 };
 
-export default function RadarPage() {
+function RadarContent() {
   const { filters } = useDashboardFilters();
-  const { data, isLoading } = useSWR('/api/radar', fetcher, { refreshInterval: 30000 });
+  const refreshInterval = usePollingInterval(30000);
+  const { data, isLoading, error, mutate } = useSWR('/api/radar', fetcher, { refreshInterval });
   const items: RadarItem[] = (data?.items || []).filter((item: RadarItem) => {
     const needle = filters.search.trim().toLowerCase();
     if (filters.focus === 'signals' && item.signal === 'low') return false;
@@ -41,6 +45,8 @@ export default function RadarPage() {
           {items.length} signal{items.length !== 1 ? 's' : ''} detected
         </p>
       </div>
+
+      {error && <div className="mb-4"><InlineError message="Failed to load radar data." onRetry={() => mutate()} /></div>}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -90,5 +96,13 @@ export default function RadarPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RadarPage() {
+  return (
+    <ErrorBoundary name="Radar">
+      <RadarContent />
+    </ErrorBoundary>
   );
 }

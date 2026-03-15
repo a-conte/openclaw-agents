@@ -6,6 +6,9 @@ import { FileText, Search } from 'lucide-react';
 import { AGENT_EMOJIS, AGENT_COLORS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
+import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/utils';
 import Fuse from 'fuse.js';
@@ -25,8 +28,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   General: '#555555',
 };
 
-export default function ContentPage() {
-  const { data, isLoading } = useSWR('/api/content', fetcher, { refreshInterval: 60000 });
+function ContentContent() {
+  const refreshInterval = usePollingInterval(60000);
+  const { data, isLoading, error, mutate } = useSWR('/api/content', fetcher, { refreshInterval });
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
@@ -57,6 +61,8 @@ export default function ContentPage() {
           {documents.length} document{documents.length !== 1 ? 's' : ''} across all agents
         </p>
       </div>
+
+      {error && <div className="mb-4"><InlineError message="Failed to load content." onRetry={() => mutate()} /></div>}
 
       {/* Search & Filters */}
       <div className="flex items-center gap-3 mb-6">
@@ -118,5 +124,13 @@ export default function ContentPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ContentPage() {
+  return (
+    <ErrorBoundary name="Content">
+      <ContentContent />
+    </ErrorBoundary>
   );
 }

@@ -5,11 +5,12 @@ import { AgentOrgChart } from '@/components/agents/AgentOrgChart';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { Bot } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InlineError } from '@/components/shared/InlineError';
 import { MISSION_STATEMENT } from '@/lib/constants';
 import { getAgentStatus } from '@/lib/utils';
 
-export default function AgentsPage() {
+function AgentsContent() {
   const { filters } = useDashboardFilters();
   const { agents, isLoading, error } = useAgents();
   const searchNeedle = filters.search.trim().toLowerCase();
@@ -57,5 +58,13 @@ export default function AgentsPage() {
         <AgentOrgChart agents={filteredAgents} />
       )}
     </div>
+  );
+}
+
+export default function AgentsPage() {
+  return (
+    <ErrorBoundary name="Agents">
+      <AgentsContent />
+    </ErrorBoundary>
   );
 }

@@ -126,7 +126,7 @@ export function DashboardProviders({ children }: { children: React.ReactNode }) 
   );
 
   return (
-    <SWRConfig value={{ revalidateOnFocus: false, keepPreviousData: true, dedupingInterval: 1500, focusThrottleInterval: 15000 }}>
+    <SWRConfig value={{ revalidateOnFocus: true, keepPreviousData: true, dedupingInterval: 1500, focusThrottleInterval: 15000 }}>
       <DashboardContext.Provider value={value}>
         {children}
         <div className="pointer-events-none fixed right-4 top-16 z-[55] flex w-full max-w-md flex-col gap-2 px-4">

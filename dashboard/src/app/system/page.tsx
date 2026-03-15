@@ -13,8 +13,11 @@ import { SessionSidebar } from '@/components/sessions/SessionSidebar';
 import { ChatView } from '@/components/sessions/ChatView';
 import { ACTIVE_AGENT_IDS, ALL_AGENT_IDS, AGENT_EMOJIS, AGENT_ROLES, AGENT_COLORS, PRIORITY_COLORS } from '@/lib/constants';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { VirtualList } from '@/components/shared/VirtualList';
+import { usePollingInterval } from '@/hooks/usePageVisibility';
 import useSWR from 'swr';
 import type { Session } from '@/lib/types';
 
@@ -104,15 +107,18 @@ function SystemContent() {
 
 export default function SystemPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-text-tertiary">Loading...</div>}>
-      <SystemContent />
-    </Suspense>
+    <ErrorBoundary name="System">
+      <Suspense fallback={<div className="p-6 text-text-tertiary">Loading...</div>}>
+        <SystemContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 
 function HealthTab() {
-  const { health, isLoading } = useHealth();
-  const { data: heartbeats } = useSWR('/api/metrics/heartbeats', fetcher, { refreshInterval: 15000 });
+  const { health, isLoading, error: healthError } = useHealth();
+  const heartbeatInterval = usePollingInterval(15000);
+  const { data: heartbeats, error: heartbeatError, mutate: mutateHeartbeats } = useSWR('/api/metrics/heartbeats', fetcher, { refreshInterval: heartbeatInterval });
 
   const components = [
     { name: 'Gateway', status: health?.ok ? 'online' : 'offline' },
@@ -143,6 +149,9 @@ function HealthTab() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      {(healthError || heartbeatError) && (
+        <InlineError message="Failed to load health data." onRetry={() => mutateHeartbeats()} />
+      )}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">System Components</h2>
         <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
@@ -158,7 +167,7 @@ function HealthTab() {
         </div>
       </div>
 
-      {heartbeats?.agents && (
+      {Array.isArray(heartbeats?.agents) && (
         <div className="space-y-4">
           <h2 className="text-sm font-semibold text-text-primary uppercase tracking-[0.1em]">Agent Heartbeats</h2>
           <div className="bg-surface-1 border border-border rounded-lg divide-y divide-border">
@@ -263,10 +272,11 @@ function SessionsTab() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
+  const sessionsInterval = usePollingInterval(15000);
   const { data: sessions, isLoading } = useSWR(
     `/api/agents/${agentId}/sessions`,
     fetcher,
-    { refreshInterval: 15000 }
+    { refreshInterval: sessionsInterval }
   );
 
   return (
@@ -434,7 +444,8 @@ function FeedbackTab() {
 }
 
 function ConfigTab() {
-  const { data: config, isLoading } = useSWR('/api/config', fetcher, { refreshInterval: 30000 });
+  const configInterval = usePollingInterval(30000);
+  const { data: config, isLoading } = useSWR('/api/config', fetcher, { refreshInterval: configInterval });
 
   if (isLoading || !config) {
     return <div className="max-w-3xl space-y-4">
@@ -508,7 +519,8 @@ function ConfigTab() {
 }
 
 function InboxTab() {
-  const { data: inbox, isLoading } = useSWR('/api/inbox', fetcher, { refreshInterval: 10000 });
+  const inboxInterval = usePollingInterval(10000);
+  const { data: inbox, isLoading } = useSWR('/api/inbox', fetcher, { refreshInterval: inboxInterval });
 
   if (isLoading || !inbox) {
     return <div className="max-w-3xl space-y-4">

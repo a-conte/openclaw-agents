@@ -25,6 +25,48 @@ fi
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 
+RESTART_COOLDOWN=1800  # 30 minutes between restart attempts per agent
+RESTART_DIR="/tmp/openclaw-watchdog"
+mkdir -p "$RESTART_DIR"
+
+restart_agent() {
+  local agent="$1"
+  local age="$2"
+  local cooldown_file="$RESTART_DIR/restart-${agent}"
+
+  # Only attempt restart if agent has been stale for >2x threshold
+  if [[ $age -lt $((MAX_AGE * 2)) ]]; then
+    echo "[WATCHDOG] $agent stale but under 2x threshold — skipping restart"
+    return
+  fi
+
+  # Check cooldown
+  if [[ -f "$cooldown_file" ]]; then
+    local last_restart
+    last_restart=$(cat "$cooldown_file")
+    local now
+    now=$(date +%s)
+    if [[ $((now - last_restart)) -lt $RESTART_COOLDOWN ]]; then
+      echo "[WATCHDOG] $agent restart on cooldown — skipping"
+      return
+    fi
+  fi
+
+  # Only restart if gateway is healthy
+  if ! curl -s -o /dev/null -w '' --connect-timeout 5 "http://localhost:18789/health" 2>/dev/null; then
+    echo "[WATCHDOG] Gateway is down — cannot restart $agent"
+    return
+  fi
+
+  echo "[WATCHDOG] Attempting restart of $agent..."
+  if openclaw gateway call heartbeat --agent "$agent" 2>/dev/null; then
+    echo "[WATCHDOG] Restart triggered for $agent"
+    date +%s > "$cooldown_file"
+  else
+    echo "[WATCHDOG] Failed to restart $agent"
+  fi
+}
+
 send_alert() {
   local agent="$1"
   local age_min="$2"
@@ -87,6 +129,7 @@ check_agent() {
 
   if [[ $age -gt $MAX_AGE ]]; then
     send_alert "$agent" "$age_min"
+    restart_agent "$agent" "$age"
   else
     echo "[WATCHDOG] $agent OK — last activity ${age_min}m ago"
   fi
@@ -143,13 +186,16 @@ check_service_health() {
 
 echo "[WATCHDOG] $(date '+%Y-%m-%d %H:%M:%S') — Starting checks..."
 
+# Check service health first (gateway + dashboard) so agent restarts can work through it
+check_service_health
+
+# Brief pause after potential gateway restart so it's ready for agent restart calls
+sleep 5
+
 # Check agent heartbeats
 for agent in "${AGENTS[@]}"; do
   check_agent "$agent"
 done
-
-# Check service health (gateway + dashboard)
-check_service_health
 
 # Rotate activity log if needed
 rotate_activity_log

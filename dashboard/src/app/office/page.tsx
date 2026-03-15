@@ -9,6 +9,7 @@ import { getAgentStatus, relativeTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Circle, MessageCircle, Scroll, Shield, Sword, Sparkles, Activity, Zap } from 'lucide-react';
 import { useNow } from '@/hooks/useNow';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 // --- Grid & Canvas ---
 const PX = 3;
@@ -453,7 +454,7 @@ function drawHighlight(ctx: CanvasRenderingContext2D, vx: number, vy: number, co
 }
 
 // --- MAIN COMPONENT ---
-export default function OfficePage() {
+function OfficeContent() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spritesRef = useRef<Sprite[]>([]);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; id: string; state: string } | null>(null);
@@ -938,6 +939,14 @@ export default function OfficePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OfficePage() {
+  return (
+    <ErrorBoundary name="Office">
+      <OfficeContent />
+    </ErrorBoundary>
   );
 }
 

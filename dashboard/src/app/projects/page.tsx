@@ -6,15 +6,17 @@ import { FolderKanban, Plus, Users } from 'lucide-react';
 import { AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
 import { useDashboardFilters } from '@/components/providers/DashboardProviders';
 import { useTasks } from '@/hooks/useTasks';
 import type { Project } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export default function ProjectsPage() {
+function ProjectsContent() {
   const { filters } = useDashboardFilters();
-  const { data: projects, isLoading, mutate } = useSWR<Project[]>('/api/projects', fetcher);
+  const { data: projects, isLoading, error, mutate } = useSWR<Project[]>('/api/projects', fetcher);
   const { tasks } = useTasks();
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -58,6 +60,8 @@ export default function ProjectsPage() {
           <Plus size={14} /> New Project
         </button>
       </div>
+
+      {error && <div className="mb-4"><InlineError message="Failed to load projects." onRetry={() => mutate()} /></div>}
 
       {showNew && (
         <div className="bg-surface-1 border border-accent/30 rounded-lg p-4 mb-6">
@@ -152,5 +156,13 @@ export default function ProjectsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <ErrorBoundary name="Projects">
+      <ProjectsContent />
+    </ErrorBoundary>
   );
 }

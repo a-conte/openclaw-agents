@@ -6,13 +6,17 @@ import { Brain } from 'lucide-react';
 import { AGENT_EMOJIS, AGENT_COLORS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { InlineError } from '@/components/shared/InlineError';
+import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { cn } from '@/lib/utils';
 import type { MemoryCategory } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export default function MemoryPage() {
-  const { data, isLoading } = useSWR('/api/memory', fetcher, { refreshInterval: 60000 });
+function MemoryContent() {
+  const refreshInterval = usePollingInterval(60000);
+  const { data, isLoading, error, mutate } = useSWR('/api/memory', fetcher, { refreshInterval });
   const [agentFilter, setAgentFilter] = useState('');
 
   const categories: MemoryCategory[] = data?.categories || [];
@@ -33,6 +37,8 @@ export default function MemoryPage() {
           {categories.length} categories across {agents.length} agents
         </p>
       </div>
+
+      {error && <div className="mb-4"><InlineError message="Failed to load memory data." onRetry={() => mutate()} /></div>}
 
       {/* Agent filter */}
       <div className="flex items-center gap-1.5 mb-6 flex-wrap">
@@ -93,5 +99,13 @@ export default function MemoryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MemoryPage() {
+  return (
+    <ErrorBoundary name="Memory">
+      <MemoryContent />
+    </ErrorBoundary>
   );
 }

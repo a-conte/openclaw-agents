@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTasks } from '@/hooks/useTasks';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InlineError } from '@/components/shared/InlineError';
 import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { TaskFilters } from '@/components/tasks/TaskFilters';
@@ -12,7 +13,7 @@ import { Badge } from '@/components/shared/Badge';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List } from 'lucide-react';
 
-export default function PipelinePage() {
+function PipelineContent() {
   const { filters, setSearch, setAgentId } = useDashboardFilters();
   const { tasks, isLoading, error, createTask, updateTask, deleteTask } = useTasks();
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -196,5 +197,13 @@ export default function PipelinePage() {
         onDelete={deleteTask}
       />
     </div>
+  );
+}
+
+export default function PipelinePage() {
+  return (
+    <ErrorBoundary name="Pipeline">
+      <PipelineContent />
+    </ErrorBoundary>
   );
 }
