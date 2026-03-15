@@ -56,9 +56,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - run: npm ci
-
-      - name: Rebuild native bindings
-        run: npm rebuild @tailwindcss/oxide
+      - run: npm install --no-save @tailwindcss/oxide-linux-x64-gnu
 
       - name: Type check
         run: npm run dashboard:typecheck
