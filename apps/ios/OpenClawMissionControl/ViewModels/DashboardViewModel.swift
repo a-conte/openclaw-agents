@@ -89,17 +89,8 @@ final class DashboardViewModel: ObservableObject {
                     status: event.payload.status ?? existing.status,
                     lastActivity: event.payload.lastActivity ?? existing.lastActivity
                 )
-            } else {
-                snapshot.agents.append(
-                    AgentSummary(
-                        agentId: event.entityId,
-                        name: event.payload.name,
-                        status: event.payload.status,
-                        lastActivity: event.payload.lastActivity
-                    )
-                )
             }
-            snapshot.updatedAt = event.emittedAt
+            snapshot.generatedAt = event.emittedAt
             snapshot.sequence = event.sequence
             self.snapshot = snapshot
         default:
@@ -111,8 +102,12 @@ final class DashboardViewModel: ObservableObject {
         snapshot?.agents ?? []
     }
 
+    var counts: MissionControlCounts {
+        snapshot?.counts ?? .zero
+    }
+
     var statusLine: String {
         guard let snapshot else { return "Waiting for snapshot" }
-        return "Updated \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))"
+        return "Updated \(snapshot.generatedAt.formatted(date: .omitted, time: .shortened))"
     }
 }

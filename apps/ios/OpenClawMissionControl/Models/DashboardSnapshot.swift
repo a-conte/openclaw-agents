@@ -2,8 +2,9 @@ import Foundation
 
 struct DashboardSnapshot: Codable, Equatable {
     var agents: [AgentSummary]
-    var updatedAt: Date
-    var sequence: Int?
+    var generatedAt: Date
+    var sequence: Int
+    var counts: MissionControlCounts
 
     static let preview = DashboardSnapshot(
         agents: [
@@ -11,7 +12,11 @@ struct DashboardSnapshot: Codable, Equatable {
             AgentSummary(agentId: "dev", name: "dev", status: .warning, lastActivity: Date().addingTimeInterval(-900).timeIntervalSince1970 * 1000),
             AgentSummary(agentId: "research", name: "research", status: .offline, lastActivity: Date().addingTimeInterval(-7200).timeIntervalSince1970 * 1000)
         ],
-        updatedAt: Date(),
-        sequence: 1
+        generatedAt: Date(),
+        sequence: 1,
+        counts: MissionControlCounts(
+            quietAgents: 1, staleTasks: 0, failedRuns: 2,
+            inProgressTasks: 3, dirtyRepos: 1, radarCount: 4
+        )
     )
 }
