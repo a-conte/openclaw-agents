@@ -24,6 +24,18 @@ interface InboxMessage {
 
 function loadInbox() {
   const messages: InboxMessage[] = [];
+  const byAgent: Record<string, InboxMessage[]> = {};
+  for (const agentId of ALL_AGENT_IDS) {
+    byAgent[agentId] = [];
+  }
+
+  const priorityOrder: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+  const compareFn = (a: InboxMessage, b: InboxMessage) => {
+    const pa = priorityOrder[a.priority] ?? 2;
+    const pb = priorityOrder[b.priority] ?? 2;
+    if (pa !== pb) return pa - pb;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  };
 
   for (const agentId of ALL_AGENT_IDS) {
     const inboxDir = path.join(OPENCLAW_AGENTS, 'shared', 'inbox', agentId);
@@ -33,7 +45,7 @@ function loadInbox() {
     for (const file of files) {
       try {
         const content = JSON.parse(readFileSync(path.join(inboxDir, file), 'utf-8'));
-        messages.push({
+        const msg: InboxMessage = {
           filename: file,
           agentId,
           from: content.from || 'unknown',
@@ -45,22 +57,16 @@ function loadInbox() {
           status: content.status || 'unread',
           pipeline: content.pipeline,
           workflow: content.workflow,
-        });
+        };
+        messages.push(msg);
+        byAgent[agentId].push(msg);
       } catch {}
     }
   }
 
-  messages.sort((a, b) => {
-    const priorityOrder: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
-    const pa = priorityOrder[a.priority] ?? 2;
-    const pb = priorityOrder[b.priority] ?? 2;
-    if (pa !== pb) return pa - pb;
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-  });
-
-  const byAgent: Record<string, InboxMessage[]> = {};
+  messages.sort(compareFn);
   for (const agentId of ALL_AGENT_IDS) {
-    byAgent[agentId] = messages.filter(m => m.agentId === agentId);
+    byAgent[agentId].sort(compareFn);
   }
 
   return { messages, byAgent, totalCount: messages.length };

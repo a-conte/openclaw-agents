@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { createReadStream, existsSync, readdirSync } from 'fs';
+import { createInterface } from 'readline';
 import path from 'path';
 import { getCached } from '@/lib/server-cache';
 
@@ -26,24 +27,35 @@ interface AgentHeartbeatStatus {
   recentHeartbeats: Array<{ timestamp: string; duration_ms: number; inbox_processed: number }>;
 }
 
-function parseActivityLog(): HeartbeatEntry[] {
+async function parseActivityLogGrouped(): Promise<{ byAgent: Map<string, HeartbeatEntry[]>; total: number }> {
   const logPath = path.join(OPENCLAW_AGENTS, 'shared', 'logs', 'activity.jsonl');
-  if (!existsSync(logPath)) return [];
+  if (!existsSync(logPath)) return { byAgent: new Map(), total: 0 };
 
-  const content = readFileSync(logPath, 'utf-8');
-  const entries: HeartbeatEntry[] = [];
+  const byAgent = new Map<string, HeartbeatEntry[]>();
+  let total = 0;
 
-  for (const line of content.split('\n')) {
+  const rl = createInterface({
+    input: createReadStream(logPath, { encoding: 'utf-8' }),
+    crlfDelay: Infinity,
+  });
+
+  for await (const line of rl) {
     if (!line.trim()) continue;
     try {
       const entry = JSON.parse(line);
       if (entry.type === 'heartbeat') {
-        entries.push(entry);
+        total++;
+        const list = byAgent.get(entry.agent);
+        if (list) {
+          list.push(entry);
+        } else {
+          byAgent.set(entry.agent, [entry]);
+        }
       }
     } catch {}
   }
 
-  return entries;
+  return { byAgent, total };
 }
 
 function getInboxCount(agentId: string): number {
@@ -52,15 +64,14 @@ function getInboxCount(agentId: string): number {
   return readdirSync(inboxDir).filter(f => f.endsWith('.json')).length;
 }
 
-function loadHeartbeats() {
-  const entries = parseActivityLog();
+async function loadHeartbeats() {
+  const { byAgent, total } = await parseActivityLogGrouped();
   const now = Date.now();
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
   const agentIds = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
   const result: AgentHeartbeatStatus[] = agentIds.map(agentId => {
-    const agentEntries = entries
-      .filter(e => e.agent === agentId)
+    const agentEntries = (byAgent.get(agentId) || [])
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     const recent24h = agentEntries.filter(e => new Date(e.timestamp).getTime() > oneDayAgo);
@@ -81,7 +92,7 @@ function loadHeartbeats() {
     };
   });
 
-  return { agents: result, totalHeartbeats: entries.length };
+  return { agents: result, totalHeartbeats: total };
 }
 
 export async function GET() {

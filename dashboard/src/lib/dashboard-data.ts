@@ -47,9 +47,15 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
     return [];
   }
 
-  const results = await Promise.all(reposConfig.repos.map(async (repo) => {
-    const localPath = expandHome(repo.local);
-    const result: RepoStatus = {
+  // Build a batch shell script that runs git status + log for all repos in one process
+  const reposWithPaths = reposConfig.repos.map((repo) => ({
+    repo,
+    localPath: expandHome(repo.local),
+  }));
+  const existingRepos = reposWithPaths.filter((r) => existsSync(r.localPath));
+  const missingRepos = reposWithPaths
+    .filter((r) => !existsSync(r.localPath))
+    .map(({ repo }): RepoStatus => ({
       owner: repo.owner,
       name: repo.name,
       local: repo.local,
@@ -59,36 +65,51 @@ async function loadReposUncached(): Promise<RepoStatus[]> {
       uncommittedCount: 0,
       lastCommit: null,
       lastCommitDate: null,
+    }));
+
+  if (existingRepos.length === 0) return missingRepos;
+
+  // Single script: for each repo, output status line count and last commit on two lines
+  const scriptParts = existingRepos.map((r) => {
+    const escaped = r.localPath.replace(/'/g, "'\\''");
+    return `cd '${escaped}' 2>/dev/null && echo "$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')|||$(git log --format='%h %s|||%ci' -1 2>/dev/null)" || echo "ERR|||"`;
+  });
+  const batchScript = scriptParts.join('\n');
+
+  let batchOutput: string[] = [];
+  try {
+    const { stdout } = await execFileAsync('bash', ['-c', batchScript], { encoding: 'utf-8', timeout: 15000 });
+    batchOutput = stdout.trim().split('\n');
+  } catch {
+    // Fallback: return all as missing
+    return reposConfig.repos.map((repo): RepoStatus => ({
+      owner: repo.owner, name: repo.name, local: repo.local,
+      watch: repo.watch || [], default_branch: repo.default_branch || 'main',
+      status: 'missing', uncommittedCount: 0, lastCommit: null, lastCommitDate: null,
+    }));
+  }
+
+  const existingResults: RepoStatus[] = existingRepos.map((r, i) => {
+    const line = batchOutput[i] || 'ERR|||';
+    const result: RepoStatus = {
+      owner: r.repo.owner, name: r.repo.name, local: r.repo.local,
+      watch: r.repo.watch || [], default_branch: r.repo.default_branch || 'main',
+      status: 'missing', uncommittedCount: 0, lastCommit: null, lastCommitDate: null,
     };
 
-    if (!existsSync(localPath)) return result;
+    if (line.startsWith('ERR')) return result;
 
-    try {
-      const { stdout } = await execFileAsync('git', ['-C', localPath, 'status', '--porcelain'], { encoding: 'utf-8', timeout: 5000 });
-      const porcelain = stdout.trim();
-      const lines = porcelain ? porcelain.split('\n') : [];
-      result.uncommittedCount = lines.length;
-      result.status = lines.length === 0 ? 'clean' : 'dirty';
-    } catch {
-      result.status = 'missing';
-    }
-
-    try {
-      const { stdout } = await execFileAsync('git', ['-C', localPath, 'log', '--oneline', '--format=%h %s|||%ci', '-1'], { encoding: 'utf-8', timeout: 5000 });
-      const logLine = stdout.trim();
-      if (logLine) {
-        const [commitInfo, date] = logLine.split('|||');
-        result.lastCommit = commitInfo;
-        result.lastCommitDate = date || null;
-      }
-    } catch {
-      // ignore log errors
-    }
+    const parts = line.split('|||');
+    const uncommitted = parseInt(parts[0]) || 0;
+    result.uncommittedCount = uncommitted;
+    result.status = uncommitted === 0 ? 'clean' : 'dirty';
+    if (parts[1]) result.lastCommit = parts[1];
+    if (parts[2]) result.lastCommitDate = parts[2];
 
     return result;
-  }));
+  });
 
-  return results;
+  return [...existingResults, ...missingRepos];
 }
 
 async function loadWorkflowsUncached(): Promise<Workflow[]> {
