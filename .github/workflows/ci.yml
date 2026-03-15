@@ -57,6 +57,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Rebuild native bindings
+        run: npm rebuild @tailwindcss/oxide
+
       - name: Type check
         run: npm run dashboard:typecheck
 
