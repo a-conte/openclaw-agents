@@ -5,8 +5,23 @@ set -euo pipefail
 
 REMOTE="$1"
 
-# Check if dashboard files changed vs remote main
-CHANGED=$(git diff --name-only "$REMOTE/main"..HEAD -- dashboard/ 2>/dev/null || true)
+cd "$(git rev-parse --show-toplevel)"
+./scripts/check-dashboard-paths.sh
+
+BASE_REF=""
+if git rev-parse --verify "refs/remotes/$REMOTE/main" >/dev/null 2>&1; then
+  BASE_REF="$REMOTE/main"
+elif git rev-parse --verify "refs/remotes/origin/main" >/dev/null 2>&1; then
+  BASE_REF="origin/main"
+fi
+
+# Check if dashboard-affecting files changed vs remote main
+if [ -n "$BASE_REF" ]; then
+  CHANGED=$(git diff --name-only "$BASE_REF"..HEAD -- apps/dashboard/ packages/contracts/ package.json package-lock.json .github/workflows/ci.yml .githooks/pre-push Makefile)
+else
+  echo "Could not resolve remote main ref for diff; running dashboard typecheck conservatively."
+  CHANGED="force"
+fi
 
 if [ -z "$CHANGED" ]; then
   exit 0
@@ -14,13 +29,14 @@ fi
 
 echo "Dashboard files changed — running TypeScript check..."
 
-cd "$(git rev-parse --show-toplevel)/dashboard"
+cd "$(git rev-parse --show-toplevel)"
 
 if [ ! -d node_modules ]; then
-  echo "Installing dashboard dependencies..."
+  echo "Installing workspace dependencies..."
   npm ci --silent
 fi
 
-npx tsc --noEmit
+npm run dashboard:typecheck
+npm run test --workspace @openclaw/contracts
 
-echo "Dashboard type check passed."
+echo "Dashboard and contracts checks passed."

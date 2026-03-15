@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-agents",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dashboard:typecheck": "npm run typecheck --workspace @openclaw/dashboard",
+    "dashboard:test": "npm run test --workspace @openclaw/dashboard",
+    "dashboard:build": "npm run build --workspace @openclaw/dashboard"
+  }
+}

@@ -29,6 +29,8 @@ Notes:
 ## Documents
 
 - `spec.md`: Approved architecture and rollout direction for Mission Control.
+- `api-contracts.md`: Canonical contract format, validation rules, and first shared payload scope.
+- `repo-and-branching.md`: Branch/worktree workflow and the execution order for Mission Control changes.
 
 ## Working Rules
 

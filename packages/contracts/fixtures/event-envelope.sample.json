@@ -1,0 +1,10 @@
+{
+  "eventId": "evt-1",
+  "sequence": 1,
+  "eventType": "agent.updated",
+  "entityId": "main",
+  "emittedAt": "2026-03-14T21:00:00Z",
+  "payload": {
+    "status": "online"
+  }
+}
