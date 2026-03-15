@@ -14,6 +14,7 @@ final class DashboardViewModelTests: XCTestCase {
 
         XCTAssertNil(viewModel.errorMessage)
         XCTAssertEqual(viewModel.agents.count, 1)
+        XCTAssertEqual(viewModel.counts.inProgressTasks, 3)
     }
 }
 
@@ -23,8 +24,12 @@ private struct EmptyStreamClient: MissionControlClient {
     func loadInitialSnapshot() async throws -> DashboardSnapshot {
         DashboardSnapshot(
             agents: [AgentSummary(agentId: "main", name: "main", status: .online, lastActivity: nil)],
-            updatedAt: Date(),
-            sequence: 1
+            generatedAt: Date(),
+            sequence: 1,
+            counts: MissionControlCounts(
+                quietAgents: 0, staleTasks: 0, failedRuns: 0,
+                inProgressTasks: 3, dirtyRepos: 0, radarCount: 0
+            )
         )
     }
 

@@ -51,11 +51,51 @@ struct HTTPMissionControlClient: MissionControlClient {
     }
 
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error> {
-        // The event transport will be added alongside the canonical Mission Control
-        // snapshot endpoint. Keep the seam aligned with the architecture now so the
-        // iPad shell does not hard-code a polling-only client model.
         AsyncThrowingStream { continuation in
-            continuation.finish()
+            let task = Task {
+                do {
+                    var url = baseURL.appending(path: "/api/mission-control/events")
+                    if let sequence {
+                        url.append(queryItems: [URLQueryItem(name: "since", value: String(sequence))])
+                    }
+                    var request = URLRequest(url: url)
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    request.timeoutInterval = .infinity
+
+                    let (bytes, _) = try await session.bytes(from: url)
+                    var currentEvent: String?
+                    var currentData: String?
+
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+
+                        if line.isEmpty {
+                            // Empty line = end of event
+                            if let data = currentData {
+                                if let jsonData = data.data(using: .utf8) {
+                                    let envelope = try MissionControlJSON.makeDecoder()
+                                        .decode(MissionControlEventEnvelope.self, from: jsonData)
+                                    continuation.yield(envelope)
+                                }
+                            }
+                            currentEvent = nil
+                            currentData = nil
+                        } else if line.hasPrefix("event: ") {
+                            currentEvent = String(line.dropFirst(7))
+                        } else if line.hasPrefix("data: ") {
+                            currentData = String(line.dropFirst(6))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    if !Task.isCancelled {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
 }
@@ -70,9 +110,13 @@ struct MissionControlEventEnvelope: Codable, Equatable {
 }
 
 struct MissionControlEventPayload: Codable, Equatable {
+    // agent.updated fields
+    let agentId: String?
     let name: String?
     let status: AgentStatus?
     let lastActivity: TimeInterval?
+    // snapshot.invalidated fields
+    let reason: String?
 }
 
 enum MissionControlJSON {

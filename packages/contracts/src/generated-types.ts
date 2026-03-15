@@ -5,6 +5,15 @@ export interface AgentSummaryContract {
   lastActivity?: number;
 }
 
+export interface MissionControlCountsContract {
+  quietAgents: number;
+  staleTasks: number;
+  failedRuns: number;
+  inProgressTasks: number;
+  dirtyRepos: number;
+  radarCount: number;
+}
+
 export interface TaskContract {
   id: string;
   title: string;
@@ -43,6 +52,24 @@ export interface WorkflowRunContract {
   completedAt?: string;
   error?: string;
   triggeredBy: 'dashboard' | 'cron' | 'api';
+}
+
+export interface MissionControlSnapshotContract {
+  sequence: number;
+  generatedAt: string;
+  agents: AgentSummaryContract[];
+  counts: MissionControlCountsContract;
+}
+
+export interface MissionControlAgentUpdatedContract {
+  agentId: string;
+  name?: string;
+  status?: 'online' | 'warning' | 'offline';
+  lastActivity?: number;
+}
+
+export interface MissionControlSnapshotInvalidatedContract {
+  reason: 'counts-changed' | 'agent-added' | 'agent-removed' | 'resume-gap';
 }
 
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {

@@ -1,0 +1,26 @@
+{
+  "sequence": 42,
+  "generatedAt": "2026-03-15T04:00:00.000Z",
+  "agents": [
+    {
+      "agentId": "main",
+      "name": "main",
+      "status": "online",
+      "lastActivity": 1742011200000
+    },
+    {
+      "agentId": "dev",
+      "name": "dev",
+      "status": "warning",
+      "lastActivity": 1742007600000
+    }
+  ],
+  "counts": {
+    "quietAgents": 1,
+    "staleTasks": 0,
+    "failedRuns": 2,
+    "inProgressTasks": 3,
+    "dirtyRepos": 1,
+    "radarCount": 4
+  }
+}

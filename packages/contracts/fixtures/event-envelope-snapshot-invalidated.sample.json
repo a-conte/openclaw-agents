@@ -1,0 +1,10 @@
+{
+  "eventId": "evt-11",
+  "sequence": 11,
+  "eventType": "snapshot.invalidated",
+  "entityId": "mission-control",
+  "emittedAt": "2026-03-15T04:01:00.000Z",
+  "payload": {
+    "reason": "counts-changed"
+  }
+}

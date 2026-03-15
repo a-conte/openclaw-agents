@@ -48,6 +48,7 @@ struct DashboardView: View {
                     if let errorMessage = viewModel.errorMessage {
                         staleSnapshotBanner(message: errorMessage)
                     }
+                    countsSection
                     agentSection
                 }
             }
@@ -63,6 +64,17 @@ struct DashboardView: View {
             Text("An iPad-first operational shell optimized for quick recognition, low-latency refresh, and focused command awareness.")
                 .font(.body)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var countsSection: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
+            CountTile(label: "In Progress", value: viewModel.counts.inProgressTasks, icon: "arrow.triangle.2.circlepath", color: .blue)
+            CountTile(label: "Stale Tasks", value: viewModel.counts.staleTasks, icon: "clock.badge.exclamationmark", color: .orange)
+            CountTile(label: "Failed Runs", value: viewModel.counts.failedRuns, icon: "xmark.circle", color: .red)
+            CountTile(label: "Quiet Agents", value: viewModel.counts.quietAgents, icon: "moon.zzz", color: .purple)
+            CountTile(label: "Dirty Repos", value: viewModel.counts.dirtyRepos, icon: "externaldrive.badge.exclamationmark", color: .yellow)
+            CountTile(label: "Radar", value: viewModel.counts.radarCount, icon: "antenna.radiowaves.left.and.right", color: .teal)
         }
     }
 
@@ -167,6 +179,29 @@ private struct AgentCardView: View {
     private func lastSeenText(for milliseconds: TimeInterval) -> String {
         let date = Date(timeIntervalSince1970: milliseconds / 1000)
         return "Last activity \(date.formatted(date: .omitted, time: .shortened))"
+    }
+}
+
+private struct CountTile: View {
+    let label: String
+    let value: Int
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(color)
+            Text("\(value)")
+                .font(.title.bold().monospacedDigit())
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

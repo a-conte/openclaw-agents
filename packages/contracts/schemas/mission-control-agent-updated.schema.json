@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/mission-control-agent-updated",
+  "type": "object",
+  "required": ["agentId"],
+  "properties": {
+    "agentId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["online", "warning", "offline"]
+    },
+    "lastActivity": { "type": "number" }
+  },
+  "additionalProperties": false
+}
