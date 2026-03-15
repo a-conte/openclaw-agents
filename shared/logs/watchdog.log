@@ -1,0 +1,398 @@
+[WATCHDOG] 2026-03-14 19:30:01 — Checking agent heartbeats...
+[WATCHDOG] main OK — last activity 22m ago
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 214 minutes. Possible failure.
+[WATCHDOG] research OK — last activity 56m ago
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3775 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1229 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2806 minutes. Possible failure.
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 19:35:00 — Starting checks...
+[WATCHDOG] main OK — last activity 27m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3822 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 219 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 61 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3779 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1234 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2811 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 19:40:00 — Starting checks...
+[WATCHDOG] main OK — last activity 2m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3827 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 224 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 66 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3784 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1239 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2816 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 19:45:00 — Starting checks...
+[WATCHDOG] main OK — last activity 7m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3832 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 229 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 71 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3789 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1244 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2821 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 19:50:00 — Starting checks...
+[WATCHDOG] main OK — last activity 12m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3837 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 234 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 76 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3794 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1249 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2826 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 19:55:00 — Starting checks...
+[WATCHDOG] main OK — last activity 17m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3842 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 239 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 81 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3800 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1254 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2831 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:00:00 — Starting checks...
+[WATCHDOG] main OK — last activity 22m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3847 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 244 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 86 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3804 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1259 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2836 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:05:00 — Starting checks...
+[WATCHDOG] main OK — last activity 27m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3852 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 249 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 91 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3810 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1264 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2841 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:10:00 — Starting checks...
+[WATCHDOG] main OK — last activity 2m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3857 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 254 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 96 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3814 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1269 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2846 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:15:00 — Starting checks...
+[WATCHDOG] main OK — last activity 7m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3862 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 259 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 101 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3819 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1274 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2851 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:20:00 — Starting checks...
+[WATCHDOG] main OK — last activity 12m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3867 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 264 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 106 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3824 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1279 minutes. Possible failure.
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2856 minutes. Possible failure.
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:25:01 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 17m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3872 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 269 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 111 minutes. Possible failure.
+[WATCHDOG] research stale but under 2x threshold — skipping restart
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3830 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1284 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2861 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:30:01 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 22m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3877 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 274 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 116 minutes. Possible failure.
+[WATCHDOG] research stale but under 2x threshold — skipping restart
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3835 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1289 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2866 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:35:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 27m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3882 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 279 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 121 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3840 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1294 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2871 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:40:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 2m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3887 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 284 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 126 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3845 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1299 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2876 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:45:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 7m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3892 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 289 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 131 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3850 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1304 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2881 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:50:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 12m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3897 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 294 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 136 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3855 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1309 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2886 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 20:55:01 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 17m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3902 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 299 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 141 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3860 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1314 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2891 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:00:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 3m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3907 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 304 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 146 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3865 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1319 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2896 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:05:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 8m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3912 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 309 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 151 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3870 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1324 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2901 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:10:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 13m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3917 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 314 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 156 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3875 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1329 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2906 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:15:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 18m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3922 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 319 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 161 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3880 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1334 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2911 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:20:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 23m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3927 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 324 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 166 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3885 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1339 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2916 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:25:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 28m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3932 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 329 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 171 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3890 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1344 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2921 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:30:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 0m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3937 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 334 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 176 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3895 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1349 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2926 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
+[WATCHDOG] 2026-03-14 21:35:00 — Starting checks...
+[WATCHDOG] ALERT: Gateway HTTP health check failed!
+[WATCHDOG] ALERT: Agent 'gateway' has not sent a heartbeat in 0 minutes. Possible failure.
+[WATCHDOG] Dashboard: OK (HTTP health check)
+[WATCHDOG] main OK — last activity 5m ago
+[WATCHDOG] ALERT: Agent 'mail' has not sent a heartbeat in 3942 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart mail
+[WATCHDOG] ALERT: Agent 'docs' has not sent a heartbeat in 339 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart docs
+[WATCHDOG] ALERT: Agent 'research' has not sent a heartbeat in 181 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart research
+[WATCHDOG] ALERT: Agent 'ai-research' has not sent a heartbeat in 3900 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart ai-research
+[WATCHDOG] ALERT: Agent 'dev' has not sent a heartbeat in 1354 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart dev
+[WATCHDOG] ALERT: Agent 'security' has not sent a heartbeat in 2931 minutes. Possible failure.
+[WATCHDOG] Gateway is down — cannot restart security
+[WATCHDOG] Check complete.
