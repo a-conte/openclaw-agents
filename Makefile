@@ -1,3 +1,5 @@
+# DEPRECATED: Use `just <target>` instead. Install: brew install just
+# This Makefile is kept for backwards compatibility and will be removed.
 .PHONY: test typecheck build watchdog backup validate-json restart-agents check-dashboard-paths
 
 test:

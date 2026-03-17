@@ -1,6 +1,7 @@
 export type {
   AgentSummaryContract,
   EventEnvelopeContract,
+  JobContract,
   MissionControlAgentUpdatedContract,
   MissionControlCountsContract,
   MissionControlSnapshotContract,

@@ -72,6 +72,19 @@ export interface MissionControlSnapshotInvalidatedContract {
   reason: 'counts-changed' | 'agent-added' | 'agent-removed' | 'resume-gap';
 }
 
+export interface JobContract {
+  id: string;
+  prompt: string;
+  targetAgent: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  priority: 'normal' | 'high' | 'urgent';
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  result?: string;
+  error?: string;
+}
+
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   eventId: string;
   sequence: number;

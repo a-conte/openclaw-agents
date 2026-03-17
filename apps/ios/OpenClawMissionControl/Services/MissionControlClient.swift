@@ -3,6 +3,10 @@ import Foundation
 protocol MissionControlClient {
     func loadInitialSnapshot() async throws -> DashboardSnapshot
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
+    func submitJob(prompt: String, agent: String) async throws -> Job
+    func listJobs() async throws -> [Job]
+    func listTasks() async throws -> [TaskItem]
+    func listWorkflowRuns() async throws -> [WorkflowRun]
 }
 
 struct PreviewMissionControlClient: MissionControlClient {
@@ -14,6 +18,22 @@ struct PreviewMissionControlClient: MissionControlClient {
         AsyncThrowingStream { continuation in
             continuation.finish()
         }
+    }
+
+    func submitJob(prompt: String, agent: String) async throws -> Job {
+        Job.preview
+    }
+
+    func listJobs() async throws -> [Job] {
+        [Job.preview]
+    }
+
+    func listTasks() async throws -> [TaskItem] {
+        []
+    }
+
+    func listWorkflowRuns() async throws -> [WorkflowRun] {
+        []
     }
 }
 
@@ -37,6 +57,22 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
         AsyncThrowingStream { continuation in
             continuation.finish(throwing: ConfigurationError.missingBaseURL)
         }
+    }
+
+    func submitJob(prompt: String, agent: String) async throws -> Job {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func listJobs() async throws -> [Job] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func listTasks() async throws -> [TaskItem] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func listWorkflowRuns() async throws -> [WorkflowRun] {
+        throw ConfigurationError.missingBaseURL
     }
 }
 
@@ -100,6 +136,36 @@ struct HTTPMissionControlClient: MissionControlClient {
     }
 }
 
+    func submitJob(prompt: String, agent: String) async throws -> Job {
+        let url = baseURL.appending(path: "/api/jobs")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ["prompt": prompt, "targetAgent": agent]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
+    }
+
+    func listJobs() async throws -> [Job] {
+        let url = baseURL.appending(path: "/api/jobs")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([Job].self, from: data)
+    }
+
+    func listTasks() async throws -> [TaskItem] {
+        let url = baseURL.appending(path: "/api/tasks")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([TaskItem].self, from: data)
+    }
+
+    func listWorkflowRuns() async throws -> [WorkflowRun] {
+        let url = baseURL.appending(path: "/api/workflows/runs")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([WorkflowRun].self, from: data)
+    }
+}
+
 struct MissionControlEventEnvelope: Codable, Equatable {
     let eventId: String
     let sequence: Int
@@ -113,10 +179,48 @@ struct MissionControlEventPayload: Codable, Equatable {
     // agent.updated fields
     let agentId: String?
     let name: String?
-    let status: AgentStatus?
+    let status: String?
     let lastActivity: TimeInterval?
     // snapshot.invalidated fields
     let reason: String?
+    // job.updated fields
+    let id: String?
+    let prompt: String?
+    let targetAgent: String?
+    let priority: String?
+    let createdAt: Date?
+    let startedAt: Date?
+    let completedAt: Date?
+    let result: String?
+    let error: String?
+
+    var agentStatus: AgentStatus? {
+        status.flatMap { AgentStatus(rawValue: $0) }
+    }
+
+    var jobStatus: JobStatus? {
+        status.flatMap { JobStatus(rawValue: $0) }
+    }
+
+    var jobPriority: JobPriority? {
+        priority.flatMap { JobPriority(rawValue: $0) }
+    }
+
+    func toJob() -> Job? {
+        guard let id, let prompt, let targetAgent, let jobStatus, let jobPriority, let createdAt else { return nil }
+        return Job(
+            id: id,
+            prompt: prompt,
+            targetAgent: targetAgent,
+            status: jobStatus,
+            priority: jobPriority,
+            createdAt: createdAt,
+            startedAt: startedAt,
+            completedAt: completedAt,
+            result: result,
+            error: error
+        )
+    }
 }
 
 enum MissionControlJSON {

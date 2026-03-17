@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openclaw/job",
+  "type": "object",
+  "required": [
+    "id",
+    "prompt",
+    "targetAgent",
+    "status",
+    "priority",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "prompt": { "type": "string", "minLength": 1 },
+    "targetAgent": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "running", "completed", "failed"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["normal", "high", "urgent"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "result": { "type": "string" },
+    "error": { "type": "string" }
+  },
+  "additionalProperties": false
+}

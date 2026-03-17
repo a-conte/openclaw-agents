@@ -5,6 +5,7 @@ import addFormats from 'ajv-formats';
 import type {
   AgentSummaryContract,
   EventEnvelopeContract,
+  JobContract,
   MissionControlAgentUpdatedContract,
   MissionControlCountsContract,
   MissionControlSnapshotContract,
@@ -15,6 +16,7 @@ import type {
 
 import agentSummarySchema from '../schemas/agent-summary.schema.json';
 import eventEnvelopeSchema from '../schemas/event-envelope.schema.json';
+import jobSchema from '../schemas/job.schema.json';
 import missionControlAgentUpdatedSchema from '../schemas/mission-control-agent-updated.schema.json';
 import missionControlCountsSchema from '../schemas/mission-control-counts.schema.json';
 import missionControlSnapshotSchema from '../schemas/mission-control-snapshot.schema.json';
@@ -26,6 +28,9 @@ import agentSummariesFixture from '../fixtures/agent-summaries.sample.json';
 import eventEnvelopeFixture from '../fixtures/event-envelope.sample.json';
 import eventEnvelopeAgentUpdatedFixture from '../fixtures/event-envelope-agent-updated.sample.json';
 import eventEnvelopeSnapshotInvalidatedFixture from '../fixtures/event-envelope-snapshot-invalidated.sample.json';
+import jobQueuedFixture from '../fixtures/job-queued.sample.json';
+import jobCompletedFixture from '../fixtures/job-completed.sample.json';
+import jobFailedFixture from '../fixtures/job-failed.sample.json';
 import missionControlAgentUpdatedFixture from '../fixtures/mission-control-agent-updated.sample.json';
 import missionControlCountsFixture from '../fixtures/mission-control-counts.sample.json';
 import missionControlSnapshotFixture from '../fixtures/mission-control-snapshot.sample.json';
@@ -38,6 +43,9 @@ const typedMissionControlCounts: MissionControlCountsContract = missionControlCo
 const typedMissionControlSnapshot: MissionControlSnapshotContract = missionControlSnapshotFixture;
 const typedMissionControlAgentUpdated: MissionControlAgentUpdatedContract = missionControlAgentUpdatedFixture;
 const typedMissionControlSnapshotInvalidated: MissionControlSnapshotInvalidatedContract = missionControlSnapshotInvalidatedFixture;
+const typedJobQueued: JobContract = jobQueuedFixture;
+const typedJobCompleted: JobContract = jobCompletedFixture;
+const typedJobFailed: JobContract = jobFailedFixture;
 const typedTasks: TaskContract[] = tasksFixture;
 const typedWorkflowRuns: WorkflowRunContract[] = workflowRunsFixture;
 const typedEventEnvelope: EventEnvelopeContract = eventEnvelopeFixture;
@@ -214,5 +222,32 @@ describe('contracts schemas', () => {
     const ok = validate(typedEnvelopeSnapshotInvalidated);
 
     expect(ok, JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it('accepts representative job fixtures', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(jobSchema);
+
+    for (const fixture of [typedJobQueued, typedJobCompleted, typedJobFailed]) {
+      expect(validate(fixture), JSON.stringify(validate.errors)).toBe(true);
+    }
+  });
+
+  it('rejects job without required fields', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(jobSchema);
+
+    const ok = validate({ id: 'job-x' });
+
+    expect(ok).toBe(false);
+  });
+
+  it('rejects job with invalid status', () => {
+    const ajv = createAjv();
+    const validate = ajv.compile(jobSchema);
+
+    const ok = validate({ ...typedJobQueued, status: 'pending' });
+
+    expect(ok).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import type {
   EventEnvelopeContract,
+  JobContract,
   MissionControlAgentUpdatedContract,
   MissionControlSnapshotInvalidatedContract,
 } from '@openclaw/contracts';
@@ -35,6 +36,10 @@ function createEnvelope(
 
 export function emitAgentUpdated(payload: MissionControlAgentUpdatedContract): void {
   createEnvelope('agent.updated', payload.agentId, payload as unknown as Record<string, unknown>);
+}
+
+export function emitJobUpdated(payload: JobContract): void {
+  createEnvelope('job.updated', payload.id, payload as unknown as Record<string, unknown>);
 }
 
 export function emitSnapshotInvalidated(

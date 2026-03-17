@@ -1,0 +1,11 @@
+{
+  "id": "job-003",
+  "prompt": "Deploy latest docs",
+  "targetAgent": "docs",
+  "status": "failed",
+  "priority": "normal",
+  "createdAt": "2025-01-15T08:00:00.000Z",
+  "startedAt": "2025-01-15T08:00:03.000Z",
+  "completedAt": "2025-01-15T08:01:00.000Z",
+  "error": "Agent docs is offline"
+}

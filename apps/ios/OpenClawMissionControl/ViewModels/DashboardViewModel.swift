@@ -5,6 +5,9 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var snapshot: DashboardSnapshot?
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var jobs: [Job] = []
+    @Published private(set) var tasks: [TaskItem] = []
+    @Published private(set) var workflowRuns: [WorkflowRun] = []
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
@@ -86,13 +89,25 @@ final class DashboardViewModel: ObservableObject {
                 snapshot.agents[index] = AgentSummary(
                     agentId: existing.agentId,
                     name: event.payload.name ?? existing.name,
-                    status: event.payload.status ?? existing.status,
+                    status: event.payload.agentStatus ?? existing.status,
                     lastActivity: event.payload.lastActivity ?? existing.lastActivity
                 )
             }
             snapshot.generatedAt = event.emittedAt
             snapshot.sequence = event.sequence
             self.snapshot = snapshot
+        case "job.updated":
+            if let job = event.payload.toJob() {
+                if let index = jobs.firstIndex(where: { $0.id == job.id }) {
+                    jobs[index] = job
+                } else {
+                    jobs.insert(job, at: 0)
+                }
+            }
+            if var snapshot {
+                snapshot.sequence = event.sequence
+                self.snapshot = snapshot
+            }
         default:
             break
         }
@@ -109,5 +124,44 @@ final class DashboardViewModel: ObservableObject {
     var statusLine: String {
         guard let snapshot else { return "Waiting for snapshot" }
         return "Updated \(snapshot.generatedAt.formatted(date: .omitted, time: .shortened))"
+    }
+
+    func loadJobs() async {
+        do {
+            jobs = try await client.listJobs()
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func loadTasks() async {
+        do {
+            tasks = try await client.listTasks()
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func loadWorkflowRuns() async {
+        do {
+            workflowRuns = try await client.listWorkflowRuns()
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func submitJob(prompt: String, agent: String) async {
+        do {
+            let job = try await client.submitJob(prompt: prompt, agent: agent)
+            jobs.insert(job, at: 0)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

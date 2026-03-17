@@ -1,7 +1,26 @@
 import SwiftUI
 
+enum SidebarSection: String, CaseIterable, Identifiable {
+    case agentStatus = "Agent Status"
+    case tasks = "Tasks"
+    case workflows = "Workflows"
+    case jobs = "Jobs"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .agentStatus: return "bolt.horizontal.circle"
+        case .tasks: return "checklist"
+        case .workflows: return "point.3.connected.trianglepath.dotted"
+        case .jobs: return "paperplane"
+        }
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var selectedSection: SidebarSection? = .agentStatus
 
     var body: some View {
         NavigationSplitView {
@@ -17,12 +36,12 @@ struct DashboardView: View {
     }
 
     private var sidebar: some View {
-        List {
+        List(selection: $selectedSection) {
             Section("Mission Control") {
-                Label("Agent Status", systemImage: "bolt.horizontal.circle")
-                Label("Tasks", systemImage: "checklist")
-                Label("Workflows", systemImage: "point.3.connected.trianglepath.dotted")
-                Label("System Health", systemImage: "heart.text.square")
+                ForEach(SidebarSection.allCases) { section in
+                    Label(section.rawValue, systemImage: section.icon)
+                        .tag(section)
+                }
             }
 
             Section("Status") {
@@ -34,7 +53,21 @@ struct DashboardView: View {
         .navigationTitle("OpenClaw")
     }
 
+    @ViewBuilder
     private var detail: some View {
+        switch selectedSection {
+        case .tasks:
+            TasksView(viewModel: viewModel)
+        case .workflows:
+            WorkflowsView(viewModel: viewModel)
+        case .jobs:
+            JobSubmitView(viewModel: viewModel)
+        case .agentStatus, nil:
+            agentStatusDetail
+        }
+    }
+
+    private var agentStatusDetail: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header

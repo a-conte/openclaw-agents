@@ -1,0 +1,11 @@
+{
+  "id": "job-002",
+  "prompt": "Run security audit on all repos",
+  "targetAgent": "security",
+  "status": "completed",
+  "priority": "high",
+  "createdAt": "2025-01-15T09:00:00.000Z",
+  "startedAt": "2025-01-15T09:00:05.000Z",
+  "completedAt": "2025-01-15T09:05:30.000Z",
+  "result": "Audit complete. No critical vulnerabilities found."
+}
