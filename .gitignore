@@ -50,3 +50,8 @@ apps/ios/Local.xcconfig
 # Thoughts system - personal notes are private
 thoughts/anthony/
 thoughts/searchable/
+
+# Local dashboard env
+apps/dashboard/.env.local
+# Next build output
+apps/dashboard/.next/
