@@ -46,9 +46,10 @@ Completed or materially in place:
   - retry lineage summaries
   - dashboard observability cards
 - Bootstrap automation:
-  - `docs/bootstrap-mac.md` is in place as the current bring-up guide
+  - guided bootstrap script via `scripts/bootstrap-mac.sh`
+  - `docs/bootstrap-mac.md` now points to the script-backed flow
 - iPad polish:
-  - metrics, policy, artifact summary, and template metadata surfaces are already partially implemented
+  - metrics, policy, artifact summary, template metadata, artifact preview, and custom template editing surfaces are partially implemented
 
 Still meaningfully open:
 
@@ -56,8 +57,12 @@ Still meaningfully open:
 - fuller template diff UX on iPad
 - richer job lineage visualization beyond summary chains
 - deeper workflow-library coverage beyond the new Wave 2 starter set
-- script-based Mac bootstrap
 - full tablet-first parity on iPad
+
+Current active focus:
+
+- deeper workflow-library coverage
+- fuller iPad diff/admin parity
 
 ## Wave 1
 
@@ -67,7 +72,7 @@ Goal:
 - Make automation jobs a first-class built-in execution path inside the broader OpenClaw runtime/tool layer, not just an adjacent HTTP/CLI system.
 
 Status:
-- In progress
+- Implemented
 - Current state: repo-local native adapter endpoints and client helpers are available via `apps/listen/client.py` and `listen`'s `/agent/*` routes, but this is not yet a deeper built-in OpenClaw core-tool/runtime integration in the external product/runtime itself.
 
 Deliverables:
@@ -207,13 +212,13 @@ Goal:
 - Replace the current manual bootstrap doc with an actual machine bring-up script.
 
 Status:
-- Started
+- In progress
 
 Deliverables:
-- [ ] dependency installer
-- [ ] permission verification checklist/script
-- [ ] Xcode/iOS project generation
-- [ ] `listen`, dashboard, and CLI sanity checks
+- [x] dependency installer
+- [x] permission verification checklist/script
+- [x] Xcode/iOS project generation
+- [x] `listen`, dashboard, and CLI sanity checks
 
 Suggested commit slices:
 - `Add Mac bootstrap script`
@@ -221,6 +226,9 @@ Suggested commit slices:
 
 Definition of done:
 - a new Mac can be brought to operational state with one guided script plus a few unavoidable macOS permission approvals
+
+Remaining gap:
+- add more opinionated bootstrap checks if multi-host rollout becomes common
 
 ### 7. More iPad Polish
 
@@ -231,8 +239,8 @@ Status:
 - In progress
 
 Deliverables:
-- [ ] better artifact previews
-- [ ] template editing support
+- [x] better artifact previews
+- [x] template editing support
 - [x] policy admin display
 - [x] metrics views
 - [x] stronger job detail navigation
@@ -244,6 +252,9 @@ Suggested commit slices:
 
 Definition of done:
 - the iPad app is viable as a real operator console, not just a lightweight companion
+
+Remaining gap:
+- extend template diff/compare and admin workflows further so the iPad can match the dashboard power-user experience
 
 ## Execution Strategy
 

@@ -249,4 +249,34 @@ final class DashboardViewModel: ObservableObject {
             }
         }
     }
+
+    func saveTemplate(_ draft: JobTemplateDraft, existingId: String? = nil) async {
+        do {
+            if let existingId, !existingId.isEmpty {
+                _ = try await client.updateJobTemplate(id: existingId, draft: draft)
+            } else {
+                _ = try await client.createJobTemplate(draft)
+            }
+            jobTemplates = (try? await client.listJobTemplates()) ?? jobTemplates
+            if !draft.id.isEmpty {
+                selectedTemplateVersions = (try? await client.listTemplateVersions(id: draft.id)) ?? []
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteTemplate(id: String) async {
+        do {
+            try await client.deleteJobTemplate(id: id)
+            jobTemplates = (try? await client.listJobTemplates()) ?? jobTemplates.filter { $0.id != id }
+            selectedTemplateVersions = []
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func artifactURL(jobId: String, relativePath: String) -> URL? {
+        client.artifactURL(jobId: jobId, relativePath: relativePath)
+    }
 }

@@ -13,6 +13,7 @@ struct JobSubmitView: View {
     @State private var selectedTemplateId = ""
     @State private var templateInputs: [String: String] = [:]
     @State private var selectedJob: Job?
+    @State private var editingTemplate: EditableTemplateState?
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -50,6 +51,9 @@ struct JobSubmitView: View {
             JobDetailSheet(
                 job: job,
                 showArchived: showArchived,
+                artifactURLBuilder: { jobId, relativePath in
+                    viewModel.artifactURL(jobId: jobId, relativePath: relativePath)
+                },
                 stopAction: showArchived || job.status != .running ? nil : {
                     _ = Task<Void, Never> {
                         await viewModel.stopJob(id: job.id)
@@ -76,6 +80,26 @@ struct JobSubmitView: View {
                         await viewModel.resumeJob(id: job.id, mode: "resume_from", resumeFromStepId: stepId)
                         await viewModel.loadJobs()
                         selectedJob = currentJob(for: job.id)
+                    }
+                }
+            )
+        }
+        .sheet(item: $editingTemplate) { state in
+            TemplateEditorSheet(
+                state: state,
+                onSave: { draft, originalId in
+                    await viewModel.saveTemplate(draft, existingId: originalId)
+                    await viewModel.loadJobs()
+                    if !draft.id.isEmpty {
+                        selectedTemplateId = draft.id
+                        await viewModel.loadTemplateVersions(id: draft.id)
+                    }
+                },
+                onDelete: state.originalId == nil ? nil : {
+                    guard let originalId = state.originalId else { return }
+                    await viewModel.deleteTemplate(id: originalId)
+                    if selectedTemplateId == originalId {
+                        selectedTemplateId = viewModel.jobTemplates.first?.id ?? ""
                     }
                 }
             )
@@ -185,9 +209,28 @@ struct JobSubmitView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        Text("Category: \(template.category ?? "custom") · Version \(template.version ?? 1)")
+                        Text(templateMetaLine(template))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            Button("New Custom") {
+                                editingTemplate = .blank()
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button("Clone") {
+                                editingTemplate = .fromTemplate(template, clone: true)
+                            }
+                            .buttonStyle(.bordered)
+
+                            if template.builtIn != true {
+                                Button("Edit") {
+                                    editingTemplate = .fromTemplate(template, clone: false)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
 
                         ForEach(template.inputs) { input in
                             VStack(alignment: .leading, spacing: 6) {
@@ -332,6 +375,20 @@ struct JobSubmitView: View {
         templateInputs = seeded
     }
 
+    private func templateMetaLine(_ template: JobTemplate) -> String {
+        var parts = ["Category: \(template.category ?? "custom")", "Version \(template.version ?? 1)"]
+        if template.favorite == true {
+            parts.append("favorite")
+        }
+        if template.recommended == true {
+            parts.append("recommended")
+        }
+        if let retention = template.artifactRetentionDays {
+            parts.append("\(retention)d retention")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private func currentJob(for id: String) -> Job? {
         let source = showArchived ? viewModel.archivedJobs : viewModel.jobs
         return source.first(where: { $0.id == id })
@@ -448,11 +505,13 @@ private struct JobCardView: View {
 private struct JobDetailSheet: View {
     let job: Job
     let showArchived: Bool
+    let artifactURLBuilder: (String, String) -> URL?
     let stopAction: (() -> Void)?
     let resumeFailedAction: (() -> Void)?
     let rerunAllAction: (() -> Void)?
     let resumeStepAction: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedArtifact: ArtifactPreviewState?
 
     var body: some View {
         NavigationStack {
@@ -536,22 +595,9 @@ private struct JobDetailSheet: View {
                                             .foregroundStyle(.red)
                                     }
                                     if !step.artifacts.isEmpty {
-                                        VStack(alignment: .leading, spacing: 4) {
+                                        VStack(alignment: .leading, spacing: 8) {
                                             ForEach(step.artifacts.keys.sorted(), id: \.self) { key in
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(key)
-                                                        .font(.caption2.weight(.semibold))
-                                                    Text(artifactSummary(step.artifacts[key]))
-                                                        .font(.caption2)
-                                                        .foregroundStyle(.secondary)
-                                                    if let preview = artifactPreview(step.artifacts[key]), !preview.isEmpty {
-                                                        Text(preview)
-                                                            .font(.caption2.monospaced())
-                                                            .foregroundStyle(.secondary)
-                                                            .lineLimit(6)
-                                                            .padding(.top, 2)
-                                                    }
-                                                }
+                                                artifactRow(key: key, value: step.artifacts[key])
                                             }
                                         }
                                     }
@@ -593,6 +639,9 @@ private struct JobDetailSheet: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(item: $selectedArtifact) { artifact in
+                ArtifactPreviewSheet(artifact: artifact)
             }
         }
     }
@@ -647,5 +696,303 @@ private struct JobDetailSheet: View {
             return preview?.isEmpty == false ? preview : nil
         }
         return nil
+    }
+
+    @ViewBuilder
+    private func artifactRow(key: String, value: JSONValue?) -> some View {
+        let summary = artifactSummary(value)
+        let preview = artifactPreview(value)
+        let target = artifactTarget(key: key, value: value)
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(key)
+                    .font(.caption2.weight(.semibold))
+                Spacer()
+                if let target {
+                    Button(target.isImage ? "Preview" : "Open") {
+                        selectedArtifact = target
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            Text(summary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            if let preview, !preview.isEmpty {
+                Text(preview)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(6)
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    private func artifactTarget(key: String, value: JSONValue?) -> ArtifactPreviewState? {
+        guard let value,
+              case .object(let object) = value,
+              case .string(let relativePath)? = object["relativePath"] else {
+            return nil
+        }
+        let url = artifactURLBuilder(job.id, relativePath)
+        let kind = object["kind"]?.displayString ?? "artifact"
+        let previewText = object["preview"]?.displayString
+        let lowerPath = relativePath.lowercased()
+        let isImage = kind.hasPrefix("image") || lowerPath.hasSuffix(".png") || lowerPath.hasSuffix(".jpg") || lowerPath.hasSuffix(".jpeg") || lowerPath.hasSuffix(".gif") || lowerPath.hasSuffix(".webp")
+        return ArtifactPreviewState(
+            id: "\(job.id)-\(key)-\(relativePath)",
+            title: key,
+            subtitle: summaryLine(kind: kind, relativePath: relativePath),
+            previewText: previewText,
+            url: url,
+            isImage: isImage
+        )
+    }
+
+    private func summaryLine(kind: String, relativePath: String) -> String {
+        [kind, relativePath].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+private struct EditableTemplateState: Identifiable {
+    let id: String
+    let originalId: String?
+    let draft: JobTemplateDraft
+
+    static func blank() -> EditableTemplateState {
+        EditableTemplateState(
+            id: UUID().uuidString,
+            originalId: nil,
+            draft: JobTemplateDraft(
+                id: "custom_template",
+                name: "Custom Template",
+                description: "New custom workflow template",
+                category: "custom",
+                favorite: false,
+                recommended: false,
+                artifactRetentionDays: 30,
+                inputs: [],
+                workflowSpec: .object([
+                    "steps": .array([
+                        .object([
+                            "id": .string("step_1"),
+                            "name": .string("First step"),
+                            "type": .string("note"),
+                            "message": .string("Describe this workflow"),
+                        ]),
+                    ]),
+                ])
+            )
+        )
+    }
+
+    static func fromTemplate(_ template: JobTemplate, clone: Bool) -> EditableTemplateState {
+        let sourceId = template.id
+        let id = clone ? "\(sourceId)_copy" : sourceId
+        let name = clone ? "\(template.name) Copy" : template.name
+        return EditableTemplateState(
+            id: UUID().uuidString,
+            originalId: clone ? nil : sourceId,
+            draft: JobTemplateDraft(
+                id: id,
+                name: name,
+                description: template.description,
+                category: template.category,
+                favorite: template.favorite ?? false,
+                recommended: clone ? false : (template.recommended ?? false),
+                artifactRetentionDays: template.artifactRetentionDays,
+                inputs: template.inputs,
+                workflowSpec: template.workflowSpec ?? .object([:])
+            )
+        )
+    }
+}
+
+private struct ArtifactPreviewState: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let previewText: String?
+    let url: URL?
+    let isImage: Bool
+}
+
+private struct ArtifactPreviewSheet: View {
+    let artifact: ArtifactPreviewState
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(artifact.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if artifact.isImage, let url = artifact.url {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        } placeholder: {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, minHeight: 240)
+                        }
+                    }
+
+                    if let previewText = artifact.previewText, !previewText.isEmpty {
+                        Text(previewText)
+                            .font(.body.monospaced())
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+
+                    if let url = artifact.url {
+                        Link("Open Raw Artifact", destination: url)
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle(artifact.title)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct TemplateEditorSheet: View {
+    let state: EditableTemplateState
+    let onSave: (JobTemplateDraft, String?) async -> Void
+    let onDelete: (() async -> Void)?
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var id: String
+    @State private var name: String
+    @State private var description: String
+    @State private var category: String
+    @State private var favorite: Bool
+    @State private var recommended: Bool
+    @State private var artifactRetentionDays: String
+    @State private var workflowSpecText: String
+    @State private var errorMessage: String?
+    @State private var isSaving = false
+    @State private var isDeleting = false
+
+    init(state: EditableTemplateState, onSave: @escaping (JobTemplateDraft, String?) async -> Void, onDelete: (() async -> Void)? = nil) {
+        self.state = state
+        self.onSave = onSave
+        self.onDelete = onDelete
+        _id = State(initialValue: state.draft.id)
+        _name = State(initialValue: state.draft.name)
+        _description = State(initialValue: state.draft.description)
+        _category = State(initialValue: state.draft.category ?? "custom")
+        _favorite = State(initialValue: state.draft.favorite)
+        _recommended = State(initialValue: state.draft.recommended)
+        _artifactRetentionDays = State(initialValue: state.draft.artifactRetentionDays.map(String.init) ?? "")
+        _workflowSpecText = State(initialValue: state.draft.workflowSpec.displayString)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Template") {
+                    TextField("ID", text: $id)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("Name", text: $name)
+                    TextField("Description", text: $description, axis: .vertical)
+                        .lineLimit(2...5)
+                    TextField("Category", text: $category)
+                    TextField("Artifact retention days", text: $artifactRetentionDays)
+                        .keyboardType(.numberPad)
+                    Toggle("Favorite", isOn: $favorite)
+                    Toggle("Recommended", isOn: $recommended)
+                }
+
+                Section("Workflow JSON") {
+                    TextEditor(text: $workflowSpecText)
+                        .font(.body.monospaced())
+                        .frame(minHeight: 220)
+                }
+
+                if let errorMessage, !errorMessage.isEmpty {
+                    Section {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle(state.originalId == nil ? "Template Editor" : "Edit Template")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if let onDelete {
+                        Button("Delete", role: .destructive) {
+                            Task {
+                                isDeleting = true
+                                await onDelete()
+                                isDeleting = false
+                                dismiss()
+                            }
+                        }
+                        .disabled(isDeleting || isSaving)
+                    }
+                    Button(isSaving ? "Saving…" : "Save") {
+                        save()
+                    }
+                    .disabled(isSaving)
+                }
+            }
+        }
+    }
+
+    private func save() {
+        guard let workflowData = workflowSpecText.data(using: .utf8) else {
+            errorMessage = "Workflow JSON is not valid UTF-8."
+            return
+        }
+        let decoder = JSONDecoder()
+        guard let workflowSpec = try? decoder.decode(JSONValue.self, from: workflowData) else {
+            errorMessage = "Workflow JSON is invalid."
+            return
+        }
+        let trimmedId = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty, !trimmedName.isEmpty, !trimmedDescription.isEmpty else {
+            errorMessage = "ID, name, and description are required."
+            return
+        }
+        errorMessage = nil
+        let retention = Int(artifactRetentionDays.trimmingCharacters(in: .whitespacesAndNewlines))
+        let draft = JobTemplateDraft(
+            id: trimmedId,
+            name: trimmedName,
+            description: trimmedDescription,
+            category: category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "custom" : category.trimmingCharacters(in: .whitespacesAndNewlines),
+            favorite: favorite,
+            recommended: recommended,
+            artifactRetentionDays: retention,
+            inputs: state.draft.inputs,
+            workflowSpec: workflowSpec
+        )
+        Task {
+            isSaving = true
+            await onSave(draft, state.originalId)
+            isSaving = false
+            dismiss()
+        }
     }
 }

@@ -331,10 +331,14 @@ struct JobTemplate: Codable, Equatable, Identifiable {
     let description: String
     let category: String?
     let builtIn: Bool?
+    let favorite: Bool?
+    let recommended: Bool?
+    let artifactRetentionDays: Int?
     let version: Int?
     let createdAt: Date?
     let updatedAt: Date?
     let inputs: [JobTemplateInput]
+    let workflowSpec: JSONValue?
 }
 
 struct JobTemplateInput: Codable, Equatable, Identifiable {
@@ -352,6 +356,7 @@ struct JobTemplateVersion: Codable, Equatable, Identifiable {
     let updatedAt: Date?
     let name: String?
     let description: String?
+    let workflowSpec: JSONValue?
     let builtIn: Bool?
 }
 

@@ -2,6 +2,19 @@
 
 Use this checklist to bring a fresh macOS machine up to the current OpenClaw automation baseline.
 
+The guided script lives at [`scripts/bootstrap-mac.sh`](/Users/a_conte/dev/openclaw-agents/scripts/bootstrap-mac.sh):
+
+```bash
+cd /Users/a_conte/dev/openclaw-agents
+./scripts/bootstrap-mac.sh --install-deps --generate-ios --check
+```
+
+For a verification-only pass:
+
+```bash
+./scripts/bootstrap-mac.sh --check
+```
+
 ## 1. Base Tooling
 
 ```bash
@@ -87,3 +100,5 @@ python3 apps/direct/direct_cli.py start --mode workflow --template open_command_
 curl http://127.0.0.1:7600/metrics
 curl http://127.0.0.1:7600/policy/admin
 ```
+
+The bootstrap script runs these checks for you, along with basic toolchain verification.

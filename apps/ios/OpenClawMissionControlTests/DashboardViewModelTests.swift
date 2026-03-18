@@ -45,6 +45,31 @@ private struct EmptyStreamClient: MissionControlClient {
         []
     }
 
+    func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate {
+        JobTemplate(
+            id: draft.id,
+            name: draft.name,
+            description: draft.description,
+            category: draft.category,
+            builtIn: false,
+            favorite: draft.favorite,
+            recommended: draft.recommended,
+            artifactRetentionDays: draft.artifactRetentionDays,
+            version: 1,
+            createdAt: Date(),
+            updatedAt: Date(),
+            inputs: draft.inputs,
+            workflowSpec: draft.workflowSpec
+        )
+    }
+
+    func updateJobTemplate(id: String, draft: JobTemplateDraft) async throws -> JobTemplate {
+        try await createJobTemplate(draft)
+    }
+
+    func deleteJobTemplate(id: String) async throws {
+    }
+
     func listJobs(archived: Bool) async throws -> [Job] {
         []
     }
@@ -92,6 +117,10 @@ private struct EmptyStreamClient: MissionControlClient {
 
     func listWorkflowRuns() async throws -> [WorkflowRun] {
         []
+    }
+
+    func artifactURL(jobId: String, relativePath: String) -> URL? {
+        nil
     }
 
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error> {
