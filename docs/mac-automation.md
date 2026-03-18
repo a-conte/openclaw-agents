@@ -57,6 +57,9 @@ python3 apps/steer/steer_cli.py notes create --title "OpenClaw" --body "Mission 
 ```bash
 python3 apps/listen/listen_server.py --host 127.0.0.1 --port 7600
 python3 apps/direct/direct_cli.py start --prompt "Reply with exactly OK" --mode agent --agent main
+python3 apps/direct/direct_cli.py start --mode steer --command apps
+python3 apps/direct/direct_cli.py start --mode steer --command wait --arg ui --arg --app --arg Safari --arg --name --arg "Reload this page" --arg --role --arg button
+python3 apps/direct/direct_cli.py start --mode drive --command proc --arg list --arg --json
 python3 apps/direct/direct_cli.py list
 ```
 
@@ -73,6 +76,7 @@ python3 apps/direct/direct_cli.py list
 - `listen` stores job state in `apps/listen/jobs/*.json`.
 - `mode=agent` uses the real `openclaw agent` CLI.
 - `mode=shell` uses `drive` for tmux-backed execution.
+- `mode=steer` and `mode=drive` let remote jobs call the local automation/tooling CLIs directly with structured commands.
 
 ## Gaps vs. `mac-mini-agent`
 

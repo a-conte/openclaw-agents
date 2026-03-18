@@ -31,6 +31,16 @@ def run_drive(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def run_steer(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(REPO_ROOT / "apps" / "steer" / "steer_cli.py"), *args],
+        text=True,
+        capture_output=True,
+        cwd=str(REPO_ROOT),
+        check=False,
+    )
+
+
 def run_openclaw_agent(target_agent: str, prompt: str, thinking: str | None, local: bool) -> subprocess.CompletedProcess[str]:
     args = ["openclaw", "agent", "--agent", target_agent, "--message", prompt, "--json"]
     if thinking:
@@ -53,6 +63,8 @@ def main() -> None:
     job = read_job(args.job_id)
     prompt = str(job.get("prompt", ""))
     mode = str(job.get("mode", "agent"))
+    command = str(job.get("command") or "").strip()
+    cmd_args = [str(item) for item in job.get("args", []) if str(item).strip()]
     session = str(job.get("session", f"listen-{args.job_id}"))
     target_agent = str(job.get("targetAgent", "main"))
     thinking_raw = job.get("thinking")
@@ -80,6 +92,26 @@ def main() -> None:
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "OpenClaw agent run failed"
+    elif mode == "steer":
+        result = run_steer(command, *cmd_args, "--json")
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            payload = None
+        ok = result.returncode == 0 and payload is not None
+        job["status"] = "completed" if ok else "failed"
+        job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
+        job["error"] = None if ok else result.stderr.strip() or "steer command failed"
+    elif mode == "drive":
+        result = run_drive(command, *cmd_args)
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            payload = None
+        ok = result.returncode == 0 and payload is not None
+        job["status"] = "completed" if ok else "failed"
+        job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
+        job["error"] = None if ok else result.stderr.strip() or "drive command failed"
     else:
         job["status"] = "completed"
         job["result"] = f"Recorded prompt: {prompt}"

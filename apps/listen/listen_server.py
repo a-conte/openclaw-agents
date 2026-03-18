@@ -85,20 +85,28 @@ class Handler(BaseHTTPRequestHandler):
             return
         prompt = str(data.get("prompt", "")).strip()
         mode = str(data.get("mode", "agent")).strip() or "agent"
+        command = str(data.get("command", "")).strip()
+        raw_args = data.get("args", [])
+        cmd_args = [str(item) for item in raw_args] if isinstance(raw_args, list) else []
         target_agent = str(data.get("targetAgent", "main")).strip() or "main"
         thinking_raw = data.get("thinking")
         thinking = ""
         if isinstance(thinking_raw, str):
             thinking = thinking_raw.strip()
         local = bool(data.get("local", False))
-        if not prompt:
+        if mode in {"agent", "shell", "note"} and not prompt:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "prompt is required"})
+            return
+        if mode in {"steer", "drive"} and not command:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": "command is required"})
             return
         job_id = uuid.uuid4().hex[:10]
         job = {
             "id": job_id,
             "prompt": prompt,
             "mode": mode,
+            "command": command or None,
+            "args": cmd_args or [],
             "targetAgent": target_agent,
             "status": "running",
             "createdAt": now_iso(),

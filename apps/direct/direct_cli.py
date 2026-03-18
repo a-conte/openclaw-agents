@@ -20,11 +20,13 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     start = sub.add_parser("start")
-    start.add_argument("--prompt", required=True)
+    start.add_argument("--prompt")
     start.add_argument("--mode", default="agent")
     start.add_argument("--agent", default="main")
     start.add_argument("--thinking")
     start.add_argument("--local", action="store_true")
+    start.add_argument("--command")
+    start.add_argument("--arg", action="append", default=[])
 
     get = sub.add_parser("get")
     get.add_argument("--job-id", required=True)
@@ -37,12 +39,18 @@ def main() -> None:
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
     if args.command == "start":
+        if args.mode in {"agent", "shell", "note"} and not args.prompt:
+            raise SystemExit("--prompt is required for agent, shell, and note modes")
+        if args.mode in {"steer", "drive"} and not args.command:
+            raise SystemExit("--command is required for steer and drive modes")
         payload = {
             "prompt": args.prompt,
             "mode": args.mode,
             "targetAgent": args.agent,
             "thinking": args.thinking,
             "local": args.local,
+            "command": args.command,
+            "args": args.arg,
         }
         print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))
         return
