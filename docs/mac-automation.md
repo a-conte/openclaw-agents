@@ -60,6 +60,8 @@ python3 apps/direct/direct_cli.py start --prompt "Reply with exactly OK" --mode 
 python3 apps/direct/direct_cli.py start --mode steer --command apps
 python3 apps/direct/direct_cli.py start --mode steer --command wait --arg ui --arg --app --arg Safari --arg --name --arg "Reload this page" --arg --role --arg button
 python3 apps/direct/direct_cli.py start --mode drive --command proc --arg list --arg --json
+python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_wait_and_click_ui --arg "Reload this page" --arg button
+python3 apps/direct/direct_cli.py start --mode workflow --workflow textedit_new_set_text --arg "OpenClaw remote note"
 python3 apps/direct/direct_cli.py list
 ```
 
@@ -77,6 +79,7 @@ python3 apps/direct/direct_cli.py list
 - `mode=agent` uses the real `openclaw agent` CLI.
 - `mode=shell` uses `drive` for tmux-backed execution.
 - `mode=steer` and `mode=drive` let remote jobs call the local automation/tooling CLIs directly with structured commands.
+- `mode=workflow` provides a few named higher-level Safari/TextEdit/Notes flows on top of `steer`.
 
 ## Gaps vs. `mac-mini-agent`
 

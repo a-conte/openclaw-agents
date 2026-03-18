@@ -56,6 +56,109 @@ def run_openclaw_agent(target_agent: str, prompt: str, thinking: str | None, loc
     )
 
 
+def parse_json_result(result: subprocess.CompletedProcess[str]) -> tuple[bool, object]:
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        payload = None
+    ok = result.returncode == 0 and payload is not None
+    return ok, payload
+
+
+def require_arg(cmd_args: list[str], index: int, message: str) -> str:
+    if len(cmd_args) <= index or not cmd_args[index].strip():
+        raise ValueError(message)
+    return cmd_args[index].strip()
+
+
+def execute_workflow(workflow: str, cmd_args: list[str]) -> dict[str, object]:
+    steps: list[dict[str, object]] = []
+
+    def run_step(label: str, runner, *runner_args: str) -> dict[str, object]:
+        result = runner(*runner_args)
+        ok, payload = parse_json_result(result)
+        step = {
+            "label": label,
+            "ok": ok,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+            "result": payload,
+        }
+        steps.append(step)
+        if not ok:
+            raise RuntimeError(step["stderr"] or step["stdout"] or f"{label} failed")
+        return payload if isinstance(payload, dict) else {"value": payload}
+
+    if workflow == "safari_reload_wait_url":
+        url = require_arg(cmd_args, 0, "workflow safari_reload_wait_url requires <url-substring>")
+        run_step("focus Safari", run_steer, "focus", "--app", "Safari", "--json")
+        run_step("reload Safari", run_steer, "safari", "reload", "--json")
+        final = run_step(
+            "wait for Safari URL",
+            run_steer,
+            "wait",
+            "url",
+            "--url",
+            url,
+            "--contains",
+            "--timeout",
+            "10",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": final}
+
+    if workflow == "safari_wait_and_click_ui":
+        name = require_arg(cmd_args, 0, "workflow safari_wait_and_click_ui requires <label>")
+        role = cmd_args[1].strip() if len(cmd_args) > 1 and cmd_args[1].strip() else "button"
+        run_step("focus Safari", run_steer, "focus", "--app", "Safari", "--json")
+        found = run_step(
+            "wait for Safari UI",
+            run_steer,
+            "wait",
+            "ui",
+            "--app",
+            "Safari",
+            "--name",
+            name,
+            "--role",
+            role,
+            "--timeout",
+            "10",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        clicked = run_step(
+            "click Safari UI",
+            run_steer,
+            "ui",
+            "click",
+            "--app",
+            "Safari",
+            "--name",
+            name,
+            "--role",
+            role,
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "found": found, "clicked": clicked}
+
+    if workflow == "textedit_new_set_text":
+        body = require_arg(cmd_args, 0, "workflow textedit_new_set_text requires <text>")
+        created = run_step("create TextEdit document", run_steer, "textedit", "new", "--text", body, "--json")
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": created}
+
+    if workflow == "notes_create":
+        title = require_arg(cmd_args, 0, "workflow notes_create requires <title> <body>")
+        body = require_arg(cmd_args, 1, "workflow notes_create requires <title> <body>")
+        created = run_step("create Notes note", run_steer, "notes", "create", "--title", title, "--body", body, "--json")
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": created}
+
+    raise ValueError(f"Unknown workflow: {workflow}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--job-id", required=True)
@@ -64,6 +167,7 @@ def main() -> None:
     prompt = str(job.get("prompt", ""))
     mode = str(job.get("mode", "agent"))
     command = str(job.get("command") or "").strip()
+    workflow = str(job.get("workflow") or "").strip()
     cmd_args = [str(item) for item in job.get("args", []) if str(item).strip()]
     session = str(job.get("session", f"listen-{args.job_id}"))
     target_agent = str(job.get("targetAgent", "main"))
@@ -84,34 +188,32 @@ def main() -> None:
         job["error"] = None if payload.get("ok") else payload.get("output")
     elif mode == "agent":
         result = run_openclaw_agent(target_agent, prompt, thinking, local)
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            payload = None
-        ok = result.returncode == 0 and payload is not None
+        ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "OpenClaw agent run failed"
     elif mode == "steer":
         result = run_steer(command, *cmd_args, "--json")
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            payload = None
-        ok = result.returncode == 0 and payload is not None
+        ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "steer command failed"
     elif mode == "drive":
         result = run_drive(command, *cmd_args)
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            payload = None
-        ok = result.returncode == 0 and payload is not None
+        ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "drive command failed"
+    elif mode == "workflow":
+        try:
+            payload = execute_workflow(workflow, cmd_args)
+            job["status"] = "completed"
+            job["result"] = payload
+            job["error"] = None
+        except (ValueError, RuntimeError) as exc:
+            job["status"] = "failed"
+            job["result"] = None
+            job["error"] = str(exc)
     else:
         job["status"] = "completed"
         job["result"] = f"Recorded prompt: {prompt}"

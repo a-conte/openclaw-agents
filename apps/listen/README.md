@@ -21,7 +21,15 @@ Default worker behavior is local and safe:
 - `mode=shell` creates a tmux session via `drive` and runs the prompt as a shell command
 - `mode=steer` runs `steer <command> <args...> --json`
 - `mode=drive` runs `drive <command> <args...>`
+- `mode=workflow` runs a named local automation flow
 - `mode=note` records the prompt and marks the job completed
+
+Built-in workflows:
+
+- `safari_reload_wait_url <url-substring>`
+- `safari_wait_and_click_ui <label> [role]`
+- `textedit_new_set_text <text>`
+- `notes_create <title> <body>`
 
 Examples:
 
@@ -35,5 +43,8 @@ curl -X POST http://127.0.0.1:7600/job \
 curl -X POST http://127.0.0.1:7600/job \
   -H 'content-type: application/json' \
   -d '{"mode":"drive","command":"proc","args":["list","--json"]}'
+curl -X POST http://127.0.0.1:7600/job \
+  -H 'content-type: application/json' \
+  -d '{"mode":"workflow","workflow":"safari_wait_and_click_ui","args":["Reload this page","button"]}'
 curl http://127.0.0.1:7600/jobs
 ```

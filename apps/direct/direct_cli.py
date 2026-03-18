@@ -26,6 +26,7 @@ def main() -> None:
     start.add_argument("--thinking")
     start.add_argument("--local", action="store_true")
     start.add_argument("--command")
+    start.add_argument("--workflow")
     start.add_argument("--arg", action="append", default=[])
 
     get = sub.add_parser("get")
@@ -43,6 +44,8 @@ def main() -> None:
             raise SystemExit("--prompt is required for agent, shell, and note modes")
         if args.mode in {"steer", "drive"} and not args.command:
             raise SystemExit("--command is required for steer and drive modes")
+        if args.mode == "workflow" and not args.workflow:
+            raise SystemExit("--workflow is required for workflow mode")
         payload = {
             "prompt": args.prompt,
             "mode": args.mode,
@@ -50,6 +53,7 @@ def main() -> None:
             "thinking": args.thinking,
             "local": args.local,
             "command": args.command,
+            "workflow": args.workflow,
             "args": args.arg,
         }
         print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))

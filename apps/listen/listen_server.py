@@ -86,6 +86,7 @@ class Handler(BaseHTTPRequestHandler):
         prompt = str(data.get("prompt", "")).strip()
         mode = str(data.get("mode", "agent")).strip() or "agent"
         command = str(data.get("command", "")).strip()
+        workflow = str(data.get("workflow", "")).strip()
         raw_args = data.get("args", [])
         cmd_args = [str(item) for item in raw_args] if isinstance(raw_args, list) else []
         target_agent = str(data.get("targetAgent", "main")).strip() or "main"
@@ -100,12 +101,16 @@ class Handler(BaseHTTPRequestHandler):
         if mode in {"steer", "drive"} and not command:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "command is required"})
             return
+        if mode == "workflow" and not workflow:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": "workflow is required"})
+            return
         job_id = uuid.uuid4().hex[:10]
         job = {
             "id": job_id,
             "prompt": prompt,
             "mode": mode,
             "command": command or None,
+            "workflow": workflow or None,
             "args": cmd_args or [],
             "targetAgent": target_agent,
             "status": "running",
