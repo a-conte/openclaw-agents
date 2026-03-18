@@ -45,12 +45,12 @@ Completed or materially in place:
   - median and p95 duration metrics
   - per-step artifact volume metrics
   - retry lineage summaries
-  - dashboard observability cards
+  - dashboard observability cards and richer trend/lineage presentation
 - Bootstrap automation:
   - guided bootstrap script via `scripts/bootstrap-mac.sh`
   - `docs/bootstrap-mac.md` now points to the script-backed flow
 - iPad polish:
-  - metrics, policy admin, artifact summary/actions, template metadata, artifact preview, custom template editing, template restore, and template diff surfaces are materially implemented
+  - metrics, policy admin, artifact summary/actions, template metadata, artifact preview, custom template editing, template restore, template diff, and dedicated admin/detail sheets are materially implemented
 
 Still meaningfully open:
 
@@ -148,7 +148,7 @@ Definition of done:
 - operators can identify regressions, slow templates, and retry hotspots from the product UI
 
 Remaining gap:
-- deepen visualization quality for lineage and long-term trends
+- deepen visualization quality further if dedicated analytics pages become necessary
 
 ## Wave 2
 
@@ -254,7 +254,7 @@ Definition of done:
 - the iPad app is viable as a real operator console, not just a lightweight companion
 
 Remaining gap:
-- extend admin workflows further so the iPad can match the dashboard power-user experience
+- extend admin workflows further only if a fully tablet-first operating model becomes the primary goal
 
 ## Execution Strategy
 

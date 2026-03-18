@@ -409,10 +409,20 @@ struct JobMetrics: Codable, Equatable {
         let count: Int
     }
 
+    struct TemplatePerformance: Codable, Equatable, Identifiable {
+        var id: String { templateId }
+        let templateId: String
+        let total: Int
+        let completed: Int
+        let failed: Int
+        let successRate: Int
+    }
+
     struct Templates: Codable, Equatable {
         let total: Int
         let custom: Int
         let usage: [TemplateUsage]
+        let performance: [TemplatePerformance]
     }
 
     struct StepFailure: Codable, Equatable, Identifiable {
@@ -421,8 +431,16 @@ struct JobMetrics: Codable, Equatable {
         let count: Int
     }
 
+    struct ArtifactVolume: Codable, Equatable, Identifiable {
+        var id: String { name }
+        let name: String
+        let count: Int
+        let bytes: Int
+    }
+
     struct Steps: Codable, Equatable {
         let topFailures: [StepFailure]
+        let artifactVolume: [ArtifactVolume]
     }
 
     struct PolicyBlock: Codable, Equatable, Identifiable {
@@ -453,11 +471,37 @@ struct JobMetrics: Codable, Equatable {
         }
     }
 
+    struct Trend: Codable, Equatable, Identifiable {
+        var id: String { date }
+        let date: String
+        let total: Int
+        let completed: Int
+        let failed: Int
+        let blocked: Int
+    }
+
+    struct RetryChain: Codable, Equatable, Identifiable {
+        var id: String { rootJobId }
+        let rootJobId: String
+        let attempts: Int
+        let latestJobId: String?
+        let latestStatus: String?
+        let templateId: String?
+        let updatedAt: String?
+        let jobIds: [String]?
+    }
+
+    struct Lineage: Codable, Equatable {
+        let recentChains: [RetryChain]
+    }
+
     let jobs: Jobs
     let templates: Templates
     let steps: Steps
     let policy: Policy
     let longRunning: [LongRunning]
+    let trends: [Trend]
+    let lineage: Lineage
     let artifacts: ArtifactAdminSummary
 }
 

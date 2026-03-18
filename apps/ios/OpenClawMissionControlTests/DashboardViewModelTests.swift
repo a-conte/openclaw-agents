@@ -117,10 +117,12 @@ private struct EmptyStreamClient: MissionControlClient {
     func jobMetrics() async throws -> JobMetrics {
         JobMetrics(
             jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil, medianCompletedDurationMs: nil, p95CompletedDurationMs: nil),
-            templates: .init(total: 0, custom: 0, usage: []),
-            steps: .init(topFailures: []),
+            templates: .init(total: 0, custom: 0, usage: [], performance: []),
+            steps: .init(topFailures: [], artifactVolume: []),
             policy: .init(blockedJobs: 0, topBlockReasons: []),
             longRunning: [],
+            trends: [],
+            lineage: .init(recentChains: []),
             artifacts: try await artifactAdmin()
         )
     }

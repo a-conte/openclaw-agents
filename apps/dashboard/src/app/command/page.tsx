@@ -1413,6 +1413,11 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                         <div className="mt-1 text-[11px] text-text-tertiary">
                           {item.completed} completed · {item.failed} failed · {item.blocked} blocked
                         </div>
+                        <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-surface-1">
+                          <div className="bg-emerald-400/80" style={{ width: `${item.total ? (item.completed / item.total) * 100 : 0}%` }} />
+                          <div className="bg-rose-400/80" style={{ width: `${item.total ? (item.failed / item.total) * 100 : 0}%` }} />
+                          <div className="bg-amber-400/80" style={{ width: `${item.total ? (item.blocked / item.total) * 100 : 0}%` }} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1484,6 +1489,10 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                   <div className="mt-2 space-y-1 text-xs text-text-secondary">
                     {jobMetrics.lineage.recentChains.slice(-3).reverse().map((chain) => (
                       <div key={chain.rootJobId} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        {(() => {
+                          const jobIds = Array.isArray(chain.jobIds) ? chain.jobIds : [];
+                          return (
+                            <>
                         <div className="flex items-center justify-between">
                           <span>{chain.templateId || chain.rootJobId}</span>
                           <span>{chain.attempts} attempts</span>
@@ -1491,6 +1500,19 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                         <div className="mt-1 text-[11px] text-text-tertiary">
                           latest {chain.latestStatus || 'unknown'} · {chain.latestJobId || chain.rootJobId}
                         </div>
+                        {jobIds.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] text-text-tertiary">
+                            {jobIds.map((jobId, index) => (
+                              <div key={`${chain.rootJobId}-${String(jobId)}-${index}`} className="contents">
+                                <span className="rounded-full border border-border bg-surface-1 px-2 py-0.5">{String(jobId)}</span>
+                                {index < jobIds.length - 1 ? <span>→</span> : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                            </>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

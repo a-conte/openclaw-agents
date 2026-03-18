@@ -20,6 +20,10 @@ struct JobSubmitView: View {
     @State private var isCompressingArtifacts = false
     @State private var isPruningArtifacts = false
     @State private var restoringTemplateVersion: Int?
+    @State private var showMetricsDetail = false
+    @State private var showPolicyAdminDetail = false
+    @State private var showArtifactAdminDetail = false
+    @State private var showTemplateVersionsDetail = false
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -113,6 +117,41 @@ struct JobSubmitView: View {
         .sheet(item: $selectedTemplateDiff) { diff in
             TemplateDiffSheet(diff: diff)
         }
+        .sheet(isPresented: $showMetricsDetail) {
+            MetricsDetailSheet(metrics: viewModel.jobMetrics)
+        }
+        .sheet(isPresented: $showPolicyAdminDetail) {
+            PolicyAdminDetailSheet(policyAdmin: viewModel.policyAdmin)
+        }
+        .sheet(isPresented: $showArtifactAdminDetail) {
+            ArtifactAdminDetailSheet(
+                artifactAdmin: viewModel.artifactAdmin,
+                compressDays: $compressDays,
+                pruneDays: $pruneDays,
+                isCompressingArtifacts: $isCompressingArtifacts,
+                isPruningArtifacts: $isPruningArtifacts,
+                onCompress: {
+                    await viewModel.compressArtifacts(olderThanDays: Int(compressDays) ?? 7)
+                },
+                onPrune: {
+                    await viewModel.pruneArtifacts(olderThanDays: Int(pruneDays) ?? 30)
+                }
+            )
+        }
+        .sheet(isPresented: $showTemplateVersionsDetail) {
+            TemplateVersionsSheet(
+                template: selectedTemplate,
+                versions: viewModel.selectedTemplateVersions,
+                restoringTemplateVersion: $restoringTemplateVersion,
+                onCompare: { template, fromVersion, toVersion in
+                    await viewModel.loadTemplateDiff(id: template.id, fromVersion: fromVersion, toVersion: toVersion)
+                    selectedTemplateDiff = viewModel.selectedTemplateDiff
+                },
+                onRestore: { template, version in
+                    await viewModel.restoreTemplate(id: template.id, version: version)
+                }
+            )
+        }
     }
 
     private var selectedTemplate: JobTemplate? {
@@ -160,6 +199,10 @@ struct JobSubmitView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    Button("Open policy admin") {
+                        showPolicyAdminDetail = true
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(12)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -211,6 +254,10 @@ struct JobSubmitView: View {
                             }
                         )
                     }
+                    Button("Open metrics detail") {
+                        showMetricsDetail = true
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(12)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -273,6 +320,10 @@ struct JobSubmitView: View {
                         .buttonStyle(.bordered)
                         .disabled(isPruningArtifacts)
                     }
+                    Button("Open artifact admin") {
+                        showArtifactAdminDetail = true
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(12)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -368,61 +419,13 @@ struct JobSubmitView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Template Versions")
                                     .font(.caption.weight(.semibold))
-                                let versions = Array(viewModel.selectedTemplateVersions.reversed())
-                                let latestVersion = versions.first?.version
-                                ForEach(versions) { version in
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("v\(version.version)\(version.builtIn == true ? " · built-in" : "")")
-                                                .font(.caption)
-                                            if let updatedAt = version.updatedAt {
-                                                Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            if let name = version.name, !name.isEmpty {
-                                                Text(name)
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        Spacer()
-                                        if let latestVersion, version.version != latestVersion {
-                                            HStack(spacing: 8) {
-                                                Button("Compare") {
-                                                    Task {
-                                                        await viewModel.loadTemplateDiff(
-                                                            id: template.id,
-                                                            fromVersion: version.version,
-                                                            toVersion: latestVersion
-                                                        )
-                                                        selectedTemplateDiff = viewModel.selectedTemplateDiff
-                                                    }
-                                                }
-                                                .buttonStyle(.bordered)
-
-                                                if template.builtIn != true {
-                                                    Button {
-                                                        Task {
-                                                            restoringTemplateVersion = version.version
-                                                            defer { restoringTemplateVersion = nil }
-                                                            await viewModel.restoreTemplate(id: template.id, version: version.version)
-                                                        }
-                                                    } label: {
-                                                        if restoringTemplateVersion == version.version {
-                                                            ProgressView()
-                                                        } else {
-                                                            Text("Restore")
-                                                        }
-                                                    }
-                                                    .buttonStyle(.bordered)
-                                                    .disabled(restoringTemplateVersion != nil)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.vertical, 2)
+                                Text("\(viewModel.selectedTemplateVersions.count) saved version(s)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Button("Open version history") {
+                                    showTemplateVersionsDetail = true
                                 }
+                                .buttonStyle(.bordered)
                             }
                             .padding(.top, 4)
                         }
@@ -924,6 +927,291 @@ private struct JobDetailSheet: View {
 
     private func summaryLine(kind: String, relativePath: String) -> String {
         [kind, relativePath].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+private struct MetricsDetailSheet: View {
+    let metrics: JobMetrics?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let metrics {
+                        detailSection("Summary") {
+                            metricRow("Jobs", "\(metrics.jobs.total)")
+                            metricRow("Active", "\(metrics.jobs.active)")
+                            metricRow("Archived", "\(metrics.jobs.archived)")
+                            metricRow("Blocked", "\(metrics.policy.blockedJobs)")
+                            if let value = metrics.jobs.averageCompletedDurationMs { metricRow("Average", "\(value / 1000)s") }
+                            if let value = metrics.jobs.medianCompletedDurationMs { metricRow("Median", "\(value / 1000)s") }
+                            if let value = metrics.jobs.p95CompletedDurationMs { metricRow("P95", "\(value / 1000)s") }
+                        }
+
+                        if !metrics.templates.performance.isEmpty {
+                            detailSection("Template Performance") {
+                                ForEach(metrics.templates.performance.prefix(8)) { item in
+                                    metricRow(item.templateId, "\(item.successRate)% · \(item.completed)/\(item.total)")
+                                }
+                            }
+                        }
+
+                        if !metrics.trends.isEmpty {
+                            detailSection("Recent Trends") {
+                                ForEach(metrics.trends.suffix(7)) { item in
+                                    metricRow(item.date, "\(item.total) total · \(item.completed) ok · \(item.failed) failed · \(item.blocked) blocked")
+                                }
+                            }
+                        }
+
+                        if !metrics.steps.artifactVolume.isEmpty {
+                            detailSection("Artifact Heavy Steps") {
+                                ForEach(metrics.steps.artifactVolume.prefix(8)) { item in
+                                    metricRow(item.name, "\(item.count) artifacts · \(item.bytes) bytes")
+                                }
+                            }
+                        }
+
+                        if !metrics.lineage.recentChains.isEmpty {
+                            detailSection("Retry Lineage") {
+                                ForEach(metrics.lineage.recentChains.prefix(8)) { chain in
+                                    metricRow(chain.templateId ?? chain.rootJobId, "\(chain.attempts) attempts · latest \(chain.latestStatus ?? "unknown")")
+                                    if let jobIds = chain.jobIds, !jobIds.isEmpty {
+                                        Text(jobIds.joined(separator: " -> "))
+                                            .font(.caption2.monospaced())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        ContentUnavailableView("No metrics", systemImage: "chart.bar", description: Text("Load jobs to populate automation metrics."))
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Metrics")
+            .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+
+    @ViewBuilder
+    private func detailSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            content()
+        }
+        .padding(18)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func metricRow(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(title).font(.caption.weight(.semibold))
+            Spacer()
+            Text(value).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+private struct PolicyAdminDetailSheet: View {
+    let policyAdmin: PolicyAdmin?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let policyAdmin {
+                        if let summary = policyAdmin.summary, !summary.isEmpty {
+                            Text(summary)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(policyAdmin.env) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(entry.name).font(.headline)
+                                Text(entry.value.isEmpty ? "(empty)" : entry.value)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                Text(entry.description).font(.caption).foregroundStyle(.secondary)
+                                if let example = entry.example, !example.isEmpty {
+                                    Text("Example: \(example)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(18)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    } else {
+                        ContentUnavailableView("No policy admin", systemImage: "shield", description: Text("Load jobs to inspect listen policy settings."))
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Policy Admin")
+            .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+}
+
+private struct ArtifactAdminDetailSheet: View {
+    let artifactAdmin: ArtifactAdminSummary?
+    @Binding var compressDays: String
+    @Binding var pruneDays: String
+    @Binding var isCompressingArtifacts: Bool
+    @Binding var isPruningArtifacts: Bool
+    let onCompress: () async -> Void
+    let onPrune: () async -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let artifactAdmin {
+                        VStack(alignment: .leading, spacing: 8) {
+                            metricRow("Active jobs", "\(artifactAdmin.active.jobCount)")
+                            metricRow("Active bytes", "\(artifactAdmin.active.bytes)")
+                            metricRow("Archived jobs", "\(artifactAdmin.archived.jobCount)")
+                            metricRow("Archived bytes", "\(artifactAdmin.archived.bytes)")
+                            if let retention = artifactAdmin.retentionDays { metricRow("Retention", "\(retention) days") }
+                            if let oldest = artifactAdmin.oldestArchivedAgeDays { metricRow("Oldest archived", "\(Int(oldest)) days") }
+                        }
+                        .padding(18)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Compression").font(.headline)
+                            HStack {
+                                TextField("Days", text: $compressDays)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.numberPad)
+                                Button {
+                                    Task {
+                                        isCompressingArtifacts = true
+                                        defer { isCompressingArtifacts = false }
+                                        await onCompress()
+                                    }
+                                } label: {
+                                    if isCompressingArtifacts { ProgressView() } else { Text("Compress Archived") }
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        }
+                        .padding(18)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Prune").font(.headline)
+                            HStack {
+                                TextField("Days", text: $pruneDays)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.numberPad)
+                                Button(role: .destructive) {
+                                    Task {
+                                        isPruningArtifacts = true
+                                        defer { isPruningArtifacts = false }
+                                        await onPrune()
+                                    }
+                                } label: {
+                                    if isPruningArtifacts { ProgressView() } else { Text("Prune Archived") }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(18)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    } else {
+                        ContentUnavailableView("No artifact admin", systemImage: "shippingbox", description: Text("Load jobs to inspect artifact storage state."))
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Artifact Admin")
+            .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+
+    @ViewBuilder
+    private func metricRow(_ title: String, _ value: String) -> some View {
+        HStack {
+            Text(title).font(.caption.weight(.semibold))
+            Spacer()
+            Text(value).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct TemplateVersionsSheet: View {
+    let template: JobTemplate?
+    let versions: [JobTemplateVersion]
+    @Binding var restoringTemplateVersion: Int?
+    let onCompare: (JobTemplate, Int, Int) async -> Void
+    let onRestore: (JobTemplate, Int) async -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let template, !versions.isEmpty {
+                        let ordered = Array(versions.reversed())
+                        let latestVersion = ordered.first?.version
+                        ForEach(ordered) { version in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("v\(version.version)\(version.builtIn == true ? " · built-in" : "")")
+                                            .font(.headline)
+                                        if let updatedAt = version.updatedAt {
+                                            Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    if let latestVersion, version.version != latestVersion {
+                                        Button("Compare") {
+                                            Task { await onCompare(template, version.version, latestVersion) }
+                                        }
+                                        .buttonStyle(.bordered)
+                                        if template.builtIn != true {
+                                            Button {
+                                                Task {
+                                                    restoringTemplateVersion = version.version
+                                                    defer { restoringTemplateVersion = nil }
+                                                    await onRestore(template, version.version)
+                                                }
+                                            } label: {
+                                                if restoringTemplateVersion == version.version { ProgressView() } else { Text("Restore") }
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .disabled(restoringTemplateVersion != nil)
+                                        }
+                                    }
+                                }
+                                if let description = version.description, !description.isEmpty {
+                                    Text(description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(18)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    } else {
+                        ContentUnavailableView("No versions", systemImage: "clock.arrow.circlepath", description: Text("Select a workflow template to inspect version history."))
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Template Versions")
+            .toolbar { Button("Done") { dismiss() } }
+        }
     }
 }
 
