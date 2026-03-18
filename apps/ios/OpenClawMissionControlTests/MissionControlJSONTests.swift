@@ -1,6 +1,10 @@
 import XCTest
 @testable import OpenClawMissionControl
 
+private struct WorkflowRunsEnvelope: Decodable {
+    let runs: [WorkflowRun]
+}
+
 final class MissionControlJSONTests: XCTestCase {
     func testDecoderAcceptsFractionalSecondISO8601Dates() throws {
         let data = Data(
@@ -102,7 +106,7 @@ final class MissionControlJSONTests: XCTestCase {
 
         XCTAssertEqual(envelope.eventType, "agent.updated")
         XCTAssertEqual(envelope.payload.agentId, "main")
-        XCTAssertEqual(envelope.payload.status, .online)
+        XCTAssertEqual(envelope.payload.agentStatus, .online)
     }
 
     func testDecoderAcceptsSnapshotInvalidatedEventEnvelope() throws {
@@ -125,5 +129,40 @@ final class MissionControlJSONTests: XCTestCase {
 
         XCTAssertEqual(envelope.eventType, "snapshot.invalidated")
         XCTAssertEqual(envelope.payload.reason, "counts-changed")
+    }
+
+    func testDecoderAcceptsWorkflowRunsResponseEnvelope() throws {
+        let data = Data(
+            """
+            {
+              "runs": [
+                {
+                  "id": "run-1",
+                  "workflowName": "Nightly Review",
+                  "status": "completed",
+                  "steps": [
+                    {
+                      "stepIndex": 0,
+                      "agent": "main",
+                      "action": "Summarize updates",
+                      "status": "done",
+                      "startedAt": "2026-03-15T04:00:00.000Z",
+                      "completedAt": "2026-03-15T04:01:00.000Z"
+                    }
+                  ],
+                  "startedAt": "2026-03-15T04:00:00.000Z",
+                  "completedAt": "2026-03-15T04:01:00.000Z",
+                  "triggeredBy": "system"
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let response = try MissionControlJSON.makeDecoder().decode(WorkflowRunsEnvelope.self, from: data)
+
+        XCTAssertEqual(response.runs.count, 1)
+        XCTAssertEqual(response.runs[0].id, "run-1")
+        XCTAssertEqual(response.runs[0].status, WorkflowRunStatus.completed)
     }
 }

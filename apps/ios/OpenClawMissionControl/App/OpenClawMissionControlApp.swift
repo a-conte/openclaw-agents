@@ -15,14 +15,22 @@ struct OpenClawMissionControlApp: App {
 
 private enum AppBootstrap {
     static func makeClient() -> MissionControlClient {
-        guard
-            let rawValue = Bundle.main.object(forInfoDictionaryKey: "MissionControlBaseURL") as? String,
-            let baseURL = URL(string: rawValue),
-            !rawValue.isEmpty
-        else {
-            return UnconfiguredMissionControlClient()
+        let rawValue = Bundle.main.object(forInfoDictionaryKey: "MissionControlBaseURL") as? String
+
+        if
+            let rawValue,
+            !rawValue.isEmpty,
+            let baseURL = URL(string: rawValue)
+        {
+            return HTTPMissionControlClient(baseURL: baseURL)
         }
 
-        return HTTPMissionControlClient(baseURL: baseURL)
+#if DEBUG
+        if let baseURL = URL(string: "http://localhost:3000") {
+            return HTTPMissionControlClient(baseURL: baseURL)
+        }
+#endif
+
+        return UnconfiguredMissionControlClient()
     }
 }

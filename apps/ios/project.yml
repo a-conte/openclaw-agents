@@ -14,6 +14,7 @@ targets:
       - OpenClawMissionControl
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: dev.openclaw.mission-control
         PRODUCT_NAME: OpenClawMissionControl
         SWIFT_VERSION: "5.10"
@@ -21,6 +22,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         INFOPLIST_KEY_CFBundleDisplayName: OpenClaw Mission Control
         INFOPLIST_KEY_MissionControlBaseURL: $(MISSION_CONTROL_BASE_URL)
+        INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad:
           - UIInterfaceOrientationLandscapeLeft
@@ -37,5 +39,6 @@ targets:
       - target: OpenClawMissionControl
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: dev.openclaw.mission-control.tests
         SWIFT_VERSION: "5.10"

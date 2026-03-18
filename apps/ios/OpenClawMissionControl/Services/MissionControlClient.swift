@@ -98,8 +98,7 @@ struct HTTPMissionControlClient: MissionControlClient {
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.timeoutInterval = .infinity
 
-                    let (bytes, _) = try await session.bytes(from: url)
-                    var currentEvent: String?
+                    let (bytes, _) = try await session.bytes(for: request)
                     var currentData: String?
 
                     for try await line in bytes.lines {
@@ -114,10 +113,7 @@ struct HTTPMissionControlClient: MissionControlClient {
                                     continuation.yield(envelope)
                                 }
                             }
-                            currentEvent = nil
                             currentData = nil
-                        } else if line.hasPrefix("event: ") {
-                            currentEvent = String(line.dropFirst(7))
                         } else if line.hasPrefix("data: ") {
                             currentData = String(line.dropFirst(6))
                         }
@@ -134,7 +130,6 @@ struct HTTPMissionControlClient: MissionControlClient {
             }
         }
     }
-}
 
     func submitJob(prompt: String, agent: String) async throws -> Job {
         let url = baseURL.appending(path: "/api/jobs")
@@ -162,8 +157,13 @@ struct HTTPMissionControlClient: MissionControlClient {
     func listWorkflowRuns() async throws -> [WorkflowRun] {
         let url = baseURL.appending(path: "/api/workflows/runs")
         let (data, _) = try await session.data(from: url)
-        return try MissionControlJSON.makeDecoder().decode([WorkflowRun].self, from: data)
+        let response = try MissionControlJSON.makeDecoder().decode(WorkflowRunsResponse.self, from: data)
+        return response.runs
     }
+}
+
+private struct WorkflowRunsResponse: Codable {
+    let runs: [WorkflowRun]
 }
 
 struct MissionControlEventEnvelope: Codable, Equatable {

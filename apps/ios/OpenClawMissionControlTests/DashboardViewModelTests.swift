@@ -33,6 +33,22 @@ private struct EmptyStreamClient: MissionControlClient {
         )
     }
 
+    func submitJob(prompt: String, agent: String) async throws -> Job {
+        Job.preview
+    }
+
+    func listJobs() async throws -> [Job] {
+        []
+    }
+
+    func listTasks() async throws -> [TaskItem] {
+        []
+    }
+
+    func listWorkflowRuns() async throws -> [WorkflowRun] {
+        []
+    }
+
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error> {
         AsyncThrowingStream { continuation in
             continuation.onTermination = { _ in
