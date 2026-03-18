@@ -33,12 +33,26 @@ private struct EmptyStreamClient: MissionControlClient {
         )
     }
 
-    func submitJob(prompt: String, agent: String) async throws -> Job {
+    func submitJob(request: JobRequest) async throws -> Job {
         Job.preview
     }
 
-    func listJobs() async throws -> [Job] {
+    func listJobs(archived: Bool) async throws -> [Job] {
         []
+    }
+
+    func jobPolicy() async throws -> JobPolicy {
+        JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
+    }
+
+    func stopJob(id: String) async throws {
+    }
+
+    func retryJob(id: String) async throws -> Job {
+        Job.preview
+    }
+
+    func clearJobs() async throws {
     }
 
     func listTasks() async throws -> [TaskItem] {

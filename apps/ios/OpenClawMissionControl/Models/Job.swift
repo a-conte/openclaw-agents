@@ -47,7 +47,7 @@ struct Job: Codable, Identifiable, Equatable {
         timedOut: false,
         attempt: 1,
         retryOf: nil,
-        policy: JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [])
+        policy: JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
     )
 
     init(
@@ -261,4 +261,5 @@ struct JobPolicy: Codable, Equatable {
     let allowedSteerCommands: [String]?
     let allowedDriveCommands: [String]?
     let allowedWorkflows: [String]?
+    let version: Int?
 }

@@ -48,6 +48,21 @@ struct JobSubmitView: View {
             Text("Submit Job")
                 .font(.title2.bold())
 
+            if let policy = viewModel.jobPolicy {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Remote policy")
+                        .font(.caption.weight(.semibold))
+                    Text(policy.allowDangerous == true ? "Dangerous actions enabled" : "Dangerous actions blocked by default")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Change `OPENCLAW_LISTEN_ALLOW_DANGEROUS` or the allowlist env vars on the listen server to widen access.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
             Picker("Mode", selection: $selectedMode) {
                 ForEach(JobMode.allCases, id: \.self) { mode in
                     Text(mode.rawValue.capitalized).tag(mode)

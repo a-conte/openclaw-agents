@@ -9,6 +9,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var tasks: [TaskItem] = []
     @Published private(set) var workflowRuns: [WorkflowRun] = []
     @Published private(set) var archivedJobs: [Job] = []
+    @Published private(set) var jobPolicy: JobPolicy?
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
@@ -130,6 +131,9 @@ final class DashboardViewModel: ObservableObject {
     func loadJobs() async {
         do {
             jobs = try await client.listJobs(archived: false)
+            if jobPolicy == nil {
+                jobPolicy = try? await client.jobPolicy()
+            }
         } catch {
             if !Task.isCancelled {
                 errorMessage = error.localizedDescription
@@ -200,6 +204,7 @@ final class DashboardViewModel: ObservableObject {
             try await client.clearJobs()
             await loadJobs()
             await loadArchivedJobs()
+            jobPolicy = try? await client.jobPolicy()
         } catch {
             errorMessage = error.localizedDescription
         }
