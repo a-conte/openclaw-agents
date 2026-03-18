@@ -774,6 +774,16 @@ function Panel({ title, eyebrow, icon, children }: { title: string; eyebrow: str
 }
 
 function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChanged: () => void }) {
+  type WorkflowStepDraft = {
+    id: string;
+    name: string;
+    type: 'steer' | 'drive' | 'shell' | 'agent' | 'note';
+    command: string;
+    args: string;
+    prompt: string;
+    targetAgent: string;
+  };
+
   const [mode, setMode] = useState<NonNullable<JobContract['mode']>>('agent');
   const [targetAgent, setTargetAgent] = useState('main');
   const [prompt, setPrompt] = useState('');
@@ -781,14 +791,57 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [workflow, setWorkflow] = useState('safari_open_command_page');
   const [argsText, setArgsText] = useState('');
   const [workflowSpecText, setWorkflowSpecText] = useState('');
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStepDraft[]>([
+    { id: 'step_1', name: 'Open command page', type: 'steer', command: 'open-url', args: '--app,Safari,--url,http://localhost:3000/command', prompt: '', targetAgent: 'main' },
+  ]);
   const [showArchived, setShowArchived] = useState(false);
   const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
   const [policy, setPolicy] = useState<any | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const visibleJobs = showArchived ? archivedJobs : jobs;
+  const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) || visibleJobs[0];
+
+  const builtWorkflowSpec = useMemo(() => {
+    return {
+      steps: workflowSteps.map((step) => {
+        if (step.type === 'shell') {
+          return { id: step.id, name: step.name || step.id, type: 'shell', prompt: step.prompt };
+        }
+        if (step.type === 'agent') {
+          return { id: step.id, name: step.name || step.id, type: 'agent', prompt: step.prompt, targetAgent: step.targetAgent || 'main' };
+        }
+        if (step.type === 'note') {
+          return { id: step.id, name: step.name || step.id, type: 'note', message: step.prompt };
+        }
+        return {
+          id: step.id,
+          name: step.name || step.id,
+          type: step.type,
+          command: step.command,
+          args: step.args.split(',').map((item) => item.trim()).filter(Boolean),
+        };
+      }),
+    };
+  }, [workflowSteps]);
+
+  useEffect(() => {
+    if (mode === 'workflow') {
+      setWorkflowSpecText(JSON.stringify(builtWorkflowSpec, null, 2));
+    }
+  }, [builtWorkflowSpec, mode]);
+
+  useEffect(() => {
+    if (!selectedJobId && visibleJobs[0]) {
+      setSelectedJobId(visibleJobs[0].id);
+    }
+    if (selectedJobId && !visibleJobs.some((job) => job.id === selectedJobId) && visibleJobs[0]) {
+      setSelectedJobId(visibleJobs[0].id);
+    }
+  }, [selectedJobId, visibleJobs]);
 
   async function loadArchived() {
     const response = await fetch('/api/jobs?archived=true');
@@ -807,7 +860,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setError(null);
     try {
       let workflowSpec: Record<string, unknown> | undefined;
-      if (mode === 'workflow' && workflowSpecText.trim()) {
+      if (mode === 'workflow') {
         try {
           const parsed = JSON.parse(workflowSpecText);
           if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
@@ -841,7 +894,6 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setPrompt('');
       setCommand('');
       setArgsText('');
-      setWorkflowSpecText('');
       onChanged();
       await loadPolicy();
     } catch {
@@ -854,22 +906,22 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   async function stop(jobId: string) {
     await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
     onChanged();
-    if (showArchived) {
-      await loadArchived();
-    }
+    if (showArchived) await loadArchived();
   }
 
-  async function retry(jobId: string) {
-    const response = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' });
+  async function resume(jobId: string, modeValue?: 'resume_failed' | 'resume_from' | 'rerun_all', resumeFromStepId?: string) {
+    const response = await fetch(`/api/jobs/${jobId}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(modeValue ? { mode: modeValue, resumeFromStepId } : {}),
+    });
     const payload = await response.json();
     if (!response.ok) {
-      setError(payload.error || 'Failed to retry job');
+      setError(payload.error || 'Failed to resume job');
       return;
     }
     onChanged();
-    if (showArchived) {
-      await loadArchived();
-    }
+    if (showArchived) await loadArchived();
   }
 
   async function clear() {
@@ -883,37 +935,40 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     }
   }
 
+  function updateWorkflowStep(index: number, patch: Partial<WorkflowStepDraft>) {
+    setWorkflowSteps((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
+  }
+
+  function addWorkflowStep() {
+    setWorkflowSteps((current) => [
+      ...current,
+      { id: `step_${current.length + 1}`, name: `Step ${current.length + 1}`, type: 'steer', command: '', args: '', prompt: '', targetAgent: 'main' },
+    ]);
+  }
+
+  function removeWorkflowStep(index: number) {
+    setWorkflowSteps((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
   useEffect(() => {
     void loadPolicy();
   }, []);
 
   return (
     <Panel title="Automation Jobs" eyebrow="Remote Control" icon={<Play size={15} className="text-accent-blue" />}>
-      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[380px_320px_1fr]">
         <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
           {policy ? (
             <div className="rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
               <div className="font-semibold text-text-primary">Policy</div>
               <div className="mt-1">Dangerous actions: {policy.allowDangerous ? 'enabled' : 'blocked by default'}</div>
               <div className="mt-1">Use `OPENCLAW_LISTEN_ALLOW_DANGEROUS=true` to allow blocked destructive commands.</div>
-              {Array.isArray(policy.allowedSteerCommands) && policy.allowedSteerCommands.length > 0 ? (
-                <div className="mt-1">Allowed steer: {policy.allowedSteerCommands.join(', ')}</div>
-              ) : null}
-              {Array.isArray(policy.allowedDriveCommands) && policy.allowedDriveCommands.length > 0 ? (
-                <div className="mt-1">Allowed drive: {policy.allowedDriveCommands.join(', ')}</div>
-              ) : null}
-              {Array.isArray(policy.allowedWorkflows) && policy.allowedWorkflows.length > 0 ? (
-                <div className="mt-1">Allowed named workflows: {policy.allowedWorkflows.join(', ')}</div>
-              ) : null}
             </div>
           ) : null}
+
           <div>
             <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Mode</div>
-            <select
-              value={mode}
-              onChange={(event) => setMode(event.target.value as NonNullable<JobContract['mode']>)}
-              className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-            >
+            <select value={mode} onChange={(event) => setMode(event.target.value as NonNullable<JobContract['mode']>)} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary">
               {['agent', 'shell', 'steer', 'drive', 'workflow', 'note'].map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -921,76 +976,64 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
           </div>
 
           {mode === 'agent' && (
-            <div>
-              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Target Agent</div>
-              <select
-                value={targetAgent}
-                onChange={(event) => setTargetAgent(event.target.value)}
-                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              >
-                {['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'].map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-            </div>
+            <select value={targetAgent} onChange={(event) => setTargetAgent(event.target.value)} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary">
+              {['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'].map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
           )}
 
           {(mode === 'agent' || mode === 'shell' || mode === 'note') && (
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Prompt"
-              className="min-h-[96px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-            />
+            <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Prompt" className="min-h-[96px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary" />
           )}
 
           {(mode === 'steer' || mode === 'drive') && (
             <>
-              <input
-                value={command}
-                onChange={(event) => setCommand(event.target.value)}
-                placeholder="Command"
-                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              />
-              <input
-                value={argsText}
-                onChange={(event) => setArgsText(event.target.value)}
-                placeholder="Args (comma separated)"
-                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              />
+              <input value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Command" className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary" />
+              <input value={argsText} onChange={(event) => setArgsText(event.target.value)} placeholder="Args (comma separated)" className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary" />
             </>
           )}
 
           {mode === 'workflow' && (
-            <>
-              <select
-                value={workflow}
-                onChange={(event) => setWorkflow(event.target.value)}
-                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              >
-                {[
-                  'safari_open_command_page',
-                  'safari_recover_localhost_command',
-                  'safari_wait_and_click_ui',
-                  'textedit_new_set_text',
-                  'notes_create',
-                ].map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-              <input
-                value={argsText}
-                onChange={(event) => setArgsText(event.target.value)}
-                placeholder="Args (comma separated)"
-                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              />
-              <textarea
-                value={workflowSpecText}
-                onChange={(event) => setWorkflowSpecText(event.target.value)}
-                placeholder='Advanced workflowSpec JSON, e.g. {"steps":[...]}'
-                className="min-h-[144px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
-              />
-            </>
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-surface-3 p-3">
+                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Step Builder</div>
+                <div className="space-y-3">
+                  {workflowSteps.map((step, index) => (
+                    <div key={step.id} className="rounded-lg border border-border bg-surface-2/75 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-xs font-semibold text-text-primary">{step.id}</div>
+                        {workflowSteps.length > 1 && <Button size="sm" variant="ghost" onClick={() => removeWorkflowStep(index)}>Remove</Button>}
+                      </div>
+                      <div className="grid gap-2">
+                        <input value={step.name} onChange={(event) => updateWorkflowStep(index, { name: event.target.value })} placeholder="Step name" className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary" />
+                        <select value={step.type} onChange={(event) => updateWorkflowStep(index, { type: event.target.value as WorkflowStepDraft['type'] })} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary">
+                          {['steer', 'drive', 'shell', 'agent', 'note'].map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                        {(step.type === 'steer' || step.type === 'drive') && (
+                          <>
+                            <input value={step.command} onChange={(event) => updateWorkflowStep(index, { command: event.target.value })} placeholder="Command" className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary" />
+                            <input value={step.args} onChange={(event) => updateWorkflowStep(index, { args: event.target.value })} placeholder="Args (comma separated)" className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary" />
+                          </>
+                        )}
+                        {(step.type === 'shell' || step.type === 'agent' || step.type === 'note') && (
+                          <textarea value={step.prompt} onChange={(event) => updateWorkflowStep(index, { prompt: event.target.value })} placeholder={step.type === 'note' ? 'Message' : 'Prompt'} className="min-h-[72px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary" />
+                        )}
+                        {step.type === 'agent' && (
+                          <select value={step.targetAgent} onChange={(event) => updateWorkflowStep(index, { targetAgent: event.target.value })} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary">
+                            {['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'].map((item) => <option key={item} value={item}>{item}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Button size="sm" variant="secondary" onClick={addWorkflowStep}>Add Step</Button>
+                </div>
+              </div>
+              <textarea value={workflowSpecText} onChange={(event) => setWorkflowSpecText(event.target.value)} placeholder='workflowSpec JSON' className="min-h-[220px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-xs text-text-primary" />
+            </div>
           )}
 
           {error && <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{error}</div>}
@@ -1000,14 +1043,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
               {submitting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
               <span className="ml-1">Submit</span>
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                setShowArchived((current) => !current);
-                await loadArchived();
-              }}
-            >
+            <Button size="sm" variant="secondary" onClick={async () => { setShowArchived((current) => !current); await loadArchived(); }}>
               {showArchived ? 'Show Live' : 'Show Archived'}
             </Button>
             <Button size="sm" variant="ghost" onClick={clear} disabled={clearing}>
@@ -1017,66 +1053,101 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
         </div>
 
         <div className="space-y-3">
-          {visibleJobs.length === 0 ? (
-            <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} />
-          ) : (
-            visibleJobs.slice(0, 12).map((job) => (
-              <div key={job.id} className="rounded-xl border border-border bg-surface-2/75 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-text-primary">
-                      {job.workflow || job.command || job.mode || job.prompt || job.id}
-                    </div>
-                    <div className="mt-1 text-xs text-text-tertiary">
-                      {(job.mode || 'job')} · {job.targetAgent} · {relativeTime(job.createdAt)}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge color={job.status === 'failed' ? '#e94560' : job.status === 'completed' ? '#06d6a0' : job.status === 'running' ? '#4A9EFF' : '#ffd166'}>
-                      {job.status}
-                    </Badge>
-                    {job.status === 'running' && !showArchived && (
-                      <Button size="sm" variant="ghost" onClick={() => void stop(job.id)}>Stop</Button>
-                    )}
-                    {(job.status === 'failed' || job.status === 'stopped') && (
-                      <Button size="sm" variant="secondary" onClick={() => void retry(job.id)}>Retry</Button>
-                    )}
+          {visibleJobs.length === 0 ? <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} /> : visibleJobs.slice(0, 12).map((job) => (
+            <button key={job.id} onClick={() => setSelectedJobId(job.id)} className={`w-full rounded-xl border p-4 text-left ${selectedJob?.id === job.id ? 'border-accent bg-surface-3/90' : 'border-border bg-surface-2/75'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-text-primary">{job.workflow || job.command || job.mode || job.prompt || job.id}</div>
+                  <div className="mt-1 text-xs text-text-tertiary">{(job.mode || 'job')} · {job.targetAgent} · {relativeTime(job.createdAt)}</div>
+                </div>
+                <Badge color={job.status === 'failed' ? '#e94560' : job.status === 'completed' ? '#06d6a0' : job.status === 'running' ? '#4A9EFF' : '#ffd166'}>
+                  {job.status}
+                </Badge>
+              </div>
+              {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
+          {selectedJob ? (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-text-primary">{selectedJob.workflow || selectedJob.command || selectedJob.mode || selectedJob.id}</div>
+                  <div className="mt-1 text-xs text-text-tertiary">
+                    attempt {selectedJob.attempt || 1}{selectedJob.retryMode ? ` · ${selectedJob.retryMode}` : ''}{selectedJob.resumeFromStepId ? ` · from ${selectedJob.resumeFromStepId}` : ''}
                   </div>
                 </div>
-                {job.prompt ? <div className="mt-2 text-xs text-text-secondary">{job.prompt}</div> : null}
-                {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
-                {job.timedOut ? <div className="mt-2 text-xs text-yellow-200">Timed out</div> : null}
-                {job.policy && job.policy.allowed === false ? (
-                  <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/8 px-3 py-2 text-xs text-yellow-100">
-                    {job.policy.reason || 'Blocked by policy'}
-                  </div>
-                ) : null}
-                {Array.isArray(job.updates) && job.updates.length > 0 ? (
-                  <div className="mt-3 space-y-1 text-xs text-text-tertiary">
-                    {job.updates.slice(-3).map((update) => (
+                <div className="flex gap-2">
+                  {selectedJob.status === 'running' && !showArchived ? <Button size="sm" variant="ghost" onClick={() => void stop(selectedJob.id)}>Stop</Button> : null}
+                  {(selectedJob.status === 'failed' || selectedJob.status === 'stopped') ? (
+                    <>
+                      <Button size="sm" variant="secondary" onClick={() => void resume(selectedJob.id, 'resume_failed')}>Resume Failed</Button>
+                      <Button size="sm" variant="secondary" onClick={() => void resume(selectedJob.id, 'rerun_all')}>Rerun All</Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              {selectedJob.policy && selectedJob.policy.allowed === false ? (
+                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/8 px-3 py-2 text-xs text-yellow-100">{selectedJob.policy.reason || 'Blocked by policy'}</div>
+              ) : null}
+              {selectedJob.error ? <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{selectedJob.error}</div> : null}
+
+              <div className="rounded-lg border border-border bg-surface-3 p-3">
+                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Attempt History</div>
+                <div className="space-y-1 text-xs text-text-secondary">
+                  {Array.isArray(selectedJob.history) && selectedJob.history.length > 0 ? selectedJob.history.map((item, index) => (
+                    <div key={`${item.jobId}-${index}`}>
+                      #{item.attempt || index + 1} · {item.status || 'unknown'}{item.mode ? ` · ${item.mode}` : ''}{item.resumeFromStepId ? ` · from ${item.resumeFromStepId}` : ''}
+                    </div>
+                  )) : <div>No prior attempts recorded.</div>}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-surface-3 p-3">
+                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Steps</div>
+                <div className="space-y-2">
+                  {Array.isArray(selectedJob.stepStatus) && selectedJob.stepStatus.length > 0 ? selectedJob.stepStatus.map((step) => (
+                    <div key={step.id} className="rounded-md border border-border bg-surface-2/75 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold text-text-primary">{step.name}</div>
+                        <div className="flex items-center gap-2">
+                          <Badge color={step.status === 'failed' ? '#e94560' : step.status === 'completed' ? '#06d6a0' : step.status === 'running' ? '#4A9EFF' : '#ffd166'}>
+                            {step.status}
+                          </Badge>
+                          {(selectedJob.status === 'failed' || selectedJob.status === 'stopped') && (
+                            <Button size="sm" variant="ghost" onClick={() => void resume(selectedJob.id, 'resume_from', step.id)}>Resume Here</Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-[11px] text-text-tertiary">{step.type}{step.completedAt ? ` · ${relativeTime(step.completedAt)}` : ''}</div>
+                      {step.error ? <div className="mt-2 text-xs text-red-300">{step.error}</div> : null}
+                    </div>
+                  )) : <div className="text-xs text-text-secondary">No step details for this job.</div>}
+                </div>
+              </div>
+
+              {Array.isArray(selectedJob.updates) && selectedJob.updates.length > 0 ? (
+                <div className="rounded-lg border border-border bg-surface-3 p-3">
+                  <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Recent Updates</div>
+                  <div className="space-y-1 text-xs text-text-secondary">
+                    {selectedJob.updates.slice(-8).map((update) => (
                       <div key={`${update.at}-${update.message}`} className={update.level === 'error' ? 'text-red-300' : undefined}>• {update.message}</div>
                     ))}
                   </div>
-                ) : null}
-                {Array.isArray(job.stepStatus) && job.stepStatus.length > 0 ? (
-                  <div className="mt-3 space-y-1 text-xs text-text-tertiary">
-                    {job.stepStatus.slice(-4).map((step) => (
-                      <div key={step.id} className={step.status === 'failed' ? 'text-red-300' : undefined}>
-                        • {step.name} · {step.status}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {job.error ? (
-                  <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{job.error}</div>
-                ) : null}
-                {job.result ? (
-                  <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
-                    {typeof job.result === 'string' ? job.result : JSON.stringify(job.result, null, 2)}
-                  </pre>
-                ) : null}
-              </div>
-            ))
+                </div>
+              ) : null}
+
+              {selectedJob.result ? (
+                <pre className="overflow-x-auto rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+                  {typeof selectedJob.result === 'string' ? selectedJob.result : JSON.stringify(selectedJob.result, null, 2)}
+                </pre>
+              ) : null}
+            </>
+          ) : (
+            <EmptyMessage message="Select a job to inspect details." />
           )}
         </div>
       </div>

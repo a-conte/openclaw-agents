@@ -80,7 +80,16 @@ def spawn_worker(job_id: str) -> None:
     WORKERS[job_id] = proc
 
 
-def new_job_payload(data: dict[str, object], *, attempt: int = 1, retry_of: str | None = None, prior_step_status: list[object] | None = None) -> tuple[str, dict[str, object]]:
+def new_job_payload(
+    data: dict[str, object],
+    *,
+    attempt: int = 1,
+    retry_of: str | None = None,
+    prior_step_status: list[object] | None = None,
+    retry_mode: str | None = None,
+    resume_from_step_id: str | None = None,
+    history: list[object] | None = None,
+) -> tuple[str, dict[str, object]]:
     prompt = clean_str(data.get("prompt"))
     mode = clean_str(data.get("mode")) or "agent"
     command_raw = data.get("command")
@@ -120,8 +129,11 @@ def new_job_payload(data: dict[str, object], *, attempt: int = 1, retry_of: str 
         "timedOut": False,
         "attempt": attempt,
         "retryOf": retry_of,
+        "retryMode": retry_mode or None,
+        "resumeFromStepId": resume_from_step_id,
         "currentStepId": None,
         "stepStatus": prior_step_status or [],
+        "history": history or [],
         "policy": {**current_policy(), "allowed": True},
     }
     return job_id, job
@@ -158,6 +170,22 @@ def validate_job_request(data: dict[str, object]) -> str | None:
 def find_retry_step(job: dict[str, object]) -> list[object]:
     step_status = job.get("stepStatus", [])
     return step_status if isinstance(step_status, list) else []
+
+
+def build_attempt_history(job: dict[str, object], mode: str, resume_from_step_id: str | None = None) -> list[object]:
+    history = list(job.get("history", [])) if isinstance(job.get("history"), list) else []
+    history.append(
+        {
+            "jobId": job.get("id"),
+            "attempt": int(job.get("attempt", 1)),
+            "status": job.get("status"),
+            "mode": mode,
+            "resumeFromStepId": resume_from_step_id,
+            "completedAt": job.get("completedAt"),
+            "summary": job.get("summary"),
+        }
+    )
+    return history
 
 
 def recover_orphaned_jobs() -> None:
@@ -217,6 +245,12 @@ class Handler(BaseHTTPRequestHandler):
             if job.get("status") not in {"failed", "stopped"}:
                 self._json(HTTPStatus.BAD_REQUEST, {"error": "only failed or stopped jobs can be retried"})
                 return
+            try:
+                request_data = self._read_json()
+            except json.JSONDecodeError:
+                request_data = {}
+            retry_mode = clean_str(request_data.get("mode")) or "resume_failed"
+            resume_from_step_id = clean_str(request_data.get("resumeFromStepId")) or None
             payload = {
                 "prompt": job.get("prompt", ""),
                 "mode": job.get("mode", "agent"),
@@ -232,11 +266,27 @@ class Handler(BaseHTTPRequestHandler):
             if error:
                 self._json(HTTPStatus.BAD_REQUEST, {"error": error})
                 return
+            prior_step_status: list[object] = []
+            if retry_mode == "resume_failed":
+                prior_step_status = find_retry_step(job)
+            elif retry_mode == "resume_from":
+                prior_step_status = find_retry_step(job)
+                if not resume_from_step_id:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "resumeFromStepId is required for resume_from mode"})
+                    return
+            elif retry_mode == "rerun_all":
+                prior_step_status = []
+            else:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "mode must be one of: resume_failed, resume_from, rerun_all"})
+                return
             new_job_id, new_job = new_job_payload(
                 payload,
                 attempt=int(job.get("attempt", 1)) + 1,
                 retry_of=str(job.get("id")),
-                prior_step_status=find_retry_step(job),
+                prior_step_status=prior_step_status,
+                retry_mode=retry_mode,
+                resume_from_step_id=resume_from_step_id,
+                history=build_attempt_history(job, retry_mode, resume_from_step_id),
             )
             write_job(new_job_id, new_job)
             spawn_worker(new_job_id)

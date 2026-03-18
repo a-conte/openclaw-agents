@@ -269,6 +269,9 @@ struct MissionControlEventPayload: Codable, Equatable {
     let timedOut: Bool?
     let attempt: Int?
     let retryOf: String?
+    let retryMode: String?
+    let resumeFromStepId: String?
+    let history: [JobAttempt]?
     let policy: JobPolicy?
 
     var agentStatus: AgentStatus? {
@@ -312,6 +315,9 @@ struct MissionControlEventPayload: Codable, Equatable {
             timedOut: timedOut ?? false,
             attempt: attempt ?? 1,
             retryOf: retryOf,
+            retryMode: retryMode,
+            resumeFromStepId: resumeFromStepId,
+            history: history ?? [],
             policy: policy
         )
     }

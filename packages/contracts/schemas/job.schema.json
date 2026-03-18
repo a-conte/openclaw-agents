@@ -91,6 +91,29 @@
     "retryOf": {
       "type": ["string", "null"]
     },
+    "retryMode": {
+      "type": ["string", "null"],
+      "enum": ["resume_failed", "resume_from", "rerun_all", null]
+    },
+    "resumeFromStepId": {
+      "type": ["string", "null"]
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "jobId": { "type": "string" },
+          "attempt": { "type": "integer", "minimum": 1 },
+          "status": { "type": "string" },
+          "mode": { "type": "string" },
+          "resumeFromStepId": { "type": ["string", "null"] },
+          "completedAt": { "type": "string", "format": "date-time" },
+          "summary": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
     "policy": {
       "type": "object",
       "required": ["allowed"],

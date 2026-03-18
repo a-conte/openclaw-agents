@@ -84,6 +84,17 @@ export async function retryListenJob(jobId: string): Promise<JobContract> {
   return getListenJob(created.job_id);
 }
 
+export async function resumeListenJob(
+  jobId: string,
+  input: { mode: 'resume_failed' | 'resume_from' | 'rerun_all'; resumeFromStepId?: string },
+): Promise<JobContract> {
+  const created = await listenFetch<{ job_id: string }>(`/job/${jobId}/retry`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return getListenJob(created.job_id);
+}
+
 export async function clearListenJobs(): Promise<{ archived: number }> {
   return listenFetch<{ archived: number }>('/jobs/clear', { method: 'POST' });
 }

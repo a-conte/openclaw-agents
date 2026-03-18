@@ -233,6 +233,22 @@ private struct JobCardView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Text("Attempt \(job.attempt)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            if let retryMode = job.retryMode, !retryMode.isEmpty {
+                Text("Retry mode: \(retryMode)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let resumeFromStepId = job.resumeFromStepId, !resumeFromStepId.isEmpty {
+                Text("Resume from: \(resumeFromStepId)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             if let result = job.result, !result.isEmpty {
                 Text(result)
                     .font(.caption)
@@ -263,6 +279,16 @@ private struct JobCardView: View {
                         Text("• \(step.name) · \(step.status.rawValue)")
                             .font(.caption2)
                             .foregroundStyle(step.status == .failed ? .red : .secondary)
+                    }
+                }
+            }
+
+            if !job.history.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(job.history.suffix(3)) { attempt in
+                        Text("• #\(attempt.attempt ?? 0) · \(attempt.status ?? "unknown")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }

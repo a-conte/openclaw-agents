@@ -5,6 +5,7 @@ import {
   getListenJob,
   getListenPolicy,
   listListenJobs,
+  resumeListenJob,
   retryListenJob,
   stopListenJob,
 } from './listen-client';
@@ -58,6 +59,13 @@ export async function stopJob(id: string) {
 
 export async function retryJob(id: string) {
   return retryListenJob(id);
+}
+
+export async function resumeJob(
+  id: string,
+  input: { mode: 'resume_failed' | 'resume_from' | 'rerun_all'; resumeFromStepId?: string },
+) {
+  return resumeListenJob(id, input);
 }
 
 export async function clearJobs() {

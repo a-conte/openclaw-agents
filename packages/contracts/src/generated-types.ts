@@ -102,6 +102,17 @@ export interface JobContract {
   timedOut?: boolean;
   attempt?: number;
   retryOf?: string | null;
+  retryMode?: 'resume_failed' | 'resume_from' | 'rerun_all' | null;
+  resumeFromStepId?: string | null;
+  history?: Array<{
+    jobId?: string;
+    attempt?: number;
+    status?: string;
+    mode?: string;
+    resumeFromStepId?: string | null;
+    completedAt?: string;
+    summary?: string;
+  }>;
   policy?: {
     allowed: boolean;
     reason?: string;

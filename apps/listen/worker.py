@@ -370,10 +370,19 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
     completed_context: dict[str, Any] = {}
     existing_steps = {str(item.get("id")): item for item in job.get("stepStatus", []) if isinstance(item, dict) and item.get("id")}
     start_index = 0
+    resume_from_step_id = str(job.get("resumeFromStepId") or "").strip() or None
     for index, raw_step in enumerate(steps):
         if not isinstance(raw_step, dict):
             raise ValueError("workflowSpec.steps must contain objects")
         step_id = str(raw_step.get("id") or f"step_{index + 1}")
+        if resume_from_step_id and step_id == resume_from_step_id:
+            start_index = index
+            break
+        if resume_from_step_id:
+            previous = existing_steps.get(step_id)
+            if previous:
+                completed_context[step_id] = {"result": previous.get("result")}
+            continue
         previous = existing_steps.get(step_id)
         if previous and previous.get("status") == "completed":
             completed_context[step_id] = {"result": previous.get("result")}
@@ -423,6 +432,7 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
         "ok": True,
         "steps": job.get("stepStatus", []),
         "final": (job.get("stepStatus") or [])[-1] if job.get("stepStatus") else None,
+        "resumeFromStepId": resume_from_step_id,
     }
 
 

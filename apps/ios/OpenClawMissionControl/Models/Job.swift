@@ -23,6 +23,9 @@ struct Job: Codable, Identifiable, Equatable {
     var timedOut: Bool
     var attempt: Int
     var retryOf: String?
+    var retryMode: String?
+    var resumeFromStepId: String?
+    var history: [JobAttempt]
     var policy: JobPolicy?
 
     static let preview = Job(
@@ -47,6 +50,9 @@ struct Job: Codable, Identifiable, Equatable {
         timedOut: false,
         attempt: 1,
         retryOf: nil,
+        retryMode: nil,
+        resumeFromStepId: nil,
+        history: [],
         policy: JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
     )
 
@@ -73,6 +79,9 @@ struct Job: Codable, Identifiable, Equatable {
         timedOut: Bool = false,
         attempt: Int = 1,
         retryOf: String? = nil,
+        retryMode: String? = nil,
+        resumeFromStepId: String? = nil,
+        history: [JobAttempt] = [],
         policy: JobPolicy? = nil
     ) {
         self.id = id
@@ -97,6 +106,9 @@ struct Job: Codable, Identifiable, Equatable {
         self.timedOut = timedOut
         self.attempt = attempt
         self.retryOf = retryOf
+        self.retryMode = retryMode
+        self.resumeFromStepId = resumeFromStepId
+        self.history = history
         self.policy = policy
     }
 
@@ -123,6 +135,9 @@ struct Job: Codable, Identifiable, Equatable {
         case timedOut
         case attempt
         case retryOf
+        case retryMode
+        case resumeFromStepId
+        case history
         case policy
     }
 
@@ -156,6 +171,9 @@ struct Job: Codable, Identifiable, Equatable {
         timedOut = try container.decodeIfPresent(Bool.self, forKey: .timedOut) ?? false
         attempt = try container.decodeIfPresent(Int.self, forKey: .attempt) ?? 1
         retryOf = try container.decodeIfPresent(String.self, forKey: .retryOf)
+        retryMode = try container.decodeIfPresent(String.self, forKey: .retryMode)
+        resumeFromStepId = try container.decodeIfPresent(String.self, forKey: .resumeFromStepId)
+        history = try container.decodeIfPresent([JobAttempt].self, forKey: .history) ?? []
         policy = try container.decodeIfPresent(JobPolicy.self, forKey: .policy)
     }
 }
@@ -262,4 +280,15 @@ struct JobPolicy: Codable, Equatable {
     let allowedDriveCommands: [String]?
     let allowedWorkflows: [String]?
     let version: Int?
+}
+
+struct JobAttempt: Codable, Equatable, Identifiable {
+    var id: String { jobId ?? "\(attempt)-\(status ?? "unknown")" }
+    let jobId: String?
+    let attempt: Int?
+    let status: String?
+    let mode: String?
+    let resumeFromStepId: String?
+    let completedAt: Date?
+    let summary: String?
 }
