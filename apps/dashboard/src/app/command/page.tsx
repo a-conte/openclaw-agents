@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
+import type {
+  ArtifactAdminSummaryContract,
+  JobContract,
+  JobMetricsContract,
+  JobTemplateContract,
+  JobTemplateVersionContract,
+  PolicyAdminContract,
+} from '@openclaw/contracts';
 import {
   AlertTriangle,
   ArrowRight,
@@ -834,7 +841,12 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
   const [policy, setPolicy] = useState<any | null>(null);
   const [artifactAdmin, setArtifactAdmin] = useState<ArtifactAdminSummaryContract | null>(null);
+  const [jobMetrics, setJobMetrics] = useState<JobMetricsContract | null>(null);
+  const [policyAdmin, setPolicyAdmin] = useState<PolicyAdminContract | null>(null);
   const [serverTemplates, setServerTemplates] = useState<AutomationTemplate[]>(JOB_TEMPLATES.map((template) => ({ ...template, builtIn: true })));
+  const [templateVersions, setTemplateVersions] = useState<JobTemplateVersionContract[]>([]);
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
   const [templateIdDraft, setTemplateIdDraft] = useState('');
   const [templateNameDraft, setTemplateNameDraft] = useState('');
   const [templateDescriptionDraft, setTemplateDescriptionDraft] = useState('');
@@ -851,6 +863,18 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const visibleJobs = showArchived ? archivedJobs : jobs;
   const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) || visibleJobs[0];
   const selectedTemplate = serverTemplates.find((template) => template.id === selectedTemplateId);
+  const filteredTemplates = useMemo(() => {
+    return serverTemplates.filter((template) => {
+      const matchesSearch = templateSearch.trim()
+        ? `${template.name} ${template.description} ${template.id}`.toLowerCase().includes(templateSearch.trim().toLowerCase())
+        : true;
+      const matchesCategory = templateCategoryFilter === 'all' ? true : (template.category || 'uncategorized') === templateCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [serverTemplates, templateCategoryFilter, templateSearch]);
+  const templateCategories = useMemo(() => {
+    return ['all', ...new Set(serverTemplates.map((template) => template.category || 'uncategorized'))];
+  }, [serverTemplates]);
 
   const builtWorkflowSpec = useMemo(() => {
     return {
@@ -908,6 +932,18 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setArtifactAdmin(payload);
   }
 
+  async function loadMetrics() {
+    const response = await fetch('/api/jobs/metrics');
+    const payload = await response.json();
+    setJobMetrics(payload);
+  }
+
+  async function loadPolicyAdmin() {
+    const response = await fetch('/api/jobs/policy/admin');
+    const payload = await response.json();
+    setPolicyAdmin(payload);
+  }
+
   async function loadTemplates() {
     const response = await fetch('/api/jobs/templates');
     const payload = await response.json();
@@ -916,6 +952,24 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     } else if (Array.isArray(payload)) {
       setServerTemplates([]);
     }
+  }
+
+  async function loadTemplateVersions(templateId: string) {
+    if (!templateId) {
+      setTemplateVersions([]);
+      return;
+    }
+    const response = await fetch(`/api/jobs/templates/${templateId}/versions`);
+    const payload = await response.json();
+    if (Array.isArray(payload)) {
+      setTemplateVersions(payload);
+      return;
+    }
+    if (Array.isArray(payload?.versions)) {
+      setTemplateVersions(payload.versions);
+      return;
+    }
+    setTemplateVersions([]);
   }
 
   async function submit() {
@@ -962,7 +1016,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setArgsText('');
       onChanged();
       await loadPolicy();
+      await loadPolicyAdmin();
       await loadArtifactAdmin();
+      await loadMetrics();
     } catch {
       setError('Network error while submitting automation job');
     } finally {
@@ -998,6 +1054,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       onChanged();
       await loadArchived();
       await loadArtifactAdmin();
+      await loadMetrics();
     } finally {
       setClearing(false);
     }
@@ -1018,6 +1075,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
         return;
       }
       await loadArtifactAdmin();
+      await loadMetrics();
     } finally {
       setPruningArtifacts(false);
     }
@@ -1103,6 +1161,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       await loadTemplates();
       setSelectedTemplateId(result.id);
       loadTemplateIntoDrafts(result);
+      await loadTemplateVersions(result.id);
     } finally {
       setSavingTemplate(false);
     }
@@ -1126,6 +1185,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setTemplateNameDraft('');
       setTemplateDescriptionDraft('');
       setTemplateCategoryDraft('custom');
+      setTemplateVersions([]);
     } finally {
       setDeletingTemplate(false);
     }
@@ -1133,7 +1193,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
 
   useEffect(() => {
     void loadPolicy();
+    void loadPolicyAdmin();
     void loadArtifactAdmin();
+    void loadMetrics();
     void loadTemplates();
   }, []);
 
@@ -1141,6 +1203,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     if (selectedTemplate) {
       loadTemplateIntoDrafts(selectedTemplate);
     }
+    void loadTemplateVersions(selectedTemplateId);
   }, [selectedTemplateId, serverTemplates]);
 
   return (
@@ -1155,12 +1218,32 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             </div>
           ) : null}
 
+          {policyAdmin ? (
+            <div className="rounded-lg border border-border bg-surface-3 p-3">
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Policy Admin</div>
+              <div className="space-y-1 text-xs text-text-secondary">
+                <div>{policyAdmin.summary}</div>
+                {policyAdmin.env.slice(0, 4).map((entry) => (
+                  <div key={entry.name} className="rounded-md border border-border bg-surface-2/70 px-2 py-2">
+                    <div className="font-semibold text-text-primary">{entry.name}</div>
+                    <div className="mt-1 break-all">{entry.value || '(empty)'}</div>
+                    <div className="mt-1 text-text-tertiary">{entry.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {artifactAdmin ? (
             <div className="rounded-lg border border-border bg-surface-3 p-3">
               <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Artifact Store</div>
               <div className="space-y-1 text-xs text-text-secondary">
                 <div>Active: {artifactAdmin.active.jobCount} jobs · {artifactAdmin.active.bytes} bytes</div>
                 <div>Archived: {artifactAdmin.archived.jobCount} jobs · {artifactAdmin.archived.bytes} bytes</div>
+                <div>Retention target: {artifactAdmin.retentionDays || 30} days</div>
+                {typeof artifactAdmin.oldestArchivedAgeDays === 'number' ? (
+                  <div>Oldest archived artifact set: {artifactAdmin.oldestArchivedAgeDays} days</div>
+                ) : null}
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <input value={pruneDays} onChange={(event) => setPruneDays(event.target.value)} className="w-20 rounded-md border border-border bg-surface-2/80 px-2 py-1 text-xs text-text-primary" />
@@ -1171,16 +1254,52 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             </div>
           ) : null}
 
+          {jobMetrics ? (
+            <div className="rounded-lg border border-border bg-surface-3 p-3">
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Observability</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Jobs: {jobMetrics.jobs.total}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Avg done: {jobMetrics.jobs.averageCompletedDurationMs ? `${Math.round(jobMetrics.jobs.averageCompletedDurationMs / 1000)}s` : 'n/a'}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Blocked: {jobMetrics.policy.blockedJobs}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Custom templates: {jobMetrics.templates.custom}</div>
+              </div>
+              {jobMetrics.templates.usage.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Top Templates</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.templates.usage.slice(0, 4).map((item) => (
+                      <div key={item.templateId} className="flex items-center justify-between rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <span>{item.templateId}</span>
+                        <span>{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="rounded-lg border border-border bg-surface-3 p-3">
             <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Workflow Templates</div>
+            <div className="mb-2 grid gap-2">
+              <input value={templateSearch} onChange={(event) => setTemplateSearch(event.target.value)} placeholder="Search templates" className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary" />
+              <select value={templateCategoryFilter} onChange={(event) => setTemplateCategoryFilter(event.target.value)} className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary">
+                {templateCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
             <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-sm text-text-primary">
-              {serverTemplates.map((template) => (
+              {filteredTemplates.map((template) => (
                 <option key={template.id} value={template.id}>{template.name}{template.builtIn ? ' (Built-in)' : ''}</option>
               ))}
             </select>
             <div className="mt-2 text-xs text-text-secondary">
               {selectedTemplate?.description || 'Apply a reusable starter flow to the builder.'}
             </div>
+            {selectedTemplate?.version ? (
+              <div className="mt-1 text-[11px] text-text-tertiary">Version {selectedTemplate.version}</div>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => applyTemplate(selectedTemplateId)}>Apply Template</Button>
               {selectedTemplate?.builtIn ? null : (
@@ -1204,6 +1323,20 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 {savingTemplate ? <Loader2 size={12} className="animate-spin" /> : 'Save Template'}
               </Button>
             </div>
+            {templateVersions.length > 0 ? (
+              <div className="mt-3">
+                <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Version History</div>
+                <div className="space-y-1 text-xs text-text-secondary">
+                  {templateVersions.slice().reverse().map((version) => (
+                    <div key={`${version.version}-${version.updatedAt || 'builtin'}`} className="rounded-md border border-border bg-surface-2/70 px-2 py-2">
+                      <div className="font-semibold text-text-primary">v{version.version}{version.builtIn ? ' · built-in' : ''}</div>
+                      <div>{version.updatedAt || 'bundled with app'}</div>
+                      {version.description ? <div className="mt-1 text-text-tertiary">{version.description}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div>
@@ -1237,7 +1370,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
           {mode === 'workflow' && (
             <div className="space-y-3">
               <div className="rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
-                Using a selected template submits `templateId` for built-in or saved templates. Edit the builder/JSON and save a custom template if you want a reusable variant.
+                Templates are starter flows and reusable saved specs. The builder submits the current `workflowSpec`, so edits here run immediately even before you save a new template version.
               </div>
               <div className="rounded-lg border border-border bg-surface-3 p-3">
                 <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Step Builder</div>

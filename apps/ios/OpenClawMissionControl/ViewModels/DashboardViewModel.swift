@@ -10,7 +10,11 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var workflowRuns: [WorkflowRun] = []
     @Published private(set) var archivedJobs: [Job] = []
     @Published private(set) var jobPolicy: JobPolicy?
+    @Published private(set) var policyAdmin: PolicyAdmin?
     @Published private(set) var jobTemplates: [JobTemplate] = []
+    @Published private(set) var selectedTemplateVersions: [JobTemplateVersion] = []
+    @Published private(set) var artifactAdmin: ArtifactAdminSummary?
+    @Published private(set) var jobMetrics: JobMetrics?
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
@@ -135,6 +139,15 @@ final class DashboardViewModel: ObservableObject {
             if jobPolicy == nil {
                 jobPolicy = try? await client.jobPolicy()
             }
+            if policyAdmin == nil {
+                policyAdmin = try? await client.jobPolicyAdmin()
+            }
+            if artifactAdmin == nil {
+                artifactAdmin = try? await client.artifactAdmin()
+            }
+            if jobMetrics == nil {
+                jobMetrics = try? await client.jobMetrics()
+            }
             if jobTemplates.isEmpty {
                 jobTemplates = (try? await client.listJobTemplates()) ?? []
             }
@@ -219,8 +232,21 @@ final class DashboardViewModel: ObservableObject {
             await loadJobs()
             await loadArchivedJobs()
             jobPolicy = try? await client.jobPolicy()
+            policyAdmin = try? await client.jobPolicyAdmin()
+            artifactAdmin = try? await client.artifactAdmin()
+            jobMetrics = try? await client.jobMetrics()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadTemplateVersions(id: String) async {
+        do {
+            selectedTemplateVersions = try await client.listTemplateVersions(id: id)
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

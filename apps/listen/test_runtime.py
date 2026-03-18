@@ -164,6 +164,33 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertTrue(deleted)
         self.assertIsNone(template)
 
+    def test_save_custom_template_increments_version_and_history(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                first = workflow_templates.save_custom_template(
+                    {
+                        "id": "versioned_template",
+                        "name": "Versioned Template",
+                        "description": "v1",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v1"}]},
+                    }
+                )
+                second = workflow_templates.save_custom_template(
+                    {
+                        "id": "versioned_template",
+                        "name": "Versioned Template",
+                        "description": "v2",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v2"}]},
+                    }
+                )
+                versions = workflow_templates.list_template_versions("versioned_template")
+        self.assertEqual(first["version"], 1)
+        self.assertEqual(second["version"], 2)
+        self.assertEqual(len(versions), 2)
+        self.assertEqual(versions[0]["version"], 1)
+        self.assertEqual(versions[1]["version"], 2)
+
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             jobs_dir = Path(tmp)
@@ -181,6 +208,46 @@ class ListenRuntimeTests(unittest.TestCase):
             recovered = json.loads((jobs_dir / "abc123.json").read_text(encoding="utf-8"))
             self.assertEqual(recovered["status"], "failed")
             self.assertIn("startup recovery", recovered["summary"])
+
+    def test_collect_job_metrics_summarizes_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            archived_dir = jobs_dir / "archived"
+            archived_dir.mkdir()
+            (jobs_dir / "job-running.json").write_text(
+                json.dumps(
+                    {
+                        "id": "job-running",
+                        "mode": "workflow",
+                        "status": "running",
+                        "templateId": "open_command_page",
+                        "startedAt": "2026-03-18T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (archived_dir / "job-complete.json").write_text(
+                json.dumps(
+                    {
+                        "id": "job-complete",
+                        "mode": "workflow",
+                        "status": "completed",
+                        "templateId": "repo_status_check",
+                        "startedAt": "2026-03-18T00:00:00Z",
+                        "completedAt": "2026-03-18T00:00:05Z",
+                        "stepStatus": [{"id": "step_1", "name": "Run test", "status": "failed"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(listen_server, "JOBS_DIR", jobs_dir), patch.object(listen_server, "ARCHIVED_DIR", archived_dir):
+                metrics = listen_server.collect_job_metrics()
+        self.assertEqual(metrics["jobs"]["total"], 2)
+        self.assertEqual(metrics["jobs"]["statusCounts"]["running"], 1)
+        self.assertEqual(metrics["jobs"]["statusCounts"]["completed"], 1)
+        self.assertTrue(metrics["templates"]["usage"])
+        self.assertTrue(metrics["steps"]["topFailures"])
 
 
 if __name__ == "__main__":

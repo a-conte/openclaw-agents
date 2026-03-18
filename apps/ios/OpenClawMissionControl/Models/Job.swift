@@ -329,6 +329,11 @@ struct JobTemplate: Codable, Equatable, Identifiable {
     let id: String
     let name: String
     let description: String
+    let category: String?
+    let builtIn: Bool?
+    let version: Int?
+    let createdAt: Date?
+    let updatedAt: Date?
     let inputs: [JobTemplateInput]
 }
 
@@ -339,4 +344,108 @@ struct JobTemplateInput: Codable, Equatable, Identifiable {
     let description: String?
     let required: Bool?
     let defaultValue: String?
+}
+
+struct JobTemplateVersion: Codable, Equatable, Identifiable {
+    var id: String { "\(version)-\(updatedAt?.timeIntervalSince1970 ?? 0)" }
+    let version: Int
+    let updatedAt: Date?
+    let name: String?
+    let description: String?
+    let builtIn: Bool?
+}
+
+struct ArtifactAdminSummary: Codable, Equatable {
+    struct Group: Codable, Equatable {
+        let jobCount: Int
+        let bytes: Int
+        let jobs: [String]?
+    }
+
+    let active: Group
+    let archived: Group
+    let retentionDays: Int?
+    let oldestArchivedAgeDays: Double?
+}
+
+struct JobMetrics: Codable, Equatable {
+    struct Jobs: Codable, Equatable {
+        let active: Int
+        let archived: Int
+        let total: Int
+        let statusCounts: [String: Int]
+        let modeCounts: [String: Int]
+        let averageCompletedDurationMs: Int?
+    }
+
+    struct TemplateUsage: Codable, Equatable, Identifiable {
+        var id: String { templateId }
+        let templateId: String
+        let count: Int
+    }
+
+    struct Templates: Codable, Equatable {
+        let total: Int
+        let custom: Int
+        let usage: [TemplateUsage]
+    }
+
+    struct StepFailure: Codable, Equatable, Identifiable {
+        var id: String { name }
+        let name: String
+        let count: Int
+    }
+
+    struct Steps: Codable, Equatable {
+        let topFailures: [StepFailure]
+    }
+
+    struct PolicyBlock: Codable, Equatable, Identifiable {
+        var id: String { reason }
+        let reason: String
+        let count: Int
+    }
+
+    struct Policy: Codable, Equatable {
+        let blockedJobs: Int
+        let topBlockReasons: [PolicyBlock]
+    }
+
+    struct LongRunning: Codable, Equatable, Identifiable {
+        var id: String { self.jobId ?? "\(mode ?? "job")-\(ageMs ?? 0)" }
+        let jobId: String?
+        let mode: String?
+        let templateId: String?
+        let workflow: String?
+        let ageMs: Int?
+
+        private enum CodingKeys: String, CodingKey {
+            case jobId = "id"
+            case mode
+            case templateId
+            case workflow
+            case ageMs
+        }
+    }
+
+    let jobs: Jobs
+    let templates: Templates
+    let steps: Steps
+    let policy: Policy
+    let longRunning: [LongRunning]
+    let artifacts: ArtifactAdminSummary
+}
+
+struct PolicyAdmin: Codable, Equatable {
+    struct Entry: Codable, Equatable, Identifiable {
+        var id: String { name }
+        let name: String
+        let value: String
+        let description: String
+        let example: String?
+    }
+
+    let policy: JobPolicy
+    let env: [Entry]
+    let summary: String?
 }

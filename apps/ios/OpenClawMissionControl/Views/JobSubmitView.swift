@@ -43,6 +43,7 @@ struct JobSubmitView: View {
         .onChange(of: selectedTemplateId) { _, _ in
             if let template = selectedTemplate {
                 seedTemplateInputs(for: template)
+                Task { await viewModel.loadTemplateVersions(id: template.id) }
             }
         }
         .sheet(item: $selectedJob) { job in
@@ -105,6 +106,40 @@ struct JobSubmitView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
+            if let metrics = viewModel.jobMetrics {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Observability")
+                        .font(.caption.weight(.semibold))
+                    Text("Jobs: \(metrics.jobs.total) · Active: \(metrics.jobs.active) · Blocked: \(metrics.policy.blockedJobs)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let duration = metrics.jobs.averageCompletedDurationMs {
+                        Text("Average completed duration: \(duration / 1000)s")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            if let artifactAdmin = viewModel.artifactAdmin {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Artifact store")
+                        .font(.caption.weight(.semibold))
+                    Text("Active: \(artifactAdmin.active.jobCount) jobs · Archived: \(artifactAdmin.archived.jobCount) jobs")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let retentionDays = artifactAdmin.retentionDays {
+                        Text("Retention target: \(retentionDays) days")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
             Picker("Mode", selection: $selectedMode) {
                 ForEach(JobMode.allCases, id: \.self) { mode in
                     Text(mode.rawValue.capitalized).tag(mode)
@@ -150,6 +185,10 @@ struct JobSubmitView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
+                        Text("Category: \(template.category ?? "custom") · Version \(template.version ?? 1)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
                         ForEach(template.inputs) { input in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(input.label)
@@ -166,6 +205,26 @@ struct JobSubmitView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                        }
+
+                        if !viewModel.selectedTemplateVersions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Template Versions")
+                                    .font(.caption.weight(.semibold))
+                                ForEach(Array(viewModel.selectedTemplateVersions.reversed())) { version in
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("v\(version.version)\(version.builtIn == true ? " · built-in" : "")")
+                                            .font(.caption)
+                                        if let updatedAt = version.updatedAt {
+                                            Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                            .padding(.top, 4)
                         }
                     }
                 }

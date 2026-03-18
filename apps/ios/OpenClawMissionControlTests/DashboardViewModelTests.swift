@@ -41,12 +41,35 @@ private struct EmptyStreamClient: MissionControlClient {
         []
     }
 
+    func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
+        []
+    }
+
     func listJobs(archived: Bool) async throws -> [Job] {
         []
     }
 
     func jobPolicy() async throws -> JobPolicy {
         JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
+    }
+
+    func jobPolicyAdmin() async throws -> PolicyAdmin {
+        PolicyAdmin(policy: try await jobPolicy(), env: [], summary: nil)
+    }
+
+    func artifactAdmin() async throws -> ArtifactAdminSummary {
+        ArtifactAdminSummary(active: .init(jobCount: 0, bytes: 0, jobs: []), archived: .init(jobCount: 0, bytes: 0, jobs: []), retentionDays: 30, oldestArchivedAgeDays: nil)
+    }
+
+    func jobMetrics() async throws -> JobMetrics {
+        JobMetrics(
+            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil),
+            templates: .init(total: 0, custom: 0, usage: []),
+            steps: .init(topFailures: []),
+            policy: .init(blockedJobs: 0, topBlockReasons: []),
+            longRunning: [],
+            artifacts: try await artifactAdmin()
+        )
     }
 
     func stopJob(id: String) async throws {

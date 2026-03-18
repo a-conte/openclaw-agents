@@ -49,6 +49,30 @@ class ListenClient:
             }
         )
 
+    def execute_job(
+        self,
+        payload: dict[str, Any],
+        *,
+        wait: bool = False,
+        timeout: float = 300.0,
+        poll_interval: float = 1.0,
+    ) -> dict[str, Any]:
+        result = self._request(
+            "/agent/execute",
+            method="POST",
+            payload={
+                "wait": wait,
+                "timeout": timeout,
+                "pollInterval": poll_interval,
+                "job": payload,
+            },
+        )
+        if wait:
+            job = result.get("job")
+            if isinstance(job, dict):
+                return job
+        return result
+
     def submit_workflow_spec(
         self,
         workflow_spec: dict[str, Any],
@@ -92,5 +116,15 @@ class ListenClient:
         payload = self._request("/templates")
         return payload.get("templates", []) if isinstance(payload, dict) else []
 
+    def template_versions(self, template_id: str) -> list[dict[str, Any]]:
+        payload = self._request(f"/templates/{template_id}/versions")
+        return payload.get("versions", []) if isinstance(payload, dict) else []
+
     def artifact_admin(self) -> dict[str, Any]:
         return self._request("/artifacts/admin")
+
+    def metrics(self) -> dict[str, Any]:
+        return self._request("/metrics")
+
+    def policy_admin(self) -> dict[str, Any]:
+        return self._request("/policy/admin")

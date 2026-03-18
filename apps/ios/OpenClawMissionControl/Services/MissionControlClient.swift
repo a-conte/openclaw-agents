@@ -4,9 +4,13 @@ protocol MissionControlClient {
     func loadInitialSnapshot() async throws -> DashboardSnapshot
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
     func listJobTemplates() async throws -> [JobTemplate]
+    func listTemplateVersions(id: String) async throws -> [JobTemplateVersion]
     func submitJob(request: JobRequest) async throws -> Job
     func listJobs(archived: Bool) async throws -> [Job]
     func jobPolicy() async throws -> JobPolicy
+    func jobPolicyAdmin() async throws -> PolicyAdmin
+    func artifactAdmin() async throws -> ArtifactAdminSummary
+    func jobMetrics() async throws -> JobMetrics
     func stopJob(id: String) async throws
     func retryJob(id: String) async throws -> Job
     func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job
@@ -34,12 +38,39 @@ struct PreviewMissionControlClient: MissionControlClient {
         []
     }
 
+    func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
+        []
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         [Job.preview]
     }
 
     func jobPolicy() async throws -> JobPolicy {
         Job.preview.policy ?? JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
+    }
+
+    func jobPolicyAdmin() async throws -> PolicyAdmin {
+        PolicyAdmin(
+            policy: JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1),
+            env: [],
+            summary: nil
+        )
+    }
+
+    func artifactAdmin() async throws -> ArtifactAdminSummary {
+        ArtifactAdminSummary(active: .init(jobCount: 0, bytes: 0, jobs: []), archived: .init(jobCount: 0, bytes: 0, jobs: []), retentionDays: 30, oldestArchivedAgeDays: nil)
+    }
+
+    func jobMetrics() async throws -> JobMetrics {
+        JobMetrics(
+            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil),
+            templates: .init(total: 0, custom: 0, usage: []),
+            steps: .init(topFailures: []),
+            policy: .init(blockedJobs: 0, topBlockReasons: []),
+            longRunning: [],
+            artifacts: try await artifactAdmin()
+        )
     }
 
     func stopJob(id: String) async throws {
@@ -95,11 +126,27 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
         throw ConfigurationError.missingBaseURL
     }
 
+    func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
+        throw ConfigurationError.missingBaseURL
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         throw ConfigurationError.missingBaseURL
     }
 
     func jobPolicy() async throws -> JobPolicy {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func jobPolicyAdmin() async throws -> PolicyAdmin {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func artifactAdmin() async throws -> ArtifactAdminSummary {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func jobMetrics() async throws -> JobMetrics {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -199,6 +246,12 @@ struct HTTPMissionControlClient: MissionControlClient {
         return try MissionControlJSON.makeDecoder().decode([JobTemplate].self, from: data)
     }
 
+    func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
+        let url = baseURL.appending(path: "/api/jobs/templates/\(id)/versions")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([JobTemplateVersion].self, from: data)
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         var url = baseURL.appending(path: "/api/jobs")
         if archived {
@@ -212,6 +265,24 @@ struct HTTPMissionControlClient: MissionControlClient {
         let url = baseURL.appending(path: "/api/jobs/policy")
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode(JobPolicy.self, from: data)
+    }
+
+    func jobPolicyAdmin() async throws -> PolicyAdmin {
+        let url = baseURL.appending(path: "/api/jobs/policy/admin")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(PolicyAdmin.self, from: data)
+    }
+
+    func artifactAdmin() async throws -> ArtifactAdminSummary {
+        let url = baseURL.appending(path: "/api/jobs/artifacts/admin")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(ArtifactAdminSummary.self, from: data)
+    }
+
+    func jobMetrics() async throws -> JobMetrics {
+        let url = baseURL.appending(path: "/api/jobs/metrics")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(JobMetrics.self, from: data)
     }
 
     func stopJob(id: String) async throws {

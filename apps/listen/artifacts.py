@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import time
 from pathlib import Path
@@ -165,6 +166,13 @@ def _dir_size(path: Path) -> int:
 def artifact_summary() -> dict[str, Any]:
     active_jobs = sorted(path.name for path in BASE_DIR.iterdir() if path.is_dir()) if BASE_DIR.exists() else []
     archived_jobs = sorted(path.name for path in ARCHIVED_BASE_DIR.iterdir() if path.is_dir()) if ARCHIVED_BASE_DIR.exists() else []
+    oldest_archived_mtime = min(
+        (path.stat().st_mtime for path in ARCHIVED_BASE_DIR.iterdir() if path.is_dir()),
+        default=None,
+    ) if ARCHIVED_BASE_DIR.exists() else None
+    oldest_archived_age_days = None
+    if oldest_archived_mtime is not None:
+        oldest_archived_age_days = round(max(0.0, (time.time() - oldest_archived_mtime) / (24 * 60 * 60)), 1)
     return {
         "active": {
             "jobCount": len(active_jobs),
@@ -176,6 +184,8 @@ def artifact_summary() -> dict[str, Any]:
             "bytes": _dir_size(ARCHIVED_BASE_DIR),
             "jobs": archived_jobs[:50],
         },
+        "retentionDays": int(os.environ.get("OPENCLAW_LISTEN_ARTIFACT_RETENTION_DAYS", "30").strip() or "30"),
+        "oldestArchivedAgeDays": oldest_archived_age_days,
     }
 
 

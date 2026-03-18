@@ -30,6 +30,13 @@ class ListenClientTests(unittest.TestCase):
         wait_mock.assert_called_once_with("job-2", timeout=300.0, poll_interval=1.0)
         self.assertEqual(job["id"], "job-2")
 
+    def test_execute_job_posts_agent_execute_payload(self) -> None:
+        client = ListenClient()
+        with patch.object(client, "_request", return_value={"job_id": "job-3", "waited": False}) as request_mock:
+            result = client.execute_job({"mode": "workflow", "templateId": "open_command_page"}, wait=False)
+        request_mock.assert_called_once()
+        self.assertEqual(result["job_id"], "job-3")
+
 
 if __name__ == "__main__":
     unittest.main()

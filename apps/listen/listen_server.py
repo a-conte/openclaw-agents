@@ -24,8 +24,8 @@ from artifacts import (
     prune_archived_artifacts,
     resolve_job_artifact,
 )
-from policy import check_command_policy, check_workflow_policy, current_policy
-from workflow_templates import delete_custom_template, get_template, list_custom_templates, list_templates, save_custom_template
+from policy import check_command_policy, check_workflow_policy, current_policy, policy_admin_details
+from workflow_templates import delete_custom_template, get_template, list_custom_templates, list_template_versions, list_templates, save_custom_template
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +64,116 @@ def list_jobs_in(directory: Path) -> list[dict[str, object]]:
         except FileNotFoundError:
             continue
     return jobs
+
+
+def _duration_ms(job: dict[str, object]) -> int | None:
+    started_at = clean_str(job.get("startedAt"))
+    completed_at = clean_str(job.get("completedAt"))
+    if not started_at or not completed_at:
+        return None
+    try:
+        started = time.mktime(time.strptime(started_at, "%Y-%m-%dT%H:%M:%SZ"))
+        completed = time.mktime(time.strptime(completed_at, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        return None
+    if completed < started:
+        return None
+    return int((completed - started) * 1000)
+
+
+def collect_job_metrics() -> dict[str, object]:
+    active_jobs = list_jobs_in(JOBS_DIR)
+    archived_jobs = list_jobs_in(ARCHIVED_DIR)
+    all_jobs = [*active_jobs, *archived_jobs]
+    status_counts: dict[str, int] = {}
+    mode_counts: dict[str, int] = {}
+    template_counts: dict[str, int] = {}
+    step_failures: dict[str, int] = {}
+    policy_block_reasons: dict[str, int] = {}
+    completed_durations: list[int] = []
+    long_running: list[dict[str, object]] = []
+
+    for job in all_jobs:
+        status = clean_str(job.get("status")) or "unknown"
+        status_counts[status] = status_counts.get(status, 0) + 1
+        mode = clean_str(job.get("mode")) or "unknown"
+        mode_counts[mode] = mode_counts.get(mode, 0) + 1
+        template_id = clean_str(job.get("templateId"))
+        if template_id:
+            template_counts[template_id] = template_counts.get(template_id, 0) + 1
+        duration = _duration_ms(job)
+        if duration is not None and status == "completed":
+            completed_durations.append(duration)
+        if status == "running":
+            long_running.append(
+                {
+                    "id": job.get("id"),
+                    "mode": mode,
+                    "templateId": job.get("templateId"),
+                    "workflow": job.get("workflow"),
+                    "ageMs": _duration_ms({"startedAt": job.get("startedAt"), "completedAt": now_iso()}) or 0,
+                }
+            )
+        step_status = job.get("stepStatus")
+        if isinstance(step_status, list):
+            for step in step_status:
+                if not isinstance(step, dict):
+                    continue
+                if clean_str(step.get("status")) == "failed":
+                    name = clean_str(step.get("name")) or clean_str(step.get("id")) or "unknown"
+                    step_failures[name] = step_failures.get(name, 0) + 1
+        policy = job.get("policy")
+        if isinstance(policy, dict) and policy.get("allowed") is False:
+            reason = clean_str(policy.get("reason")) or "blocked"
+            policy_block_reasons[reason] = policy_block_reasons.get(reason, 0) + 1
+
+    avg_duration_ms = int(sum(completed_durations) / len(completed_durations)) if completed_durations else None
+    return {
+        "jobs": {
+            "active": len(active_jobs),
+            "archived": len(archived_jobs),
+            "total": len(all_jobs),
+            "statusCounts": status_counts,
+            "modeCounts": mode_counts,
+            "averageCompletedDurationMs": avg_duration_ms,
+        },
+        "templates": {
+            "total": len(list_templates()),
+            "custom": len(list_custom_templates()),
+            "usage": sorted(
+                [{"templateId": template_id, "count": count} for template_id, count in template_counts.items()],
+                key=lambda item: (-int(item["count"]), str(item["templateId"])),
+            )[:10],
+        },
+        "steps": {
+            "topFailures": sorted(
+                [{"name": name, "count": count} for name, count in step_failures.items()],
+                key=lambda item: (-int(item["count"]), str(item["name"])),
+            )[:10],
+        },
+        "policy": {
+            "blockedJobs": sum(policy_block_reasons.values()),
+            "topBlockReasons": sorted(
+                [{"reason": reason, "count": count} for reason, count in policy_block_reasons.items()],
+                key=lambda item: (-int(item["count"]), str(item["reason"])),
+            )[:10],
+        },
+        "longRunning": sorted(long_running, key=lambda item: -int(item.get("ageMs") or 0))[:10],
+        "artifacts": artifact_summary(),
+    }
+
+
+def wait_for_job(job_id: str, *, timeout: float = 300.0, poll_interval: float = 1.0) -> dict[str, object]:
+    deadline = time.time() + max(timeout, 0.1)
+    while True:
+        job = read_job(job_id)
+        if not job:
+            raise FileNotFoundError(f"job not found: {job_id}")
+        if clean_str(job.get("status")) in {"completed", "failed", "stopped"}:
+            return job
+        if time.time() >= deadline:
+            raise TimeoutError(f"timed out waiting for job {job_id}")
+        time.sleep(max(poll_interval, 0.1))
 
 
 def archive_jobs() -> int:
@@ -284,6 +394,36 @@ class Handler(BaseHTTPRequestHandler):
             spawn_worker(job_id)
             self._json(HTTPStatus.CREATED, {"job_id": job_id})
             return
+        if parsed.path == "/agent/execute":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            wait = bool(data.get("wait", False))
+            timeout = float(data.get("timeout", 300.0))
+            poll_interval = float(data.get("pollInterval", 1.0))
+            job_data = data.get("job") if isinstance(data.get("job"), dict) else data
+            if not isinstance(job_data, dict):
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "job payload must be an object"})
+                return
+            error = validate_job_request(job_data)
+            if error:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": error})
+                return
+            job_id, job = new_job_payload(job_data)
+            write_job(job_id, job)
+            spawn_worker(job_id)
+            if wait:
+                try:
+                    completed = wait_for_job(job_id, timeout=timeout, poll_interval=poll_interval)
+                except TimeoutError as exc:
+                    self._json(HTTPStatus.REQUEST_TIMEOUT, {"error": str(exc), "job_id": job_id})
+                    return
+                self._json(HTTPStatus.OK, {"job_id": job_id, "job": completed, "waited": True})
+                return
+            self._json(HTTPStatus.CREATED, {"job_id": job_id, "waited": False})
+            return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/retry"):
             job_id = parsed.path.split("/")[2]
             job = read_job(job_id) or read_job(job_id, archived=True)
@@ -349,14 +489,28 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/artifacts/admin":
             self._json(HTTPStatus.OK, artifact_summary())
             return
+        if parsed.path == "/metrics":
+            self._json(HTTPStatus.OK, collect_job_metrics())
+            return
         if parsed.path == "/policy":
             self._json(HTTPStatus.OK, current_policy())
+            return
+        if parsed.path == "/policy/admin":
+            self._json(HTTPStatus.OK, policy_admin_details())
             return
         if parsed.path == "/templates":
             self._json(HTTPStatus.OK, {"templates": list_templates()})
             return
         if parsed.path == "/templates/custom":
             self._json(HTTPStatus.OK, {"templates": list_custom_templates()})
+            return
+        if parsed.path.startswith("/templates/") and parsed.path.endswith("/versions"):
+            template_id = parsed.path.split("/")[2]
+            versions = list_template_versions(template_id)
+            if not versions:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "template not found"})
+                return
+            self._json(HTTPStatus.OK, {"versions": versions})
             return
         if parsed.path == "/jobs":
             archived = parse_qs(parsed.query).get("archived", ["false"])[0] == "true"

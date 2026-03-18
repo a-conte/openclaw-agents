@@ -1,4 +1,11 @@
-import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
+import type {
+  ArtifactAdminSummaryContract,
+  JobContract,
+  JobMetricsContract,
+  JobTemplateContract,
+  JobTemplateVersionContract,
+  PolicyAdminContract,
+} from '@openclaw/contracts';
 import {
   clearListenJobs,
   createListenTemplate,
@@ -7,8 +14,11 @@ import {
   fetchListenArtifact,
   getListenJob,
   getListenArtifactAdmin,
+  getListenMetrics,
   getListenPolicy,
+  getListenPolicyAdmin,
   listListenTemplates,
+  listListenTemplateVersions,
   listListenArtifacts,
   listListenJobs,
   pruneListenArtifacts,
@@ -104,12 +114,24 @@ export async function deleteJobTemplate(id: string) {
   return deleteListenTemplate(id);
 }
 
+export async function getJobTemplateVersions(id: string): Promise<JobTemplateVersionContract[]> {
+  return listListenTemplateVersions(id);
+}
+
 export async function getArtifactAdmin(): Promise<ArtifactAdminSummaryContract> {
   return getListenArtifactAdmin();
 }
 
 export async function pruneArtifacts(olderThanDays: number) {
   return pruneListenArtifacts(olderThanDays);
+}
+
+export async function getJobMetrics(): Promise<JobMetricsContract> {
+  return getListenMetrics();
+}
+
+export async function getJobsPolicyAdmin(): Promise<PolicyAdminContract> {
+  return getListenPolicyAdmin();
 }
 
 export async function getJobArtifacts(id: string) {

@@ -1,4 +1,11 @@
-import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
+import type {
+  ArtifactAdminSummaryContract,
+  JobContract,
+  JobMetricsContract,
+  JobTemplateContract,
+  JobTemplateVersionContract,
+  PolicyAdminContract,
+} from '@openclaw/contracts';
 
 const DEFAULT_BASE_URL = process.env.OPENCLAW_LISTEN_BASE_URL?.trim() || 'http://127.0.0.1:7600';
 
@@ -89,6 +96,11 @@ export async function deleteListenTemplate(templateId: string): Promise<{ ok?: b
   return listenFetch<{ ok?: boolean; deleted: string }>(`/templates/${templateId}`, { method: 'DELETE' });
 }
 
+export async function listListenTemplateVersions(templateId: string): Promise<JobTemplateVersionContract[]> {
+  const payload = await listenFetch<{ versions: JobTemplateVersionContract[] }>(`/templates/${templateId}/versions`);
+  return payload.versions;
+}
+
 export async function getListenJob(jobId: string): Promise<JobContract> {
   return listenFetch<JobContract>(`/job/${jobId}`);
 }
@@ -162,4 +174,12 @@ export async function pruneListenArtifacts(olderThanDays: number): Promise<{ rem
     method: 'POST',
     body: JSON.stringify({ olderThanDays }),
   });
+}
+
+export async function getListenMetrics(): Promise<JobMetricsContract> {
+  return listenFetch<JobMetricsContract>('/metrics');
+}
+
+export async function getListenPolicyAdmin(): Promise<PolicyAdminContract> {
+  return listenFetch<PolicyAdminContract>('/policy/admin');
 }

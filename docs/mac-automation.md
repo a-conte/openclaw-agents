@@ -16,6 +16,9 @@ They are intentionally local-first and use built-in macOS primitives:
 - `ps`
 - `pkill`
 
+Bring-up guide for a fresh Mac:
+- [`docs/bootstrap-mac.md`](/Users/a_conte/dev/openclaw-agents/docs/bootstrap-mac.md)
+
 ## Current Commands
 
 ### Drive
@@ -80,6 +83,7 @@ python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_wait_a
 python3 apps/direct/direct_cli.py start --mode workflow --workflow textedit_new_set_text --arg "OpenClaw remote note"
 python3 apps/direct/direct_cli.py templates
 python3 apps/direct/direct_cli.py start --mode workflow --template open_command_page --input url=http://localhost:3000/command
+python3 apps/direct/direct_cli.py start --mode workflow --template repo_test_build --input repoPath=/Users/a_conte/dev/openclaw-agents
 python3 apps/direct/direct_cli.py list
 python3 apps/direct/direct_cli.py latest 3
 python3 apps/direct/direct_cli.py clear
@@ -102,6 +106,7 @@ python3 apps/direct/direct_cli.py clear
 - `listen` also supports job archiving plus per-job `updates`, `summary`, per-step durations, and file-backed artifacts.
 - custom workflow templates are stored locally in `apps/listen/templates.json` and can be managed over the `listen` HTTP API.
 - archived artifact storage can be summarized and pruned via the new artifact admin endpoints.
+- `listen` now exposes job/template metrics and a policy-admin summary for dashboard and iPad observability.
 - `mode=agent` uses the real `openclaw agent` CLI.
 - `mode=shell` uses `drive` for tmux-backed execution.
 - `mode=steer` and `mode=drive` let remote jobs call the local automation/tooling CLIs directly with structured commands.

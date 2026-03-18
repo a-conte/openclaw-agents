@@ -26,6 +26,47 @@ def current_policy() -> dict[str, Any]:
     }
 
 
+def policy_admin_details() -> dict[str, Any]:
+    policy = current_policy()
+    env_entries = [
+        {
+            "name": "OPENCLAW_LISTEN_ALLOW_DANGEROUS",
+            "value": "true" if policy["allowDangerous"] else "false",
+            "description": "Allow destructive remote actions such as process kill or explicit dangerous workflow steps.",
+            "example": "OPENCLAW_LISTEN_ALLOW_DANGEROUS=true",
+        },
+        {
+            "name": "OPENCLAW_LISTEN_ALLOWED_STEER_COMMANDS",
+            "value": ",".join(policy["allowedSteerCommands"]),
+            "description": "Comma-separated allowlist for steer commands. Empty means all non-dangerous steer commands are allowed.",
+            "example": "OPENCLAW_LISTEN_ALLOWED_STEER_COMMANDS=open-url,wait.url,see,ocr",
+        },
+        {
+            "name": "OPENCLAW_LISTEN_ALLOWED_DRIVE_COMMANDS",
+            "value": ",".join(policy["allowedDriveCommands"]),
+            "description": "Comma-separated allowlist for drive commands. Empty means all non-dangerous drive commands are allowed.",
+            "example": "OPENCLAW_LISTEN_ALLOWED_DRIVE_COMMANDS=run,logs,proc.list,poll",
+        },
+        {
+            "name": "OPENCLAW_LISTEN_ALLOWED_WORKFLOWS",
+            "value": ",".join(policy["allowedWorkflows"]),
+            "description": "Comma-separated allowlist for named workflows. Empty means all named workflows are allowed.",
+            "example": "OPENCLAW_LISTEN_ALLOWED_WORKFLOWS=open_command_page,recover_command_page,repo_status_check",
+        },
+        {
+            "name": "OPENCLAW_LISTEN_ARTIFACT_RETENTION_DAYS",
+            "value": os.environ.get("OPENCLAW_LISTEN_ARTIFACT_RETENTION_DAYS", "30").strip() or "30",
+            "description": "Suggested retention period for archived artifacts before pruning.",
+            "example": "OPENCLAW_LISTEN_ARTIFACT_RETENTION_DAYS=14",
+        },
+    ]
+    return {
+        "policy": policy,
+        "env": env_entries,
+        "summary": "Configure the listen host with these env vars, then restart the server for policy changes to take effect.",
+    }
+
+
 def normalize_command_key(mode: str, command: str, args: list[str]) -> str:
     base = command.strip()
     first_non_flag = next((item for item in args if item and not item.startswith("-")), "")

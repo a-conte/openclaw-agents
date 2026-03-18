@@ -138,6 +138,9 @@ export interface JobTemplateContract {
   description: string;
   category?: string;
   builtIn?: boolean;
+  version?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   workflowSpec?: Record<string, unknown> | null;
   inputs?: Array<{
     key: string;
@@ -159,6 +162,74 @@ export interface ArtifactAdminSummaryContract {
     bytes: number;
     jobs?: string[];
   };
+  retentionDays?: number;
+  oldestArchivedAgeDays?: number | null;
+}
+
+export interface JobTemplateVersionContract {
+  version: number;
+  updatedAt?: string | null;
+  name?: string;
+  description?: string;
+  workflowSpec?: Record<string, unknown> | null;
+  builtIn?: boolean;
+}
+
+export interface JobMetricsContract {
+  jobs: {
+    active: number;
+    archived: number;
+    total: number;
+    statusCounts: Record<string, number>;
+    modeCounts: Record<string, number>;
+    averageCompletedDurationMs?: number | null;
+  };
+  templates: {
+    total: number;
+    custom: number;
+    usage: Array<{
+      templateId: string;
+      count: number;
+    }>;
+  };
+  steps: {
+    topFailures: Array<{
+      name: string;
+      count: number;
+    }>;
+  };
+  policy: {
+    blockedJobs: number;
+    topBlockReasons: Array<{
+      reason: string;
+      count: number;
+    }>;
+  };
+  longRunning: Array<{
+    id?: string;
+    mode?: string;
+    templateId?: string | null;
+    workflow?: string | null;
+    ageMs?: number;
+  }>;
+  artifacts: ArtifactAdminSummaryContract;
+}
+
+export interface PolicyAdminContract {
+  policy: {
+    version?: number;
+    allowDangerous: boolean;
+    allowedSteerCommands?: string[];
+    allowedDriveCommands?: string[];
+    allowedWorkflows?: string[];
+  };
+  env: Array<{
+    name: string;
+    value: string;
+    description: string;
+    example?: string;
+  }>;
+  summary?: string;
 }
 
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {

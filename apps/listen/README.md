@@ -8,12 +8,16 @@ Current endpoints:
 - `GET /job/<id>`
 - `GET /jobs`
 - `GET /policy`
+- `GET /policy/admin`
 - `GET /templates`
+- `GET /templates/<id>/versions`
 - `POST /templates`
 - `PUT /templates/<id>`
 - `DELETE /templates/<id>`
 - `GET /artifacts/admin`
 - `POST /artifacts/prune`
+- `GET /metrics`
+- `POST /agent/execute`
 - `POST /jobs/clear`
 - `DELETE /job/<id>`
 
@@ -44,12 +48,15 @@ Custom templates:
 - built-in templates are always available from `GET /templates`
 - custom templates are stored locally in `apps/listen/templates.json`
 - use `POST /templates` and `PUT /templates/<id>` to save reusable workflow specs
+- `GET /templates/<id>/versions` returns saved version history for custom templates
 - archived artifact retention can be inspected with `GET /artifacts/admin` and pruned with `POST /artifacts/prune`
+- `GET /metrics` returns job/template/policy observability summaries
+- `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
 
 Agent-facing client:
 
 - import `ListenClient` from [`apps/listen/client.py`](/Users/a_conte/dev/openclaw-agents/apps/listen/client.py)
-- use `submit_template_job`, `submit_workflow_spec`, `wait_for_job`, or `run_template_job` for direct programmatic execution without going through `direct`
+- use `submit_template_job`, `submit_workflow_spec`, `execute_job`, `wait_for_job`, or `run_template_job` for direct programmatic execution without going through `direct`
 
 Built-in workflows:
 
@@ -84,6 +91,8 @@ curl -X POST http://127.0.0.1:7600/templates \
   -H 'content-type: application/json' \
   -d '{"id":"ops_review","name":"Ops Review","description":"Custom review flow","workflowSpec":{"steps":[{"id":"note_1","type":"note","message":"hello"}]}}'
 curl http://127.0.0.1:7600/artifacts/admin
+curl http://127.0.0.1:7600/policy/admin
+curl http://127.0.0.1:7600/metrics
 curl http://127.0.0.1:7600/jobs
 curl http://127.0.0.1:7600/jobs?archived=true
 curl -X POST http://127.0.0.1:7600/jobs/clear
