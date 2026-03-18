@@ -18,6 +18,7 @@ def _env_list(name: str) -> list[str]:
 
 def current_policy() -> dict[str, Any]:
     return {
+        "version": 1,
         "allowDangerous": _env_flag("OPENCLAW_LISTEN_ALLOW_DANGEROUS", default=False),
         "allowedSteerCommands": _env_list("OPENCLAW_LISTEN_ALLOWED_STEER_COMMANDS"),
         "allowedDriveCommands": _env_list("OPENCLAW_LISTEN_ALLOWED_DRIVE_COMMANDS"),

@@ -246,6 +246,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/policy":
+            self._json(HTTPStatus.OK, current_policy())
+            return
         if parsed.path == "/jobs":
             archived = parse_qs(parsed.query).get("archived", ["false"])[0] == "true"
             self._json(HTTPStatus.OK, {"jobs": list_jobs_in(ARCHIVED_DIR if archived else JOBS_DIR)})

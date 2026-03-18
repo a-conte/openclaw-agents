@@ -5,6 +5,7 @@ protocol MissionControlClient {
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
     func submitJob(request: JobRequest) async throws -> Job
     func listJobs(archived: Bool) async throws -> [Job]
+    func jobPolicy() async throws -> JobPolicy
     func stopJob(id: String) async throws
     func retryJob(id: String) async throws -> Job
     func clearJobs() async throws
@@ -29,6 +30,10 @@ struct PreviewMissionControlClient: MissionControlClient {
 
     func listJobs(archived: Bool = false) async throws -> [Job] {
         [Job.preview]
+    }
+
+    func jobPolicy() async throws -> JobPolicy {
+        Job.preview.policy ?? JobPolicy(allowed: true, reason: nil, allowDangerous: false, allowedSteerCommands: [], allowedDriveCommands: [], allowedWorkflows: [], version: 1)
     }
 
     func stopJob(id: String) async throws {
@@ -77,6 +82,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func listJobs(archived: Bool = false) async throws -> [Job] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func jobPolicy() async throws -> JobPolicy {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -173,6 +182,12 @@ struct HTTPMissionControlClient: MissionControlClient {
         }
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode([Job].self, from: data)
+    }
+
+    func jobPolicy() async throws -> JobPolicy {
+        let url = baseURL.appending(path: "/api/jobs/policy")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(JobPolicy.self, from: data)
     }
 
     func stopJob(id: String) async throws {

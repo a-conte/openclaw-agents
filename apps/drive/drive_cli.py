@@ -101,10 +101,28 @@ def list_sessions() -> list[dict[str, object]]:
     return sessions
 
 
-def make_sentinel(command: str) -> tuple[str, str]:
-    token = f"__DONE_{uuid.uuid4().hex[:10]}"
-    wrapped = f"{command}; printf '\\n{token}:%s\\n' \"$?\""
-    return token, wrapped
+def make_sentinel(command: str) -> tuple[str, str, str]:
+    token = uuid.uuid4().hex[:10]
+    start_token = f"__START_{token}"
+    done_token = f"__DONE_{token}"
+    wrapped = f"printf '\\n{start_token}\\n'; {command}; status=$?; printf '\\n{done_token}:%s\\n' \"$status\""
+    return start_token, done_token, wrapped
+
+
+def extract_command_output(output: str, start_token: str, done_token: str) -> str:
+    lines = output.splitlines()
+    started = False
+    collected: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not started:
+            if stripped == start_token:
+                started = True
+            continue
+        if stripped.startswith(f"{done_token}:"):
+            break
+        collected.append(line)
+    return "\n".join(collected).strip("\n")
 
 
 def capture_pane(session: str, lines: int = 200) -> str:
@@ -114,25 +132,25 @@ def capture_pane(session: str, lines: int = 200) -> str:
 
 def cmd_run(session: str, command: str, timeout: float, poll_interval: float) -> dict[str, object]:
     ensure_session(session)
-    token, wrapped = make_sentinel(command)
+    start_token, done_token, wrapped = make_sentinel(command)
     tmux(["send-keys", "-t", session, wrapped, "C-m"])
     deadline = time.time() + timeout
     output = ""
     exit_code: int | None = None
     while time.time() < deadline:
         output = capture_pane(session, 400)
-        marker = next((line for line in output.splitlines() if line.startswith(f"{token}:")), None)
+        marker = next((line for line in output.splitlines() if line.strip().startswith(f"{done_token}:")), None)
         if marker:
             try:
-                exit_code = int(marker.split(":", 1)[1])
+                exit_code = int(marker.strip().split(":", 1)[1])
             except ValueError:
                 exit_code = None
             break
         time.sleep(poll_interval)
     if exit_code is None:
-        return {"ok": False, "session": session, "timedOut": True, "token": token, "output": output}
-    cleaned = "\n".join(line for line in output.splitlines() if not line.startswith(token))
-    return {"ok": exit_code == 0, "session": session, "exitCode": exit_code, "timedOut": False, "output": cleaned}
+        return {"ok": False, "session": session, "timedOut": True, "token": done_token, "output": extract_command_output(output, start_token, done_token), "rawOutput": output}
+    cleaned = extract_command_output(output, start_token, done_token)
+    return {"ok": exit_code == 0, "session": session, "exitCode": exit_code, "timedOut": False, "output": cleaned, "rawOutput": output}
 
 
 def cmd_send(session: str, text: str, enter: bool) -> dict[str, object]:

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import type { JobContract } from '@openclaw/contracts';
 import {
@@ -783,6 +783,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [workflowSpecText, setWorkflowSpecText] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
+  const [policy, setPolicy] = useState<any | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -793,6 +794,12 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     const response = await fetch('/api/jobs?archived=true');
     const payload = await response.json();
     setArchivedJobs(payload);
+  }
+
+  async function loadPolicy() {
+    const response = await fetch('/api/jobs/policy');
+    const payload = await response.json();
+    setPolicy(payload);
   }
 
   async function submit() {
@@ -836,6 +843,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setArgsText('');
       setWorkflowSpecText('');
       onChanged();
+      await loadPolicy();
     } catch {
       setError('Network error while submitting automation job');
     } finally {
@@ -875,10 +883,30 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     }
   }
 
+  useEffect(() => {
+    void loadPolicy();
+  }, []);
+
   return (
     <Panel title="Automation Jobs" eyebrow="Remote Control" icon={<Play size={15} className="text-accent-blue" />}>
       <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
         <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
+          {policy ? (
+            <div className="rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+              <div className="font-semibold text-text-primary">Policy</div>
+              <div className="mt-1">Dangerous actions: {policy.allowDangerous ? 'enabled' : 'blocked by default'}</div>
+              <div className="mt-1">Use `OPENCLAW_LISTEN_ALLOW_DANGEROUS=true` to allow blocked destructive commands.</div>
+              {Array.isArray(policy.allowedSteerCommands) && policy.allowedSteerCommands.length > 0 ? (
+                <div className="mt-1">Allowed steer: {policy.allowedSteerCommands.join(', ')}</div>
+              ) : null}
+              {Array.isArray(policy.allowedDriveCommands) && policy.allowedDriveCommands.length > 0 ? (
+                <div className="mt-1">Allowed drive: {policy.allowedDriveCommands.join(', ')}</div>
+              ) : null}
+              {Array.isArray(policy.allowedWorkflows) && policy.allowedWorkflows.length > 0 ? (
+                <div className="mt-1">Allowed named workflows: {policy.allowedWorkflows.join(', ')}</div>
+              ) : null}
+            </div>
+          ) : null}
           <div>
             <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Mode</div>
             <select

@@ -14,6 +14,14 @@ type CreateAutomationJobInput = {
   workflowSpec?: Record<string, unknown>;
 };
 
+export type ListenPolicy = {
+  version?: number;
+  allowDangerous: boolean;
+  allowedSteerCommands?: string[];
+  allowedDriveCommands?: string[];
+  allowedWorkflows?: string[];
+};
+
 function buildUrl(path: string) {
   return `${DEFAULT_BASE_URL}${path}`;
 }
@@ -39,6 +47,10 @@ async function listenFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export async function listListenJobs(archived = false): Promise<JobContract[]> {
   const payload = await listenFetch<{ jobs: JobContract[] }>(`/jobs${archived ? '?archived=true' : ''}`);
   return payload.jobs;
+}
+
+export async function getListenPolicy(): Promise<ListenPolicy> {
+  return listenFetch<ListenPolicy>('/policy');
 }
 
 export async function getListenJob(jobId: string): Promise<JobContract> {

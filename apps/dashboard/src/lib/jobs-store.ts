@@ -3,6 +3,7 @@ import {
   clearListenJobs,
   createListenJob,
   getListenJob,
+  getListenPolicy,
   listListenJobs,
   retryListenJob,
   stopListenJob,
@@ -61,4 +62,8 @@ export async function retryJob(id: string) {
 
 export async function clearJobs() {
   return clearListenJobs();
+}
+
+export async function getJobsPolicy() {
+  return getListenPolicy();
 }
