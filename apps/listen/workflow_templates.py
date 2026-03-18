@@ -480,6 +480,132 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
             },
         ],
     },
+    {
+        "id": "repo_change_review",
+        "name": "Repo Change Review",
+        "description": "Capture repo change state, diff stats, targeted test output, and a short review brief for the next operator.",
+        "category": "repo",
+        "builtIn": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to inspect.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "testCommand",
+                "label": "Test Command",
+                "description": "Validation command run after repo inspection.",
+                "required": False,
+                "defaultValue": "npm run dashboard:test",
+            },
+        ],
+    },
+    {
+        "id": "dashboard_policy_audit",
+        "name": "Dashboard Policy Audit",
+        "description": "Open the dashboard, capture policy and metrics endpoints, then gather screenshot and OCR evidence for admin review.",
+        "category": "dashboard",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Dashboard URL",
+                "description": "Target dashboard page.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "policyUrl",
+                "label": "Policy Admin URL",
+                "description": "Endpoint used to inspect policy admin state.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/api/jobs/policy/admin",
+            },
+            {
+                "key": "metricsUrl",
+                "label": "Metrics URL",
+                "description": "Endpoint used to inspect automation metrics.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/api/jobs/metrics",
+            },
+        ],
+    },
+    {
+        "id": "browser_recovery_handoff",
+        "name": "Browser Recovery Handoff",
+        "description": "Recover a browser page, capture evidence, and draft a handoff note with the latest page state.",
+        "category": "browser",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 45,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Target URL",
+                "description": "Browser page to recover and capture.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "expectedText",
+                "label": "Expected Text",
+                "description": "Optional text to wait for before capture.",
+                "required": False,
+                "defaultValue": "",
+            },
+            {
+                "key": "noteText",
+                "label": "Note Text",
+                "description": "Initial handoff note content.",
+                "required": False,
+                "defaultValue": "Browser recovery handoff:\n- Context:\n- Current page state:\n- Next action:",
+            },
+        ],
+    },
+    {
+        "id": "daemon_recovery_handoff",
+        "name": "Daemon Recovery Handoff",
+        "description": "Restart a daemon, capture status/logs/health, and draft a short recovery handoff summary.",
+        "category": "daemon",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "restartCommand",
+                "label": "Restart Command",
+                "description": "Command used to restart the daemon.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "statusCommand",
+                "label": "Status Command",
+                "description": "Command used to inspect daemon state after restart.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "healthCommand",
+                "label": "Health Command",
+                "description": "Command used to verify daemon health after restart.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "logCommand",
+                "label": "Log Command",
+                "description": "Command used to capture recent daemon logs.",
+                "required": True,
+                "defaultValue": "",
+            },
+        ],
+    },
 ]
 
 
@@ -1375,6 +1501,176 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "type": "agent",
                     "targetAgent": "main",
                     "prompt": f"Summarize daemon health and likely operator actions after `{status_command}` and `{log_command}`.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "repo_change_review":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        test_command = inputs.get("testCommand") or "npm run dashboard:test"
+        return {
+            "steps": [
+                {
+                    "id": "repo_change_status",
+                    "name": "Capture repo change status",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git status --short && git diff --stat",
+                },
+                {
+                    "id": "repo_change_history",
+                    "name": "Capture recent history",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git log --oneline -8",
+                },
+                {
+                    "id": "repo_change_test",
+                    "name": "Run targeted validation",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {test_command}",
+                },
+                {
+                    "id": "repo_change_review_summary",
+                    "name": "Draft change review summary",
+                    "type": "agent",
+                    "targetAgent": "dev",
+                    "prompt": f"Summarize the code change state for {repo_path} after `git diff --stat` and `{test_command}`. Highlight risks and next actions.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "dashboard_policy_audit":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        policy_url = inputs.get("policyUrl") or "http://localhost:3000/api/jobs/policy/admin"
+        metrics_url = inputs.get("metricsUrl") or "http://localhost:3000/api/jobs/metrics"
+        return {
+            "steps": [
+                {
+                    "id": "open_dashboard_policy_audit",
+                    "name": "Open dashboard page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_dashboard_policy_audit",
+                    "name": "Wait for dashboard page",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["url", "--url", "/command", "--contains", "--timeout", "12", "--interval", "0.75"],
+                },
+                {
+                    "id": "fetch_policy_admin",
+                    "name": "Fetch policy admin payload",
+                    "type": "shell",
+                    "prompt": f"curl -fsSL {policy_url}",
+                },
+                {
+                    "id": "fetch_metrics_admin",
+                    "name": "Fetch metrics payload",
+                    "type": "shell",
+                    "prompt": f"curl -fsSL {metrics_url}",
+                },
+                {
+                    "id": "capture_dashboard_policy",
+                    "name": "Capture dashboard screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_dashboard_policy",
+                    "name": "OCR dashboard screenshot",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "browser_recovery_handoff":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        expected_text = inputs.get("expectedText") or ""
+        note_text = inputs.get("noteText") or "Browser recovery handoff:\n- Context:\n- Current page state:\n- Next action:"
+        wait_args = ["text", "--app", "Safari", "--window", "--text", expected_text, "--contains", "--timeout", "10", "--interval", "0.75"] if expected_text else ["ui", "--app", "Safari", "--name", "Reload this page", "--role", "button", "--timeout", "8", "--interval", "0.75"]
+        return {
+            "steps": [
+                {
+                    "id": "open_browser_handoff",
+                    "name": "Open browser page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_browser_handoff",
+                    "name": "Wait for browser signal",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": wait_args,
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "capture_browser_handoff",
+                    "name": "Capture browser screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_browser_handoff",
+                    "name": "OCR browser screenshot",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+                {
+                    "id": "draft_browser_handoff",
+                    "name": "Draft browser handoff note",
+                    "type": "steer",
+                    "command": "textedit",
+                    "args": ["new", "--text", note_text],
+                },
+            ]
+        }, inputs
+
+    if template_id == "daemon_recovery_handoff":
+        restart_command = inputs.get("restartCommand") or ""
+        status_command = inputs.get("statusCommand") or ""
+        health_command = inputs.get("healthCommand") or ""
+        log_command = inputs.get("logCommand") or ""
+        return {
+            "steps": [
+                {
+                    "id": "daemon_handoff_restart",
+                    "name": "Restart daemon",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": restart_command,
+                },
+                {
+                    "id": "daemon_handoff_status",
+                    "name": "Capture daemon status",
+                    "type": "shell",
+                    "prompt": status_command,
+                },
+                {
+                    "id": "daemon_handoff_health",
+                    "name": "Verify daemon health",
+                    "type": "shell",
+                    "prompt": health_command,
+                },
+                {
+                    "id": "daemon_handoff_logs",
+                    "name": "Capture daemon logs",
+                    "type": "shell",
+                    "prompt": log_command,
+                },
+                {
+                    "id": "daemon_handoff_summary",
+                    "name": "Draft recovery handoff summary",
+                    "type": "agent",
+                    "targetAgent": "main",
+                    "prompt": f"Summarize the daemon recovery state after `{restart_command}`, `{status_command}`, `{health_command}`, and `{log_command}`. Include the next operator action.",
                 },
             ]
         }, inputs

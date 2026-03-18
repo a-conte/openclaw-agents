@@ -316,6 +316,38 @@ class ListenRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing required template input: expectedText"):
             workflow_templates.resolve_template("browser_login_snapshot", {"url": "https://example.com/login"})
 
+    def test_repo_change_review_expands_to_review_summary(self) -> None:
+        spec, inputs = workflow_templates.resolve_template(
+            "repo_change_review",
+            {"repoPath": "/tmp/repo", "testCommand": "npm test"},
+        )
+        self.assertEqual(inputs["repoPath"], "/tmp/repo")
+        self.assertEqual(len(spec["steps"]), 4)
+        self.assertEqual(spec["steps"][0]["id"], "repo_change_status")
+        self.assertEqual(spec["steps"][-1]["type"], "agent")
+
+    def test_dashboard_policy_audit_fetches_policy_and_metrics(self) -> None:
+        spec, _ = workflow_templates.resolve_template(
+            "dashboard_policy_audit",
+            {"url": "http://localhost:3000/command", "policyUrl": "http://localhost:3000/api/jobs/policy/admin", "metricsUrl": "http://localhost:3000/api/jobs/metrics"},
+        )
+        self.assertEqual(spec["steps"][2]["id"], "fetch_policy_admin")
+        self.assertEqual(spec["steps"][3]["id"], "fetch_metrics_admin")
+        self.assertEqual(spec["steps"][-1]["command"], "ocr")
+
+    def test_browser_recovery_handoff_defaults_to_recovery_ui_wait(self) -> None:
+        spec, _ = workflow_templates.resolve_template(
+            "browser_recovery_handoff",
+            {"url": "http://localhost:3000/command"},
+        )
+        self.assertEqual(spec["steps"][1]["id"], "wait_browser_handoff")
+        self.assertEqual(spec["steps"][1]["args"][0], "ui")
+        self.assertEqual(spec["steps"][-1]["command"], "textedit")
+
+    def test_daemon_recovery_handoff_requires_restart_inputs(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Missing required template input: restartCommand"):
+            workflow_templates.resolve_template("daemon_recovery_handoff", {})
+
     def test_prune_archived_artifacts_uses_template_retention_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             jobs_dir = Path(tmp) / "jobs"

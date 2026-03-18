@@ -56,7 +56,7 @@ Still meaningfully open:
 
 - deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
 - richer job lineage visualization beyond summary chains
-- deeper workflow-library coverage beyond the new Wave 2 starter set
+- deeper workflow-library coverage beyond the current expanded starter set
 - full tablet-first parity on iPad, especially around deeper dashboard-equivalent observability and admin navigation
 
 Current active focus:
@@ -183,7 +183,7 @@ Goal:
 - Increase practical leverage through reusable high-value templates.
 
 Status:
-- Partially implemented
+- Partially implemented, with the starter library expanded into broader repo, dashboard, browser, daemon, and handoff coverage
 
 Deliverables:
 - [x] repo repair loops
@@ -202,7 +202,7 @@ Definition of done:
 - the system ships with a durable library of workflows operators will actually reuse
 
 Remaining gap:
-- expand the starter set into a broader day-to-day library with stronger app- and incident-specific coverage
+- expand the library further around specific daily operating patterns as they become clear in real use
 
 ## Wave 3
 

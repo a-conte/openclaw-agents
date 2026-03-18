@@ -82,12 +82,16 @@ Built-in workflows:
 - `notes_create <title> <body>`
 - `repo_repair_loop`
 - `repo_release_readiness`
+- `repo_change_review`
 - `dashboard_audit`
 - `dashboard_jobs_triage`
+- `dashboard_policy_audit`
 - `browser_auth_recovery`
 - `browser_login_snapshot`
+- `browser_recovery_handoff`
 - `daemon_restart_verify_bundle`
 - `daemon_logs_bundle`
+- `daemon_recovery_handoff`
 - `operator_handoff_bundle`
 
 Examples:
