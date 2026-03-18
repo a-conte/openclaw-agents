@@ -55,7 +55,6 @@ Still meaningfully open:
 - deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
 - fuller template diff UX on iPad
 - richer job lineage visualization beyond summary chains
-- archived artifact compression
 - deeper workflow-library coverage beyond the new Wave 2 starter set
 - script-based Mac bootstrap
 - full tablet-first parity on iPad
@@ -154,13 +153,13 @@ Goal:
 - Make artifact storage operationally manageable as usage grows.
 
 Status:
-- Partially implemented
+- Implemented except for UX polish
 
 Deliverables:
 - [x] per-template retention rules
 - [x] export/download-all for a single job
 - [x] incident artifact bundles
-- [ ] optional compression for archived artifacts
+- [x] optional compression for archived artifacts
 
 Suggested commit slices:
 - `Add artifact export bundle endpoints`
@@ -171,7 +170,7 @@ Definition of done:
 - operators can package and retain artifacts intentionally rather than only pruning globally
 
 Remaining gap:
-- add archived artifact compression and richer artifact-admin/export UX on iPad
+- add richer artifact-admin/export UX on iPad
 
 ### 5. Workflow Library Expansion
 

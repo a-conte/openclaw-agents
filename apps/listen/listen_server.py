@@ -22,8 +22,10 @@ from artifacts import (
     archive_job_artifacts,
     artifact_summary,
     bundle_job_artifacts,
+    compress_archived_artifacts,
     list_job_artifacts,
     prune_archived_artifacts,
+    read_compressed_job_artifact,
     resolve_export_bundle,
     resolve_job_artifact,
 )
@@ -469,6 +471,20 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(HTTPStatus.OK, result)
             return
+        if parsed.path == "/artifacts/compress":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            days = data.get("olderThanDays", 7)
+            try:
+                result = compress_archived_artifacts(int(days))
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, result)
+            return
         if parsed.path == "/templates":
             try:
                 data = self._read_json()
@@ -798,16 +814,25 @@ class Handler(BaseHTTPRequestHandler):
                 return
             relative_path = parse_qs(parsed.query).get("path", [""])[0]
             artifact_path = resolve_job_artifact(job_id, relative_path, archived=archived)
-            if artifact_path is None:
+            if artifact_path is not None:
+                body = artifact_path.read_bytes()
+                mime_type, _ = mimetypes.guess_type(str(artifact_path))
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", mime_type or "application/octet-stream")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            compressed_body = read_compressed_job_artifact(job_id, relative_path) if archived else None
+            if compressed_body is None:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "artifact not found"})
                 return
-            body = artifact_path.read_bytes()
-            mime_type, _ = mimetypes.guess_type(str(artifact_path))
+            mime_type, _ = mimetypes.guess_type(relative_path)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", mime_type or "application/octet-stream")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Length", str(len(compressed_body)))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(compressed_body)
             return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/bundle"):
             job_id = parsed.path.split("/")[2]

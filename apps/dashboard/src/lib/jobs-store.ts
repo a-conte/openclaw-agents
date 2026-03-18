@@ -9,6 +9,7 @@ import type {
 } from '@openclaw/contracts';
 import {
   clearListenJobs,
+  compressListenArtifacts,
   cloneListenTemplate,
   createListenTemplate,
   createListenJob,
@@ -141,6 +142,10 @@ export async function getArtifactAdmin(): Promise<ArtifactAdminSummaryContract> 
 
 export async function pruneArtifacts(olderThanDays: number) {
   return pruneListenArtifacts(olderThanDays);
+}
+
+export async function compressArtifacts(olderThanDays: number) {
+  return compressListenArtifacts(olderThanDays);
 }
 
 export async function getJobMetrics(): Promise<JobMetricsContract> {

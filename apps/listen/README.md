@@ -17,6 +17,7 @@ Current endpoints:
 - `DELETE /templates/<id>`
 - `GET /artifacts/admin`
 - `POST /artifacts/prune`
+- `POST /artifacts/compress`
 - `GET /metrics`
 - `POST /agent/execute`
 - `POST /jobs/clear`
@@ -44,6 +45,7 @@ Job records now keep:
 - file-backed step artifacts under `apps/listen/jobs/artifacts`
 - archived jobs under `apps/listen/jobs/archived`
 - export bundles under `apps/listen/jobs/exports`
+- compressed archived artifact sets under `apps/listen/jobs/archived-artifacts-compressed`
 
 Custom templates:
 
@@ -53,6 +55,7 @@ Custom templates:
 - `GET /templates/<id>/versions` returns saved version history for custom templates
 - templates may include `artifactRetentionDays` to override the default archived-artifact retention window
 - archived artifact retention can be inspected with `GET /artifacts/admin` and pruned with `POST /artifacts/prune`
+- older archived artifact directories can be compressed with `POST /artifacts/compress`
 - `GET /metrics` returns job/template/policy observability summaries
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
 
@@ -103,6 +106,9 @@ curl http://127.0.0.1:7600/policy/admin
 curl http://127.0.0.1:7600/metrics
 curl http://127.0.0.1:7600/job/<job-id>/bundle
 curl http://127.0.0.1:7600/job/<job-id>/bundle?kind=incident
+curl -X POST http://127.0.0.1:7600/artifacts/compress \
+  -H 'content-type: application/json' \
+  -d '{"olderThanDays":7}'
 curl http://127.0.0.1:7600/jobs
 curl http://127.0.0.1:7600/jobs?archived=true
 curl -X POST http://127.0.0.1:7600/jobs/clear

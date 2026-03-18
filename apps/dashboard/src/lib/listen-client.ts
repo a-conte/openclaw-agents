@@ -208,6 +208,13 @@ export async function pruneListenArtifacts(olderThanDays: number): Promise<{ rem
   });
 }
 
+export async function compressListenArtifacts(olderThanDays: number): Promise<{ compressedJobs: string[]; compressedBytes: number; olderThanDays: number }> {
+  return listenFetch<{ compressedJobs: string[]; compressedBytes: number; olderThanDays: number }>('/artifacts/compress', {
+    method: 'POST',
+    body: JSON.stringify({ olderThanDays }),
+  });
+}
+
 export async function getListenMetrics(): Promise<JobMetricsContract> {
   return listenFetch<JobMetricsContract>('/metrics');
 }

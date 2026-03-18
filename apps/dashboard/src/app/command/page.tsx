@@ -861,6 +861,8 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [cloningTemplate, setCloningTemplate] = useState(false);
   const [restoringTemplate, setRestoringTemplate] = useState<number | null>(null);
   const [pruningArtifacts, setPruningArtifacts] = useState(false);
+  const [compressingArtifacts, setCompressingArtifacts] = useState(false);
+  const [compressDays, setCompressDays] = useState('7');
   const [pruneDays, setPruneDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
 
@@ -1100,6 +1102,26 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     }
   }
 
+  async function compressArtifactStore() {
+    setCompressingArtifacts(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/jobs/artifacts/compress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ olderThanDays: Number(compressDays || '7') }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'Failed to compress archived artifacts');
+        return;
+      }
+      await loadArtifactAdmin();
+    } finally {
+      setCompressingArtifacts(false);
+    }
+  }
+
   function updateWorkflowStep(index: number, patch: Partial<WorkflowStepDraft>) {
     setWorkflowSteps((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
   }
@@ -1312,6 +1334,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
               <div className="space-y-1 text-xs text-text-secondary">
                 <div>Active: {artifactAdmin.active.jobCount} jobs · {artifactAdmin.active.bytes} bytes</div>
                 <div>Archived: {artifactAdmin.archived.jobCount} jobs · {artifactAdmin.archived.bytes} bytes</div>
+                {artifactAdmin.compressed ? (
+                  <div>Compressed: {artifactAdmin.compressed.bundleCount} archives · {artifactAdmin.compressed.bytes} bytes</div>
+                ) : null}
                 {artifactAdmin.exports ? (
                   <div>Exports: {artifactAdmin.exports.bundleCount} bundles · {artifactAdmin.exports.bytes} bytes</div>
                 ) : null}
@@ -1321,6 +1346,12 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 ) : null}
               </div>
               <div className="mt-3 flex items-center gap-2">
+                <input value={compressDays} onChange={(event) => setCompressDays(event.target.value)} className="w-20 rounded-md border border-border bg-surface-2/80 px-2 py-1 text-xs text-text-primary" />
+                <Button size="sm" variant="ghost" onClick={compressArtifactStore} disabled={compressingArtifacts}>
+                  {compressingArtifacts ? <Loader2 size={12} className="animate-spin" /> : 'Compress Archived'}
+                </Button>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
                 <input value={pruneDays} onChange={(event) => setPruneDays(event.target.value)} className="w-20 rounded-md border border-border bg-surface-2/80 px-2 py-1 text-xs text-text-primary" />
                 <Button size="sm" variant="ghost" onClick={pruneArtifactStore} disabled={pruningArtifacts}>
                   {pruningArtifacts ? <Loader2 size={12} className="animate-spin" /> : 'Prune Archived'}

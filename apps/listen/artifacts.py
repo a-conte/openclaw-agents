@@ -13,9 +13,11 @@ JOBS_DIR = Path(__file__).resolve().parent / "jobs"
 BASE_DIR = JOBS_DIR / "artifacts"
 ARCHIVED_BASE_DIR = JOBS_DIR / "archived-artifacts"
 EXPORT_BASE_DIR = JOBS_DIR / "exports"
+COMPRESSED_ARCHIVE_DIR = JOBS_DIR / "archived-artifacts-compressed"
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 ARCHIVED_BASE_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_BASE_DIR.mkdir(parents=True, exist_ok=True)
+COMPRESSED_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _safe_step_id(step_id: str) -> str:
@@ -28,6 +30,10 @@ def active_job_artifact_dir(job_id: str) -> Path:
 
 def archived_job_artifact_dir(job_id: str) -> Path:
     return ARCHIVED_BASE_DIR / job_id
+
+
+def compressed_job_artifact_archive(job_id: str) -> Path:
+    return COMPRESSED_ARCHIVE_DIR / f"{job_id}.zip"
 
 
 def create_job_artifact_dir(job_id: str) -> Path:
@@ -50,6 +56,17 @@ def _artifact_ref(path: Path, root: Path, *, preview: str | None = None, kind: s
         "name": path.name,
         "size": path.stat().st_size if path.exists() else 0,
         "preview": preview,
+    }
+
+
+def _compressed_artifact_ref(job_id: str, relative_path: str, size: int) -> dict[str, Any]:
+    return {
+        "kind": "compressed-file",
+        "relativePath": relative_path,
+        "path": str(compressed_job_artifact_archive(job_id)),
+        "name": Path(relative_path).name,
+        "size": size,
+        "preview": None,
     }
 
 
@@ -91,6 +108,14 @@ def _existing_root(job_id: str, *, archived: bool = False) -> Path | None:
 def list_job_artifacts(job_id: str, *, archived: bool = False) -> list[dict[str, Any]]:
     root = _existing_root(job_id, archived=archived)
     if root is None:
+        archive_path = compressed_job_artifact_archive(job_id)
+        if archived and archive_path.exists():
+            with zipfile.ZipFile(archive_path) as archive:
+                return [
+                    _compressed_artifact_ref(job_id, info.filename, info.file_size)
+                    for info in archive.infolist()
+                    if not info.is_dir()
+                ]
         return []
     base = ARCHIVED_BASE_DIR if root.is_relative_to(ARCHIVED_BASE_DIR) else BASE_DIR
     items: list[dict[str, Any]] = []
@@ -120,6 +145,17 @@ def resolve_job_artifact(job_id: str, relative_path: str, *, archived: bool = Fa
         if candidate.exists() and candidate.is_file():
             return candidate
     return None
+
+
+def read_compressed_job_artifact(job_id: str, relative_path: str) -> bytes | None:
+    archive_path = compressed_job_artifact_archive(job_id)
+    if not archive_path.exists() or not relative_path:
+        return None
+    with zipfile.ZipFile(archive_path) as archive:
+        try:
+            return archive.read(relative_path)
+        except KeyError:
+            return None
 
 
 def archive_job_artifacts(job_id: str) -> bool:
@@ -152,7 +188,8 @@ def _export_bundle_path(job_id: str, kind: str) -> Path:
 def bundle_job_artifacts(job_id: str, *, archived: bool = False, kind: str = "bundle") -> dict[str, Any] | None:
     root = _existing_root(job_id, archived=archived)
     job_json = _job_json_path(job_id, archived=archived)
-    if root is None and job_json is None:
+    compressed_archive = compressed_job_artifact_archive(job_id) if archived else None
+    if root is None and job_json is None and (compressed_archive is None or not compressed_archive.exists()):
         return None
     bundle_path = _export_bundle_path(job_id, kind)
     bundle_path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +198,8 @@ def bundle_job_artifacts(job_id: str, *, archived: bool = False, kind: str = "bu
             for path in sorted(root.rglob("*")):
                 if path.is_file():
                     archive.write(path, arcname=str(Path("artifacts") / path.relative_to(root)))
+        elif compressed_archive is not None and compressed_archive.exists():
+            archive.write(compressed_archive, arcname=f"{job_id}-archived-artifacts.zip")
         if job_json is not None and job_json.exists():
             archive.write(job_json, arcname=f"{job_id}.json")
     return _artifact_ref(bundle_path, EXPORT_BASE_DIR, kind="bundle", preview=f"{kind} for {job_id}")
@@ -250,6 +289,10 @@ def artifact_summary() -> dict[str, Any]:
             "bytes": _dir_size(ARCHIVED_BASE_DIR),
             "jobs": archived_jobs[:50],
         },
+        "compressed": {
+            "bundleCount": len(list(COMPRESSED_ARCHIVE_DIR.glob("*.zip"))) if COMPRESSED_ARCHIVE_DIR.exists() else 0,
+            "bytes": _dir_size(COMPRESSED_ARCHIVE_DIR),
+        },
         "exports": {
             "bundleCount": len(list(EXPORT_BASE_DIR.glob("*.zip"))) if EXPORT_BASE_DIR.exists() else 0,
             "bytes": _dir_size(EXPORT_BASE_DIR),
@@ -281,3 +324,32 @@ def prune_archived_artifacts(older_than_days: int) -> dict[str, Any]:
         removed_jobs.append(path.name)
         shutil.rmtree(path, ignore_errors=True)
     return {"removedJobs": removed_jobs, "removedBytes": removed_bytes, "olderThanDays": older_than_days}
+
+
+def compress_archived_artifacts(older_than_days: int) -> dict[str, Any]:
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
+    compressed_jobs: list[str] = []
+    compressed_bytes = 0
+    if not ARCHIVED_BASE_DIR.exists():
+        return {"compressedJobs": compressed_jobs, "compressedBytes": compressed_bytes, "olderThanDays": older_than_days}
+    for path in sorted(ARCHIVED_BASE_DIR.iterdir()):
+        if not path.is_dir():
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        cutoff = time.time() - (older_than_days * 24 * 60 * 60)
+        if mtime > cutoff:
+            continue
+        archive_path = compressed_job_artifact_archive(path.name)
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for item in sorted(path.rglob("*")):
+                if item.is_file():
+                    archive.write(item, arcname=str(item.relative_to(path)))
+        compressed_bytes += archive_path.stat().st_size if archive_path.exists() else 0
+        compressed_jobs.append(path.name)
+        shutil.rmtree(path, ignore_errors=True)
+    return {"compressedJobs": compressed_jobs, "compressedBytes": compressed_bytes, "olderThanDays": older_than_days}

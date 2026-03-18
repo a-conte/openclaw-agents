@@ -165,6 +165,10 @@ export interface ArtifactAdminSummaryContract {
     bytes: number;
     jobs?: string[];
   };
+  compressed?: {
+    bundleCount: number;
+    bytes: number;
+  };
   exports?: {
     bundleCount: number;
     bytes: number;
