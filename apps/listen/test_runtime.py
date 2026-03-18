@@ -302,6 +302,20 @@ class ListenRuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Missing required template input: repo"):
                     workflow_templates.resolve_template("required_template", {})
 
+    def test_repo_release_readiness_template_expands_to_four_steps(self) -> None:
+        spec, inputs = workflow_templates.resolve_template(
+            "repo_release_readiness",
+            {"repoPath": "/tmp/repo", "testCommand": "npm test", "buildCommand": "npm run build"},
+        )
+        self.assertEqual(inputs["repoPath"], "/tmp/repo")
+        self.assertEqual(len(spec["steps"]), 4)
+        self.assertEqual(spec["steps"][0]["id"], "repo_release_branch")
+        self.assertEqual(spec["steps"][-1]["type"], "agent")
+
+    def test_browser_login_snapshot_requires_expected_text(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Missing required template input: expectedText"):
+            workflow_templates.resolve_template("browser_login_snapshot", {"url": "https://example.com/login"})
+
     def test_prune_archived_artifacts_uses_template_retention_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             jobs_dir = Path(tmp) / "jobs"

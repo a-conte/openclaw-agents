@@ -369,6 +369,117 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
             },
         ],
     },
+    {
+        "id": "repo_release_readiness",
+        "name": "Repo Release Readiness",
+        "description": "Capture branch, commit, test, and build state for a release checkpoint.",
+        "category": "repo",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to inspect.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "testCommand",
+                "label": "Test Command",
+                "description": "Validation command run before build.",
+                "required": False,
+                "defaultValue": "npm run dashboard:test",
+            },
+            {
+                "key": "buildCommand",
+                "label": "Build Command",
+                "description": "Build command run for release readiness.",
+                "required": False,
+                "defaultValue": "npm run dashboard:build",
+            },
+        ],
+    },
+    {
+        "id": "dashboard_jobs_triage",
+        "name": "Dashboard Jobs Triage",
+        "description": "Open the command page, capture the jobs API, and gather browser evidence for job triage.",
+        "category": "dashboard",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Dashboard URL",
+                "description": "Target dashboard page.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "jobsUrl",
+                "label": "Jobs API URL",
+                "description": "Jobs endpoint to fetch from shell.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/api/jobs",
+            },
+        ],
+    },
+    {
+        "id": "browser_login_snapshot",
+        "name": "Browser Login Snapshot",
+        "description": "Open a browser page, wait for expected login text, and capture screenshot plus OCR evidence.",
+        "category": "browser",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Login URL",
+                "description": "Page to open in Safari.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "expectedText",
+                "label": "Expected Text",
+                "description": "Visible UI text to wait for.",
+                "required": True,
+                "defaultValue": "",
+            },
+        ],
+    },
+    {
+        "id": "daemon_logs_bundle",
+        "name": "Daemon Logs Bundle",
+        "description": "Capture daemon status, log output, and a follow-up health check for incident review.",
+        "category": "daemon",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "statusCommand",
+                "label": "Status Command",
+                "description": "Command used to capture daemon state.",
+                "required": True,
+                "defaultValue": "ps aux | grep listen_server.py",
+            },
+            {
+                "key": "logCommand",
+                "label": "Log Command",
+                "description": "Command used to capture recent daemon logs.",
+                "required": True,
+                "defaultValue": "tail -n 80 apps/listen/jobs/*.json 2>/dev/null || true",
+            },
+            {
+                "key": "healthUrl",
+                "label": "Health URL",
+                "description": "Endpoint checked after log capture.",
+                "required": False,
+                "defaultValue": "http://127.0.0.1:7600/metrics",
+            },
+        ],
+    },
 ]
 
 
@@ -1118,6 +1229,152 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "type": "steer",
                     "command": "textedit",
                     "args": ["new", "--text", note_text],
+                },
+            ]
+        }, inputs
+
+    if template_id == "repo_release_readiness":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        test_command = inputs.get("testCommand") or "npm run dashboard:test"
+        build_command = inputs.get("buildCommand") or "npm run dashboard:build"
+        return {
+            "steps": [
+                {
+                    "id": "repo_release_branch",
+                    "name": "Capture branch state",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git branch --show-current && git status --short && git log --oneline -5",
+                },
+                {
+                    "id": "repo_release_test",
+                    "name": "Run release validation tests",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {test_command}",
+                },
+                {
+                    "id": "repo_release_build",
+                    "name": "Run release validation build",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {build_command}",
+                },
+                {
+                    "id": "repo_release_summary",
+                    "name": "Draft release summary",
+                    "type": "agent",
+                    "targetAgent": "dev",
+                    "prompt": f"Summarize release readiness for {repo_path} after `{test_command}` and `{build_command}`. Call out blockers and next actions.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "dashboard_jobs_triage":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        jobs_url = inputs.get("jobsUrl") or "http://localhost:3000/api/jobs"
+        return {
+            "steps": [
+                {
+                    "id": "open_jobs_triage_page",
+                    "name": "Open dashboard jobs page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_jobs_triage_page",
+                    "name": "Wait for dashboard jobs page",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["url", "--url", "/command", "--contains", "--timeout", "12", "--interval", "0.75"],
+                },
+                {
+                    "id": "fetch_jobs_triage_api",
+                    "name": "Fetch jobs API payload",
+                    "type": "shell",
+                    "prompt": f"curl -fsSL {jobs_url}",
+                },
+                {
+                    "id": "capture_jobs_triage_window",
+                    "name": "Capture jobs triage screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_jobs_triage_window",
+                    "name": "OCR jobs triage screenshot",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "browser_login_snapshot":
+        url = inputs.get("url") or ""
+        expected_text = inputs.get("expectedText") or ""
+        return {
+            "steps": [
+                {
+                    "id": "open_login_page",
+                    "name": "Open login page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_login_text",
+                    "name": "Wait for expected login text",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["text", "--app", "Safari", "--window", "--text", expected_text, "--contains", "--timeout", "15", "--interval", "0.75"],
+                },
+                {
+                    "id": "capture_login_page",
+                    "name": "Capture login page",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_login_page",
+                    "name": "OCR login page",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "daemon_logs_bundle":
+        status_command = inputs.get("statusCommand") or "ps aux | grep listen_server.py"
+        log_command = inputs.get("logCommand") or "tail -n 80 apps/listen/jobs/*.json 2>/dev/null || true"
+        health_url = inputs.get("healthUrl") or "http://127.0.0.1:7600/metrics"
+        return {
+            "steps": [
+                {
+                    "id": "daemon_status_capture",
+                    "name": "Capture daemon status",
+                    "type": "shell",
+                    "prompt": status_command,
+                },
+                {
+                    "id": "daemon_log_capture",
+                    "name": "Capture daemon logs",
+                    "type": "shell",
+                    "prompt": log_command,
+                },
+                {
+                    "id": "daemon_metric_probe",
+                    "name": "Probe daemon health endpoint",
+                    "type": "shell",
+                    "prompt": f"curl -fsSL {health_url}",
+                },
+                {
+                    "id": "daemon_log_summary",
+                    "name": "Draft daemon incident summary",
+                    "type": "agent",
+                    "targetAgent": "main",
+                    "prompt": f"Summarize daemon health and likely operator actions after `{status_command}` and `{log_command}`.",
                 },
             ]
         }, inputs

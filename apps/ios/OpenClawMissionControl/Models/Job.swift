@@ -360,6 +360,16 @@ struct JobTemplateVersion: Codable, Equatable, Identifiable {
     let builtIn: Bool?
 }
 
+struct JobTemplateDiff: Codable, Equatable, Identifiable {
+    var id: String { "\(templateId)-\(fromVersion)-\(toVersion)" }
+    let templateId: String
+    let fromVersion: Int
+    let toVersion: Int
+    let from: JobTemplateVersion?
+    let to: JobTemplateVersion?
+    let diff: String
+}
+
 struct ArtifactAdminSummary: Codable, Equatable {
     struct Group: Codable, Equatable {
         let jobCount: Int

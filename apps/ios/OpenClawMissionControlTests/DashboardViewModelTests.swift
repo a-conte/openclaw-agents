@@ -45,6 +45,10 @@ private struct EmptyStreamClient: MissionControlClient {
         []
     }
 
+    func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff {
+        JobTemplateDiff(templateId: id, fromVersion: fromVersion, toVersion: toVersion ?? fromVersion, from: nil, to: nil, diff: "")
+    }
+
     func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate {
         JobTemplate(
             id: draft.id,

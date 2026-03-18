@@ -13,6 +13,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var policyAdmin: PolicyAdmin?
     @Published private(set) var jobTemplates: [JobTemplate] = []
     @Published private(set) var selectedTemplateVersions: [JobTemplateVersion] = []
+    @Published private(set) var selectedTemplateDiff: JobTemplateDiff?
     @Published private(set) var artifactAdmin: ArtifactAdminSummary?
     @Published private(set) var jobMetrics: JobMetrics?
 
@@ -243,6 +244,17 @@ final class DashboardViewModel: ObservableObject {
     func loadTemplateVersions(id: String) async {
         do {
             selectedTemplateVersions = try await client.listTemplateVersions(id: id)
+            selectedTemplateDiff = nil
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func loadTemplateDiff(id: String, fromVersion: Int, toVersion: Int? = nil) async {
+        do {
+            selectedTemplateDiff = try await client.templateDiff(id: id, fromVersion: fromVersion, toVersion: toVersion)
         } catch {
             if !Task.isCancelled {
                 errorMessage = error.localizedDescription
@@ -260,6 +272,7 @@ final class DashboardViewModel: ObservableObject {
             jobTemplates = (try? await client.listJobTemplates()) ?? jobTemplates
             if !draft.id.isEmpty {
                 selectedTemplateVersions = (try? await client.listTemplateVersions(id: draft.id)) ?? []
+                selectedTemplateDiff = nil
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -271,6 +284,7 @@ final class DashboardViewModel: ObservableObject {
             try await client.deleteJobTemplate(id: id)
             jobTemplates = (try? await client.listJobTemplates()) ?? jobTemplates.filter { $0.id != id }
             selectedTemplateVersions = []
+            selectedTemplateDiff = nil
         } catch {
             errorMessage = error.localizedDescription
         }

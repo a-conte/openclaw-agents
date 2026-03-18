@@ -5,6 +5,7 @@ protocol MissionControlClient {
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
     func listJobTemplates() async throws -> [JobTemplate]
     func listTemplateVersions(id: String) async throws -> [JobTemplateVersion]
+    func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff
     func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate
     func updateJobTemplate(id: String, draft: JobTemplateDraft) async throws -> JobTemplate
     func deleteJobTemplate(id: String) async throws
@@ -44,6 +45,10 @@ struct PreviewMissionControlClient: MissionControlClient {
 
     func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
         []
+    }
+
+    func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff {
+        JobTemplateDiff(templateId: id, fromVersion: fromVersion, toVersion: toVersion ?? fromVersion, from: nil, to: nil, diff: "")
     }
 
     func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate {
@@ -160,6 +165,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func listTemplateVersions(id: String) async throws -> [JobTemplateVersion] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -299,6 +308,17 @@ struct HTTPMissionControlClient: MissionControlClient {
         let url = baseURL.appending(path: "/api/jobs/templates/\(id)/versions")
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode([JobTemplateVersion].self, from: data)
+    }
+
+    func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff {
+        var url = baseURL.appending(path: "/api/jobs/templates/\(id)/diff")
+        var items = [URLQueryItem(name: "from", value: String(fromVersion))]
+        if let toVersion {
+            items.append(URLQueryItem(name: "to", value: String(toVersion)))
+        }
+        url.append(queryItems: items)
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(JobTemplateDiff.self, from: data)
     }
 
     func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate {

@@ -57,6 +57,25 @@ class ListenClientTests(unittest.TestCase):
         request_mock.assert_called_once_with("/agent/templates/open_command_page/diff?from=1&to=2")
         self.assertEqual(result["templateId"], "open_command_page")
 
+    def test_create_template_uses_agent_templates_endpoint(self) -> None:
+        client = ListenClient()
+        payload = {"id": "custom-template", "name": "Custom", "description": "desc", "workflowSpec": {"steps": []}}
+        with patch.object(client, "_request", return_value={"id": "custom-template"}) as request_mock:
+            result = client.create_template(payload)
+        request_mock.assert_called_once_with("/agent/templates", method="POST", payload=payload)
+        self.assertEqual(result["id"], "custom-template")
+
+    def test_clone_template_uses_agent_clone_endpoint(self) -> None:
+        client = ListenClient()
+        with patch.object(client, "_request", return_value={"id": "custom-template-copy"}) as request_mock:
+            result = client.clone_template("custom-template", new_id="custom-template-copy", new_name="Copy")
+        request_mock.assert_called_once_with(
+            "/agent/templates/custom-template/clone",
+            method="POST",
+            payload={"id": "custom-template-copy", "name": "Copy"},
+        )
+        self.assertEqual(result["id"], "custom-template-copy")
+
 
 if __name__ == "__main__":
     unittest.main()

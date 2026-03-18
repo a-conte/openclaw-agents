@@ -169,6 +169,26 @@ class ListenClient:
         payload = self._request("/agent/templates")
         return payload.get("templates", []) if isinstance(payload, dict) else []
 
+    def create_template(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._request("/agent/templates", method="POST", payload=payload)
+
+    def update_template(self, template_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._request(f"/agent/templates/{template_id}", method="PUT", payload=payload)
+
+    def delete_template(self, template_id: str) -> dict[str, Any]:
+        return self._request(f"/agent/templates/{template_id}", method="DELETE")
+
+    def clone_template(self, template_id: str, *, new_id: str | None = None, new_name: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if new_id:
+            payload["id"] = new_id
+        if new_name:
+            payload["name"] = new_name
+        return self._request(f"/agent/templates/{template_id}/clone", method="POST", payload=payload)
+
+    def restore_template(self, template_id: str, version: int) -> dict[str, Any]:
+        return self._request(f"/agent/templates/{template_id}/restore", method="POST", payload={"version": version})
+
     def template_versions(self, template_id: str) -> list[dict[str, Any]]:
         payload = self._request(f"/templates/{template_id}/versions")
         return payload.get("versions", []) if isinstance(payload, dict) else []

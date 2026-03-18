@@ -11,10 +11,16 @@ Current endpoints:
 - `GET /policy`
 - `GET /policy/admin`
 - `GET /templates`
+- `GET /agent/templates`
 - `GET /templates/<id>/versions`
+- `GET /agent/templates/<id>/versions`
+- `GET /agent/templates/<id>/diff`
 - `POST /templates`
+- `POST /agent/templates`
 - `PUT /templates/<id>`
+- `PUT /agent/templates/<id>`
 - `DELETE /templates/<id>`
+- `DELETE /agent/templates/<id>`
 - `GET /artifacts/admin`
 - `POST /artifacts/prune`
 - `POST /artifacts/compress`
@@ -62,7 +68,7 @@ Custom templates:
 Agent-facing client:
 
 - import `ListenClient` from [`apps/listen/client.py`](/Users/a_conte/dev/openclaw-agents/apps/listen/client.py)
-- use `submit_template_job`, `submit_workflow_spec`, `execute_job`, `wait_for_job`, or `run_template_job` for direct programmatic execution without going through `direct`
+- use `submit_template_job`, `submit_workflow_spec`, `execute_job`, `wait_for_job`, `run_template_job`, `template_diff`, `create_template`, `update_template`, `clone_template`, or `restore_template` for direct programmatic execution without going through `direct`
 
 Built-in workflows:
 
@@ -75,9 +81,13 @@ Built-in workflows:
 - `textedit_new_set_text <text>`
 - `notes_create <title> <body>`
 - `repo_repair_loop`
+- `repo_release_readiness`
 - `dashboard_audit`
+- `dashboard_jobs_triage`
 - `browser_auth_recovery`
+- `browser_login_snapshot`
 - `daemon_restart_verify_bundle`
+- `daemon_logs_bundle`
 - `operator_handoff_bundle`
 
 Examples:

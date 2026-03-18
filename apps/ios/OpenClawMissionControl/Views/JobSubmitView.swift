@@ -14,6 +14,7 @@ struct JobSubmitView: View {
     @State private var templateInputs: [String: String] = [:]
     @State private var selectedJob: Job?
     @State private var editingTemplate: EditableTemplateState?
+    @State private var selectedTemplateDiff: JobTemplateDiff?
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -103,6 +104,9 @@ struct JobSubmitView: View {
                     }
                 }
             )
+        }
+        .sheet(item: $selectedTemplateDiff) { diff in
+            TemplateDiffSheet(diff: diff)
         }
     }
 
@@ -254,14 +258,37 @@ struct JobSubmitView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Template Versions")
                                     .font(.caption.weight(.semibold))
-                                ForEach(Array(viewModel.selectedTemplateVersions.reversed())) { version in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("v\(version.version)\(version.builtIn == true ? " · built-in" : "")")
-                                            .font(.caption)
-                                        if let updatedAt = version.updatedAt {
-                                            Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
+                                let versions = Array(viewModel.selectedTemplateVersions.reversed())
+                                let latestVersion = versions.first?.version
+                                ForEach(versions) { version in
+                                    HStack(alignment: .top) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("v\(version.version)\(version.builtIn == true ? " · built-in" : "")")
+                                                .font(.caption)
+                                            if let updatedAt = version.updatedAt {
+                                                Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            if let name = version.name, !name.isEmpty {
+                                                Text(name)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        Spacer()
+                                        if let latestVersion, version.version != latestVersion {
+                                            Button("Compare") {
+                                                Task {
+                                                    await viewModel.loadTemplateDiff(
+                                                        id: template.id,
+                                                        fromVersion: version.version,
+                                                        toVersion: latestVersion
+                                                    )
+                                                    selectedTemplateDiff = viewModel.selectedTemplateDiff
+                                                }
+                                            }
+                                            .buttonStyle(.bordered)
                                         }
                                     }
                                     .padding(.vertical, 2)
@@ -993,6 +1020,35 @@ private struct TemplateEditorSheet: View {
             await onSave(draft, state.originalId)
             isSaving = false
             dismiss()
+        }
+    }
+}
+
+private struct TemplateDiffSheet: View {
+    let diff: JobTemplateDiff
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("v\(diff.fromVersion) → v\(diff.toVersion)")
+                        .font(.headline)
+                    Text(diff.diff.isEmpty ? "No textual diff available." : diff.diff)
+                        .font(.body.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .padding(24)
+            }
+            .navigationTitle(diff.templateId)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

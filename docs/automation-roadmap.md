@@ -31,6 +31,7 @@ Completed or materially in place:
 - Real OpenClaw-core integration:
   - repo-local native automation adapter endpoints under `listen`
   - native client helpers for submit, wait, inspect, artifacts, retry, and template catalog/diff access
+  - repo-local agent template management paths for create, update, clone, restore, and delete
 - Better template management:
   - template clone
   - template version diff
@@ -49,12 +50,11 @@ Completed or materially in place:
   - guided bootstrap script via `scripts/bootstrap-mac.sh`
   - `docs/bootstrap-mac.md` now points to the script-backed flow
 - iPad polish:
-  - metrics, policy, artifact summary, template metadata, artifact preview, and custom template editing surfaces are partially implemented
+  - metrics, policy, artifact summary, template metadata, artifact preview, custom template editing, and template diff surfaces are partially implemented
 
 Still meaningfully open:
 
 - deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
-- fuller template diff UX on iPad
 - richer job lineage visualization beyond summary chains
 - deeper workflow-library coverage beyond the new Wave 2 starter set
 - full tablet-first parity on iPad
@@ -62,7 +62,7 @@ Still meaningfully open:
 Current active focus:
 
 - deeper workflow-library coverage
-- fuller iPad diff/admin parity
+- broader tablet-first parity and admin polish on iPad
 
 ## Wave 1
 
@@ -122,7 +122,7 @@ Definition of done:
 - operators can manage template lifecycle without editing raw JSON unless they choose to
 
 Remaining gap:
-- extend compare UX beyond the dashboard to iPad and possibly side-by-side structured diffing
+- deepen compare UX further with richer side-by-side structured diffing
 
 ### 3. Richer Observability
 
@@ -254,7 +254,7 @@ Definition of done:
 - the iPad app is viable as a real operator console, not just a lightweight companion
 
 Remaining gap:
-- extend template diff/compare and admin workflows further so the iPad can match the dashboard power-user experience
+- extend admin workflows further so the iPad can match the dashboard power-user experience
 
 ## Execution Strategy
 

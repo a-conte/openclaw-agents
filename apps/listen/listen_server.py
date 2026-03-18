@@ -498,6 +498,19 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(HTTPStatus.CREATED, template)
             return
+        if parsed.path == "/agent/templates":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            try:
+                template = save_custom_template(data)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.CREATED, template)
+            return
         if parsed.path.startswith("/templates/") and parsed.path.endswith("/clone"):
             template_id = parsed.path.split("/")[2]
             try:
@@ -515,8 +528,36 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(HTTPStatus.CREATED, template)
             return
+        if parsed.path.startswith("/agent/templates/") and parsed.path.endswith("/clone"):
+            template_id = parsed.path.split("/")[3]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                data = {}
+            try:
+                template = clone_custom_template(template_id, clean_str(data.get("id")) or None, clean_str(data.get("name")) or None)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.CREATED, template)
+            return
         if parsed.path.startswith("/templates/") and parsed.path.endswith("/restore"):
             template_id = parsed.path.split("/")[2]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            version = int(data.get("version", 0))
+            try:
+                template = restore_template_version(template_id, version)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, template)
+            return
+        if parsed.path.startswith("/agent/templates/") and parsed.path.endswith("/restore"):
+            template_id = parsed.path.split("/")[3]
             try:
                 data = self._read_json()
             except json.JSONDecodeError:
@@ -732,6 +773,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/templates/custom":
             self._json(HTTPStatus.OK, {"templates": list_custom_templates()})
             return
+        if parsed.path == "/agent/templates/custom":
+            self._json(HTTPStatus.OK, {"templates": list_custom_templates()})
+            return
         if parsed.path.startswith("/agent/templates/") and parsed.path.endswith("/versions"):
             template_id = parsed.path.split("/")[3]
             versions = list_template_versions(template_id)
@@ -883,6 +927,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/agent/templates/"):
+            template_id = parsed.path.rsplit("/", 1)[-1]
+            if not template_id:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "template id required"})
+                return
+            deleted = delete_custom_template(template_id)
+            if not deleted:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "template not found"})
+                return
+            self._json(HTTPStatus.OK, {"ok": True, "deleted": template_id})
+            return
         if parsed.path.startswith("/templates/"):
             template_id = parsed.path.rsplit("/", 1)[-1]
             if not template_id:
@@ -918,6 +973,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/agent/templates/"):
+            template_id = parsed.path.rsplit("/", 1)[-1]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            data["id"] = template_id
+            try:
+                template = save_custom_template(data)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, template)
+            return
         if parsed.path.startswith("/templates/"):
             template_id = parsed.path.rsplit("/", 1)[-1]
             try:
