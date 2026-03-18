@@ -95,13 +95,11 @@ System Settings → Network → Firewall — make sure incoming connections aren
 ## Restart everything
 
 ```bash
-# Stop
-launchctl unload ~/Library/LaunchAgents/com.openclaw.dashboard.plist
-pkill -f "next dev"
-
-# Start
-launchctl load ~/Library/LaunchAgents/com.openclaw.dashboard.plist
+cd ~/openclaw-agents
+./scripts/local-stack.sh restart
 ```
+
+For day-to-day startup and status, prefer [`docs/local-startup.md`](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md) over manual process management.
 
 ## Full reset (rebuild)
 

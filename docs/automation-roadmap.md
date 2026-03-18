@@ -49,6 +49,8 @@ Completed or materially in place:
 - Bootstrap automation:
   - guided bootstrap script via `scripts/bootstrap-mac.sh`
   - `docs/bootstrap-mac.md` now points to the script-backed flow
+  - stable local startup flow documented in `docs/local-startup.md`
+  - one-command local stack startup via `scripts/local-stack.sh`
 - iPad polish:
   - metrics, policy admin, artifact summary/actions, template metadata, artifact preview, custom template editing, template restore, template diff, and dedicated admin/detail sheets are materially implemented
 

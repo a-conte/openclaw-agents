@@ -15,6 +15,14 @@ For a verification-only pass:
 ./scripts/bootstrap-mac.sh --check
 ```
 
+For the normal daily service bring-up after bootstrap, use:
+
+```bash
+./scripts/local-stack.sh start
+```
+
+The stable day-to-day startup flow is documented in [`docs/local-startup.md`](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
+
 ## 1. Base Tooling
 
 ```bash

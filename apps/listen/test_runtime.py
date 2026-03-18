@@ -201,9 +201,16 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(spec["steps"][-1]["command"], "ocr")
 
     def test_resolve_template_builds_operator_handoff_bundle(self) -> None:
-        spec, _ = workflow_templates.resolve_template("operator_handoff_bundle", {"url": "http://localhost:3000/command"})
+        spec, inputs = workflow_templates.resolve_template(
+            "operator_handoff_bundle",
+            {"url": "http://localhost:3000/command", "title": "Ops Bundle"},
+        )
+        self.assertEqual(inputs["title"], "Ops Bundle")
         self.assertEqual(spec["steps"][0]["type"], "steer")
+        self.assertEqual(spec["steps"][1]["id"], "wait_handoff_context")
+        self.assertEqual(spec["steps"][2]["id"], "current_handoff_url")
         self.assertEqual(spec["steps"][-1]["command"], "notes")
+        self.assertEqual(spec["steps"][-1]["args"][2], "Ops Bundle")
 
     def test_resolve_template_builds_operator_handoff_note_in_notes(self) -> None:
         spec, inputs = workflow_templates.resolve_template("operator_handoff_note", {"title": "Ops", "text": "hello"})
@@ -414,6 +421,24 @@ class ListenRuntimeTests(unittest.TestCase):
     def test_daemon_recovery_handoff_requires_restart_inputs(self) -> None:
         with self.assertRaisesRegex(ValueError, "Missing required template input: restartCommand"):
             workflow_templates.resolve_template("daemon_recovery_handoff", {})
+
+    def test_daemon_recovery_handoff_builds_notes_handoff(self) -> None:
+        spec, inputs = workflow_templates.resolve_template(
+            "daemon_recovery_handoff",
+            {
+                "restartCommand": "brew services restart openclaw-listen",
+                "statusCommand": "brew services info openclaw-listen",
+                "healthCommand": "curl -fsS http://127.0.0.1:7600/metrics",
+                "logCommand": "tail -50 ~/Library/Logs/openclaw-listen.log",
+                "noteTitle": "Listen Recovery",
+            },
+        )
+        self.assertEqual(inputs["noteTitle"], "Listen Recovery")
+        self.assertEqual(spec["steps"][1]["onFailure"], "continue")
+        self.assertEqual(spec["steps"][2]["onFailure"], "continue")
+        self.assertEqual(spec["steps"][3]["onFailure"], "continue")
+        self.assertEqual(spec["steps"][-1]["command"], "notes")
+        self.assertEqual(spec["steps"][-1]["args"][2], "Listen Recovery")
 
     def test_prune_archived_artifacts_uses_template_retention_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

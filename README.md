@@ -85,6 +85,16 @@ Each agent workspace contains:
 ./scripts/push.sh "custom message" # with a custom commit message
 ```
 
+## Local Startup
+
+Start the dashboard and automation runtime together:
+
+```bash
+./scripts/local-stack.sh start
+```
+
+The stable operator flow is documented in [docs/local-startup.md](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
+
 ## Setup
 
 See [SETUP.md](SETUP.md) for full details on skills, plugins, and infrastructure.

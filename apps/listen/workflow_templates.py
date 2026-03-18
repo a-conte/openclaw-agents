@@ -414,6 +414,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "operator",
         "builtIn": True,
         "recommended": True,
+        "favorite": True,
         "artifactRetentionDays": 90,
         "inputs": [
             {
@@ -429,6 +430,13 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
                 "description": "Initial handoff note text.",
                 "required": False,
                 "defaultValue": "Operator handoff:\n- Context:\n- Evidence:\n- Next action:\n- Risks:",
+            },
+            {
+                "key": "title",
+                "label": "Note Title",
+                "description": "Apple Note title used for the handoff bundle.",
+                "required": False,
+                "defaultValue": "Operator Handoff Bundle",
             },
         ],
     },
@@ -637,6 +645,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "daemon",
         "builtIn": True,
         "recommended": True,
+        "favorite": True,
         "artifactRetentionDays": 21,
         "inputs": [
             {
@@ -666,6 +675,20 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
                 "description": "Command used to capture recent daemon logs.",
                 "required": True,
                 "defaultValue": "",
+            },
+            {
+                "key": "noteTitle",
+                "label": "Note Title",
+                "description": "Apple Note title used for the recovery handoff.",
+                "required": False,
+                "defaultValue": "Daemon Recovery Handoff",
+            },
+            {
+                "key": "noteLead",
+                "label": "Note Lead",
+                "description": "Operator-facing opening text for the recovery handoff note.",
+                "required": False,
+                "defaultValue": "Daemon recovery handoff:\n- Context:\n- Recovery action:\n- Current status:\n- Next action:",
             },
         ],
     },
@@ -1423,6 +1446,7 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
     if template_id == "operator_handoff_bundle":
         url = inputs.get("url") or "http://localhost:3000/command"
         note_text = inputs.get("noteText") or "Operator handoff:\n- Context:\n- Evidence:\n- Next action:\n- Risks:"
+        title = inputs.get("title") or "Operator Handoff Bundle"
         return {
             "steps": [
                 {
@@ -1431,6 +1455,22 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "type": "steer",
                     "command": "open-url",
                     "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_handoff_context",
+                    "name": "Wait for handoff page",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["url", "--url", url, "--contains", "--timeout", "10", "--interval", "0.75"],
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "current_handoff_url",
+                    "name": "Capture current Safari URL",
+                    "type": "steer",
+                    "command": "safari",
+                    "args": ["current-url"],
+                    "onFailure": "continue",
                 },
                 {
                     "id": "capture_handoff_context",
@@ -1454,9 +1494,9 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "args": [
                         "create",
                         "--title",
-                        "Operator Handoff Bundle",
+                        title,
                         "--body",
-                        f"{note_text}\n\nEvidence:\n- Screenshot: {{{{steps.capture_handoff_context.result.screenshot}}}}\n- OCR image: {{{{steps.ocr_handoff_context.result.image}}}}",
+                        f"{note_text}\n\nContext URL: {{{{steps.current_handoff_url.result.url}}}}\n\nEvidence:\n- Screenshot: {{{{steps.capture_handoff_context.result.screenshot}}}}\n- OCR image: {{{{steps.ocr_handoff_context.result.image}}}}",
                     ],
                 },
             ]
@@ -1747,6 +1787,8 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
         status_command = inputs.get("statusCommand") or ""
         health_command = inputs.get("healthCommand") or ""
         log_command = inputs.get("logCommand") or ""
+        note_title = inputs.get("noteTitle") or "Daemon Recovery Handoff"
+        note_lead = inputs.get("noteLead") or "Daemon recovery handoff:\n- Context:\n- Recovery action:\n- Current status:\n- Next action:"
         return {
             "steps": [
                 {
@@ -1761,25 +1803,34 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "name": "Capture daemon status",
                     "type": "shell",
                     "prompt": status_command,
+                    "onFailure": "continue",
                 },
                 {
                     "id": "daemon_handoff_health",
                     "name": "Verify daemon health",
                     "type": "shell",
                     "prompt": health_command,
+                    "onFailure": "continue",
                 },
                 {
                     "id": "daemon_handoff_logs",
                     "name": "Capture daemon logs",
                     "type": "shell",
                     "prompt": log_command,
+                    "onFailure": "continue",
                 },
                 {
-                    "id": "daemon_handoff_summary",
-                    "name": "Draft recovery handoff summary",
-                    "type": "agent",
-                    "targetAgent": "main",
-                    "prompt": f"Summarize the daemon recovery state after `{restart_command}`, `{status_command}`, `{health_command}`, and `{log_command}`. Include the next operator action.",
+                    "id": "daemon_handoff_note",
+                    "name": "Create recovery handoff note",
+                    "type": "steer",
+                    "command": "notes",
+                    "args": [
+                        "create",
+                        "--title",
+                        note_title,
+                        "--body",
+                        f"{note_lead}\n\nCommands:\n- Restart: {restart_command}\n- Status: {status_command}\n- Health: {health_command}\n- Logs: {log_command}\n\nOutputs:\n- Status:\n{{{{steps.daemon_handoff_status.result.output}}}}\n\n- Health:\n{{{{steps.daemon_handoff_health.result.output}}}}\n\n- Logs:\n{{{{steps.daemon_handoff_logs.result.output}}}}",
+                    ],
                 },
             ]
         }, inputs
