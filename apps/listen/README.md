@@ -7,6 +7,7 @@ Current endpoints:
 - `POST /job`
 - `GET /job/<id>`
 - `GET /jobs`
+- `POST /jobs/clear`
 - `DELETE /job/<id>`
 
 Run locally:
@@ -23,6 +24,12 @@ Default worker behavior is local and safe:
 - `mode=drive` runs `drive <command> <args...>`
 - `mode=workflow` runs a named local automation flow
 - `mode=note` records the prompt and marks the job completed
+
+Job records now keep:
+
+- `updates[]` for step-by-step progress
+- `summary` for a compact final outcome
+- archived jobs under `apps/listen/jobs/archived`
 
 Built-in workflows:
 
@@ -54,4 +61,6 @@ curl -X POST http://127.0.0.1:7600/job \
   -H 'content-type: application/json' \
   -d '{"mode":"workflow","workflow":"safari_open_command_page"}'
 curl http://127.0.0.1:7600/jobs
+curl http://127.0.0.1:7600/jobs?archived=true
+curl -X POST http://127.0.0.1:7600/jobs/clear
 ```

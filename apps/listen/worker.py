@@ -21,6 +21,17 @@ def write_job(job_id: str, payload: dict[str, object]) -> None:
     (JOBS_DIR / f"{job_id}.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def append_update(job: dict[str, object], message: str) -> None:
+    updates = job.setdefault("updates", [])
+    if isinstance(updates, list):
+        updates.append({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "message": message})
+    job["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def persist_job(job_id: str, job: dict[str, object]) -> None:
+    write_job(job_id, job)
+
+
 def run_drive(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(REPO_ROOT / "apps" / "drive" / "drive_cli.py"), *args],
@@ -71,10 +82,12 @@ def require_arg(cmd_args: list[str], index: int, message: str) -> str:
     return cmd_args[index].strip()
 
 
-def execute_workflow(workflow: str, cmd_args: list[str]) -> dict[str, object]:
+def execute_workflow(workflow: str, cmd_args: list[str], job: dict[str, object], job_id: str) -> dict[str, object]:
     steps: list[dict[str, object]] = []
 
     def run_step(label: str, runner, *runner_args: str) -> dict[str, object]:
+        append_update(job, label)
+        persist_job(job_id, job)
         result = runner(*runner_args)
         ok, payload = parse_json_result(result)
         step = {
@@ -261,7 +274,11 @@ def main() -> None:
     started = time.time()
 
     if mode == "shell":
+        append_update(job, f"Creating tmux session {session}")
+        persist_job(args.job_id, job)
         run_drive("session", "create", "--name", session, "--json")
+        append_update(job, f"Running shell prompt in {session}")
+        persist_job(args.job_id, job)
         result = run_drive("run", "--session", session, "--json", prompt)
         try:
             payload = json.loads(result.stdout)
@@ -270,38 +287,51 @@ def main() -> None:
         job["status"] = "completed" if payload.get("ok") else "failed"
         job["result"] = payload.get("output")
         job["error"] = None if payload.get("ok") else payload.get("output")
+        job["summary"] = f"Shell job {'completed' if payload.get('ok') else 'failed'} in session {session}"
     elif mode == "agent":
+        append_update(job, f"Running OpenClaw agent {target_agent}")
+        persist_job(args.job_id, job)
         result = run_openclaw_agent(target_agent, prompt, thinking, local)
         ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "OpenClaw agent run failed"
+        job["summary"] = f"Agent job {'completed' if ok else 'failed'} for {target_agent}"
     elif mode == "steer":
+        append_update(job, f"Running steer {command}")
+        persist_job(args.job_id, job)
         result = run_steer(command, *cmd_args, "--json")
         ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "steer command failed"
+        job["summary"] = f"Steer command {command} {'completed' if ok else 'failed'}"
     elif mode == "drive":
+        append_update(job, f"Running drive {command}")
+        persist_job(args.job_id, job)
         result = run_drive(command, *cmd_args)
         ok, payload = parse_json_result(result)
         job["status"] = "completed" if ok else "failed"
         job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
         job["error"] = None if ok else result.stderr.strip() or "drive command failed"
+        job["summary"] = f"Drive command {command} {'completed' if ok else 'failed'}"
     elif mode == "workflow":
         try:
-            payload = execute_workflow(workflow, cmd_args)
+            payload = execute_workflow(workflow, cmd_args, job, args.job_id)
             job["status"] = "completed"
             job["result"] = payload
             job["error"] = None
+            job["summary"] = f"Workflow {workflow} completed"
         except (ValueError, RuntimeError) as exc:
             job["status"] = "failed"
             job["result"] = None
             job["error"] = str(exc)
+            job["summary"] = f"Workflow {workflow} failed"
     else:
         job["status"] = "completed"
         job["result"] = f"Recorded prompt: {prompt}"
         job["error"] = None
+        job["summary"] = "Note job recorded"
 
     completed = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     job["completedAt"] = completed

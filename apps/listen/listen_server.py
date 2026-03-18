@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import json
 import os
 import signal
@@ -17,6 +18,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 JOBS_DIR = Path(__file__).resolve().parent / "jobs"
 JOBS_DIR.mkdir(exist_ok=True)
+ARCHIVED_DIR = JOBS_DIR / "archived"
+ARCHIVED_DIR.mkdir(exist_ok=True)
 WORKERS: dict[str, subprocess.Popen[str]] = {}
 
 
@@ -36,10 +39,25 @@ def read_job(job_id: str) -> dict[str, object] | None:
 
 
 def list_jobs() -> list[dict[str, object]]:
+    return list_jobs_in(JOBS_DIR)
+
+
+def list_jobs_in(directory: Path) -> list[dict[str, object]]:
     jobs: list[dict[str, object]] = []
-    for path in sorted(JOBS_DIR.glob("*.json"), reverse=True):
-        jobs.append(json.loads(path.read_text(encoding="utf-8")))
+    for path in sorted(directory.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+        try:
+            jobs.append(json.loads(path.read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            continue
     return jobs
+
+
+def archive_jobs() -> int:
+    count = 0
+    for path in JOBS_DIR.glob("*.json"):
+        shutil.move(str(path), str(ARCHIVED_DIR / path.name))
+        count += 1
+    return count
 
 
 def worker_command(job_id: str) -> list[str]:
@@ -75,6 +93,9 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(raw.decode("utf-8") or "{}")
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path == "/jobs/clear":
+            self._json(HTTPStatus.OK, {"archived": archive_jobs()})
+            return
         if self.path != "/job":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
@@ -85,8 +106,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         prompt = str(data.get("prompt", "")).strip()
         mode = str(data.get("mode", "agent")).strip() or "agent"
-        command = str(data.get("command", "")).strip()
-        workflow = str(data.get("workflow", "")).strip()
+        command_raw = data.get("command")
+        workflow_raw = data.get("workflow")
+        command = command_raw.strip() if isinstance(command_raw, str) else ""
+        workflow = workflow_raw.strip() if isinstance(workflow_raw, str) else ""
         raw_args = data.get("args", [])
         cmd_args = [str(item) for item in raw_args] if isinstance(raw_args, list) else []
         target_agent = str(data.get("targetAgent", "main")).strip() or "main"
@@ -117,6 +140,8 @@ class Handler(BaseHTTPRequestHandler):
             "createdAt": now_iso(),
             "startedAt": now_iso(),
             "updatedAt": now_iso(),
+            "updates": [],
+            "summary": "",
             "result": None,
             "error": None,
             "session": f"listen-{job_id}",
@@ -128,8 +153,9 @@ class Handler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.CREATED, {"job_id": job_id})
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/jobs":
-            self._json(HTTPStatus.OK, {"jobs": list_jobs()})
+        if self.path.startswith("/jobs"):
+            archived = "archived=true" in self.path
+            self._json(HTTPStatus.OK, {"jobs": list_jobs_in(ARCHIVED_DIR if archived else JOBS_DIR)})
             return
         if self.path.startswith("/job/"):
             job_id = self.path.rsplit("/", 1)[-1]

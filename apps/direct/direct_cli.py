@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import urllib.parse
 import urllib.request
 
 
@@ -17,7 +18,7 @@ def request_json(url: str, method: str = "GET", payload: dict[str, object] | Non
 def main() -> None:
     parser = argparse.ArgumentParser(prog="direct", description="CLI client for the listen job server")
     parser.add_argument("--base-url", default="http://127.0.0.1:7600")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="subcommand", required=True)
 
     start = sub.add_parser("start")
     start.add_argument("--prompt")
@@ -32,14 +33,22 @@ def main() -> None:
     get = sub.add_parser("get")
     get.add_argument("--job-id", required=True)
 
-    sub.add_parser("list")
+    list_cmd = sub.add_parser("list")
+    list_cmd.add_argument("--archived", action="store_true")
+
+    latest = sub.add_parser("latest")
+    latest.add_argument("count", nargs="?", type=int, default=1)
+    latest.add_argument("--archived", action="store_true")
+
+    sub.add_parser("clear")
 
     stop = sub.add_parser("stop")
     stop.add_argument("--job-id", required=True)
 
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
-    if args.command == "start":
+
+    if args.subcommand == "start":
         if args.mode in {"agent", "shell", "note"} and not args.prompt:
             raise SystemExit("--prompt is required for agent, shell, and note modes")
         if args.mode in {"steer", "drive"} and not args.command:
@@ -58,13 +67,29 @@ def main() -> None:
         }
         print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))
         return
-    if args.command == "get":
+
+    if args.subcommand == "get":
         print(json.dumps(request_json(f"{base}/job/{args.job_id}"), indent=2))
         return
-    if args.command == "list":
-        print(json.dumps(request_json(f"{base}/jobs"), indent=2))
+
+    if args.subcommand == "list":
+        suffix = "?archived=true" if args.archived else ""
+        print(json.dumps(request_json(f"{base}/jobs{suffix}"), indent=2))
         return
-    if args.command == "stop":
+
+    if args.subcommand == "latest":
+        suffix = "?archived=true" if args.archived else ""
+        payload = request_json(f"{base}/jobs{suffix}")
+        jobs = payload.get("jobs", [])
+        latest_jobs = jobs[: max(args.count, 0)]
+        print(json.dumps({"jobs": latest_jobs}, indent=2))
+        return
+
+    if args.subcommand == "clear":
+        print(json.dumps(request_json(f"{base}/jobs/clear", "POST"), indent=2))
+        return
+
+    if args.subcommand == "stop":
         print(json.dumps(request_json(f"{base}/job/{args.job_id}", "DELETE"), indent=2))
         return
 
