@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Open the local Mission Control command page in Safari.",
         "category": "browser",
         "builtIn": True,
+        "recommended": True,
         "inputs": [
             {
                 "key": "url",
@@ -34,6 +36,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Open the command page, click Reload if Safari is on an error page, and wait for /command.",
         "category": "browser",
         "builtIn": True,
+        "recommended": True,
         "inputs": [
             {
                 "key": "url",
@@ -50,6 +53,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Run git status in a managed shell session and capture the output.",
         "category": "repo",
         "builtIn": True,
+        "favorite": True,
         "inputs": [
             {
                 "key": "repoPath",
@@ -105,6 +109,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Run an OpenClaw agent step with a focused operational prompt.",
         "category": "agent",
         "builtIn": True,
+        "favorite": True,
         "inputs": [
             {
                 "key": "agent",
@@ -269,6 +274,8 @@ def _load_custom_templates() -> list[dict[str, Any]]:
         if isinstance(item, dict):
             normalized = dict(item)
             normalized["builtIn"] = False
+            normalized["favorite"] = bool(normalized.get("favorite", False))
+            normalized["recommended"] = bool(normalized.get("recommended", False))
             templates.append(normalized)
     return templates
 
@@ -302,6 +309,8 @@ def _normalize_inputs(raw_inputs: Any) -> list[dict[str, Any]]:
         label = str(item.get("label") or key).strip()
         if not key:
             continue
+        if any(existing["key"] == key for existing in inputs):
+            raise ValueError(f"duplicate template input key: {key}")
         inputs.append(
             {
                 "key": key,
@@ -380,6 +389,8 @@ def validate_custom_template(payload: dict[str, Any]) -> dict[str, Any]:
         "name": name,
         "description": description,
         "category": category,
+        "favorite": bool(payload.get("favorite", False)),
+        "recommended": bool(payload.get("recommended", False)),
         "inputs": _normalize_inputs(payload.get("inputs")),
         "workflowSpec": workflow_spec,
         "builtIn": False,
@@ -422,6 +433,46 @@ def delete_custom_template(template_id: str) -> bool:
     return True
 
 
+def clone_custom_template(source_template_id: str, new_template_id: str | None = None, new_name: str | None = None) -> dict[str, Any]:
+    source = get_template(source_template_id)
+    if not source:
+        raise ValueError(f"Unknown workflow template: {source_template_id}")
+    cloned_id = _normalize_template_id(new_template_id or f"{source_template_id}_copy")
+    payload = {
+        "id": cloned_id,
+        "name": (new_name or f"{source.get('name', source_template_id)} Copy").strip(),
+        "description": str(source.get("description") or "").strip() or "Cloned workflow template",
+        "category": str(source.get("category") or "custom"),
+        "favorite": bool(source.get("favorite", False)),
+        "recommended": False,
+        "inputs": deepcopy(source.get("inputs", [])) if isinstance(source.get("inputs"), list) else [],
+        "workflowSpec": deepcopy(source.get("workflowSpec") or resolve_template(source_template_id, {})[0]),
+    }
+    return save_custom_template(payload)
+
+
+def restore_template_version(template_id: str, version: int) -> dict[str, Any]:
+    template = get_template(template_id)
+    if not template or template.get("builtIn", False):
+        raise ValueError("Only custom templates can be restored")
+    versions = list_template_versions(template_id)
+    match = next((item for item in versions if int(item.get("version", -1)) == int(version)), None)
+    if not match:
+        raise ValueError(f"Template version not found: {version}")
+    return save_custom_template(
+        {
+            "id": template_id,
+            "name": str(match.get("name") or template.get("name") or template_id),
+            "description": str(match.get("description") or template.get("description") or ""),
+            "category": str(template.get("category") or "custom"),
+            "favorite": bool(template.get("favorite", False)),
+            "recommended": bool(template.get("recommended", False)),
+            "inputs": deepcopy(template.get("inputs", [])) if isinstance(template.get("inputs"), list) else [],
+            "workflowSpec": deepcopy(match.get("workflowSpec") or template.get("workflowSpec")),
+        }
+    )
+
+
 def normalize_template_inputs(template: dict[str, Any], raw_inputs: dict[str, Any] | None) -> dict[str, str]:
     inputs = raw_inputs if isinstance(raw_inputs, dict) else {}
     resolved: dict[str, str] = {}
@@ -432,7 +483,10 @@ def normalize_template_inputs(template: dict[str, Any], raw_inputs: dict[str, An
         if not key:
             continue
         value = inputs.get(key, definition.get("defaultValue", ""))
-        resolved[key] = str(value).strip()
+        normalized_value = str(value).strip()
+        if bool(definition.get("required", False)) and not normalized_value:
+            raise ValueError(f"Missing required template input: {key}")
+        resolved[key] = normalized_value
     return resolved
 
 

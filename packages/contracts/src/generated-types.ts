@@ -138,6 +138,8 @@ export interface JobTemplateContract {
   description: string;
   category?: string;
   builtIn?: boolean;
+  favorite?: boolean;
+  recommended?: boolean;
   version?: number;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -191,6 +193,13 @@ export interface JobMetricsContract {
       templateId: string;
       count: number;
     }>;
+    performance: Array<{
+      templateId: string;
+      total: number;
+      completed: number;
+      failed: number;
+      successRate: number;
+    }>;
   };
   steps: {
     topFailures: Array<{
@@ -211,6 +220,13 @@ export interface JobMetricsContract {
     templateId?: string | null;
     workflow?: string | null;
     ageMs?: number;
+  }>;
+  trends: Array<{
+    date: string;
+    total: number;
+    completed: number;
+    failed: number;
+    blocked: number;
   }>;
   artifacts: ArtifactAdminSummaryContract;
 }

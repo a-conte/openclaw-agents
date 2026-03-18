@@ -25,7 +25,16 @@ from artifacts import (
     resolve_job_artifact,
 )
 from policy import check_command_policy, check_workflow_policy, current_policy, policy_admin_details
-from workflow_templates import delete_custom_template, get_template, list_custom_templates, list_template_versions, list_templates, save_custom_template
+from workflow_templates import (
+    clone_custom_template,
+    delete_custom_template,
+    get_template,
+    list_custom_templates,
+    list_template_versions,
+    list_templates,
+    restore_template_version,
+    save_custom_template,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -88,10 +97,12 @@ def collect_job_metrics() -> dict[str, object]:
     status_counts: dict[str, int] = {}
     mode_counts: dict[str, int] = {}
     template_counts: dict[str, int] = {}
+    template_success: dict[str, dict[str, int]] = {}
     step_failures: dict[str, int] = {}
     policy_block_reasons: dict[str, int] = {}
     completed_durations: list[int] = []
     long_running: list[dict[str, object]] = []
+    daily: dict[str, dict[str, int]] = {}
 
     for job in all_jobs:
         status = clean_str(job.get("status")) or "unknown"
@@ -101,6 +112,12 @@ def collect_job_metrics() -> dict[str, object]:
         template_id = clean_str(job.get("templateId"))
         if template_id:
             template_counts[template_id] = template_counts.get(template_id, 0) + 1
+            stats = template_success.setdefault(template_id, {"completed": 0, "failed": 0, "total": 0})
+            stats["total"] += 1
+            if status == "completed":
+                stats["completed"] += 1
+            if status in {"failed", "stopped"}:
+                stats["failed"] += 1
         duration = _duration_ms(job)
         if duration is not None and status == "completed":
             completed_durations.append(duration)
@@ -126,6 +143,17 @@ def collect_job_metrics() -> dict[str, object]:
         if isinstance(policy, dict) and policy.get("allowed") is False:
             reason = clean_str(policy.get("reason")) or "blocked"
             policy_block_reasons[reason] = policy_block_reasons.get(reason, 0) + 1
+        created_at = clean_str(job.get("createdAt"))
+        day = created_at[:10] if len(created_at) >= 10 else ""
+        if day:
+            bucket = daily.setdefault(day, {"total": 0, "completed": 0, "failed": 0, "blocked": 0})
+            bucket["total"] += 1
+            if status == "completed":
+                bucket["completed"] += 1
+            if status in {"failed", "stopped"}:
+                bucket["failed"] += 1
+            if isinstance(policy, dict) and policy.get("allowed") is False:
+                bucket["blocked"] += 1
 
     avg_duration_ms = int(sum(completed_durations) / len(completed_durations)) if completed_durations else None
     return {
@@ -144,6 +172,19 @@ def collect_job_metrics() -> dict[str, object]:
                 [{"templateId": template_id, "count": count} for template_id, count in template_counts.items()],
                 key=lambda item: (-int(item["count"]), str(item["templateId"])),
             )[:10],
+            "performance": sorted(
+                [
+                    {
+                        "templateId": template_id,
+                        "total": stats["total"],
+                        "completed": stats["completed"],
+                        "failed": stats["failed"],
+                        "successRate": round((stats["completed"] / stats["total"]) * 100, 1) if stats["total"] else 0.0,
+                    }
+                    for template_id, stats in template_success.items()
+                ],
+                key=lambda item: (-int(item["total"]), str(item["templateId"])),
+            )[:10],
         },
         "steps": {
             "topFailures": sorted(
@@ -159,6 +200,10 @@ def collect_job_metrics() -> dict[str, object]:
             )[:10],
         },
         "longRunning": sorted(long_running, key=lambda item: -int(item.get("ageMs") or 0))[:10],
+        "trends": sorted(
+            [{"date": day, **counts} for day, counts in daily.items()],
+            key=lambda item: str(item["date"]),
+        )[-14:],
         "artifacts": artifact_summary(),
     }
 
@@ -378,6 +423,38 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
                 return
             self._json(HTTPStatus.CREATED, template)
+            return
+        if parsed.path.startswith("/templates/") and parsed.path.endswith("/clone"):
+            template_id = parsed.path.split("/")[2]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                data = {}
+            try:
+                template = clone_custom_template(
+                    template_id,
+                    new_template_id=clean_str(data.get("id")) or None,
+                    new_name=clean_str(data.get("name")) or None,
+                )
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.CREATED, template)
+            return
+        if parsed.path.startswith("/templates/") and parsed.path.endswith("/restore"):
+            template_id = parsed.path.split("/")[2]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            version = int(data.get("version", 0))
+            try:
+                template = restore_template_version(template_id, version)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, template)
             return
         if parsed.path == "/job":
             try:

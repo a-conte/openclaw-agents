@@ -24,12 +24,46 @@ The remaining work is primarily product hardening, operator experience, and deep
 6. Bootstrap automation
 7. More iPad polish
 
+## Progress Snapshot
+
+Completed or materially in place:
+
+- Better template management:
+  - template clone
+  - template restore
+  - required-input validation
+  - favorite / recommended metadata
+  - category and search UX
+- Richer observability:
+  - template success-rate metrics
+  - recent daily trend aggregation
+  - dashboard observability cards
+- Bootstrap automation:
+  - `docs/bootstrap-mac.md` is in place as the current bring-up guide
+- iPad polish:
+  - metrics, policy, artifact summary, and template metadata surfaces are already partially implemented
+
+Still meaningfully open:
+
+- true OpenClaw-core runtime integration rather than the current repo-local agent/client path
+- template version diff UX
+- median / p95 duration views
+- job lineage visualization
+- artifact export bundles and per-template retention
+- broader reusable workflow library
+- script-based Mac bootstrap
+- full tablet-first parity on iPad
+
 ## Wave 1
 
 ### 1. Real OpenClaw-Core Integration
 
 Goal:
 - Make automation jobs a first-class built-in execution path inside the broader OpenClaw runtime/tool layer, not just an adjacent HTTP/CLI system.
+
+Status:
+- In progress
+- Current state: repo-local agent/client execution is available via `apps/listen/client.py` and `POST /agent/execute`, but this is not yet a deeper built-in OpenClaw core-tool/runtime integration.
 
 Deliverables:
 - add a native OpenClaw tool or execution adapter that can:
@@ -55,13 +89,16 @@ Definition of done:
 Goal:
 - Turn templates from “usable config objects” into a proper operator product surface.
 
+Status:
+- Mostly implemented
+
 Deliverables:
-- clone template
-- diff template versions
-- restore older version
-- stronger validation for required inputs
-- mark templates as recommended or favorite
-- clearer category and search UX
+- [x] clone template
+- [ ] diff template versions
+- [x] restore older version
+- [x] stronger validation for required inputs
+- [x] mark templates as recommended or favorite
+- [x] clearer category and search UX
 
 Suggested commit slices:
 - `Add template clone and recommended flags`
@@ -71,17 +108,23 @@ Suggested commit slices:
 Definition of done:
 - operators can manage template lifecycle without editing raw JSON unless they choose to
 
+Remaining gap:
+- add version diff / compare UX rather than only list + restore
+
 ### 3. Richer Observability
 
 Goal:
 - Move from basic metrics to decision-grade observability.
 
+Status:
+- Partially implemented
+
 Deliverables:
-- time-series trend views
-- template success rate over time
-- median and p95 durations
-- per-step artifact counts and sizes
-- job lineage graph for retries and resumes
+- [x] time-series trend views
+- [x] template success rate over time
+- [ ] median and p95 durations
+- [ ] per-step artifact counts and sizes
+- [ ] job lineage graph for retries and resumes
 
 Suggested commit slices:
 - `Add time-series job metrics aggregation`
@@ -91,6 +134,9 @@ Suggested commit slices:
 Definition of done:
 - operators can identify regressions, slow templates, and retry hotspots from the product UI
 
+Remaining gap:
+- add percentile duration metrics, artifact-volume metrics, and retry lineage graphing
+
 ## Wave 2
 
 ### 4. Artifact Packaging And Retention Controls
@@ -98,11 +144,14 @@ Definition of done:
 Goal:
 - Make artifact storage operationally manageable as usage grows.
 
+Status:
+- Started
+
 Deliverables:
-- per-template retention rules
-- export/download-all for a single job
-- incident artifact bundles
-- optional compression for archived artifacts
+- [ ] per-template retention rules
+- [ ] export/download-all for a single job
+- [ ] incident artifact bundles
+- [ ] optional compression for archived artifacts
 
 Suggested commit slices:
 - `Add artifact export bundle endpoints`
@@ -117,12 +166,15 @@ Definition of done:
 Goal:
 - Increase practical leverage through reusable high-value templates.
 
+Status:
+- Started
+
 Deliverables:
-- repo repair loops
-- dashboard audit flows
-- browser auth/login/recovery flows
-- daemon restart and verification bundles
-- operator handoff bundles with note, screenshot, OCR, and summary
+- [ ] repo repair loops
+- [ ] dashboard audit flows
+- [ ] browser auth/login/recovery flows
+- [ ] daemon restart and verification bundles
+- [ ] operator handoff bundles with note, screenshot, OCR, and summary
 
 Suggested commit slices:
 - `Add repo repair and test-fix workflow templates`
@@ -140,11 +192,14 @@ Definition of done:
 Goal:
 - Replace the current manual bootstrap doc with an actual machine bring-up script.
 
+Status:
+- Started
+
 Deliverables:
-- dependency installer
-- permission verification checklist/script
-- Xcode/iOS project generation
-- `listen`, dashboard, and CLI sanity checks
+- [ ] dependency installer
+- [ ] permission verification checklist/script
+- [ ] Xcode/iOS project generation
+- [ ] `listen`, dashboard, and CLI sanity checks
 
 Suggested commit slices:
 - `Add Mac bootstrap script`
@@ -158,12 +213,15 @@ Definition of done:
 Goal:
 - Make the iPad app feel closer to the dashboard for daily operation.
 
+Status:
+- In progress
+
 Deliverables:
-- better artifact previews
-- template editing support
-- policy admin display
-- metrics views
-- stronger job detail navigation
+- [ ] better artifact previews
+- [ ] template editing support
+- [x] policy admin display
+- [x] metrics views
+- [x] stronger job detail navigation
 
 Suggested commit slices:
 - `Add iPad metrics and policy surfaces`

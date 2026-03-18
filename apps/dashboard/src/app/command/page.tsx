@@ -856,6 +856,8 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [clearing, setClearing] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [cloningTemplate, setCloningTemplate] = useState(false);
+  const [restoringTemplate, setRestoringTemplate] = useState<number | null>(null);
   const [pruningArtifacts, setPruningArtifacts] = useState(false);
   const [pruneDays, setPruneDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
@@ -1191,6 +1193,59 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     }
   }
 
+  async function cloneTemplate() {
+    if (!selectedTemplate) return;
+    const suggestedId = `${selectedTemplate.id}_copy`;
+    const nextId = window.prompt('Clone template as id', suggestedId)?.trim();
+    if (!nextId) return;
+    const nextName = window.prompt('Clone template as name', `${selectedTemplate.name} Copy`)?.trim();
+    setCloningTemplate(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/templates/${selectedTemplate.id}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: nextId, name: nextName || `${selectedTemplate.name} Copy` }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || 'Failed to clone template');
+        return;
+      }
+      await loadTemplates();
+      setSelectedTemplateId(result.id);
+      loadTemplateIntoDrafts(result);
+      await loadTemplateVersions(result.id);
+    } finally {
+      setCloningTemplate(false);
+    }
+  }
+
+  async function restoreTemplate(version: number) {
+    if (!selectedTemplate || selectedTemplate.builtIn) return;
+    if (!window.confirm(`Restore ${selectedTemplate.name} to version ${version}? This creates a new latest version.`)) return;
+    setRestoringTemplate(version);
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/templates/${selectedTemplate.id}/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || 'Failed to restore template version');
+        return;
+      }
+      await loadTemplates();
+      setSelectedTemplateId(result.id);
+      loadTemplateIntoDrafts(result);
+      await loadTemplateVersions(result.id);
+    } finally {
+      setRestoringTemplate(null);
+    }
+  }
+
   useEffect(() => {
     void loadPolicy();
     void loadPolicyAdmin();
@@ -1276,6 +1331,40 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                   </div>
                 </div>
               ) : null}
+              {jobMetrics.templates.performance.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Success Rate</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.templates.performance.slice(0, 4).map((item) => (
+                      <div key={item.templateId} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{item.templateId}</span>
+                          <span>{item.successRate}%</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">{item.completed}/{item.total} completed · {item.failed} failed</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {jobMetrics.trends.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">14 Day Trend</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.trends.slice(-4).map((item) => (
+                      <div key={item.date} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{item.date}</span>
+                          <span>{item.total} jobs</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">
+                          {item.completed} completed · {item.failed} failed · {item.blocked} blocked
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1297,11 +1386,21 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             <div className="mt-2 text-xs text-text-secondary">
               {selectedTemplate?.description || 'Apply a reusable starter flow to the builder.'}
             </div>
+            {selectedTemplate ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedTemplate.favorite ? <Badge color="#ffd166">favorite</Badge> : null}
+                {selectedTemplate.recommended ? <Badge color="#06d6a0">recommended</Badge> : null}
+                <Badge variant="outline">{selectedTemplate.category || 'uncategorized'}</Badge>
+              </div>
+            ) : null}
             {selectedTemplate?.version ? (
               <div className="mt-1 text-[11px] text-text-tertiary">Version {selectedTemplate.version}</div>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => applyTemplate(selectedTemplateId)}>Apply Template</Button>
+              <Button size="sm" variant="ghost" onClick={cloneTemplate} disabled={cloningTemplate || !selectedTemplate}>
+                {cloningTemplate ? <Loader2 size={12} className="animate-spin" /> : 'Clone'}
+              </Button>
               {selectedTemplate?.builtIn ? null : (
                 <Button size="sm" variant="ghost" onClick={deleteTemplate} disabled={deletingTemplate}>
                   {deletingTemplate ? <Loader2 size={12} className="animate-spin" /> : 'Delete'}
@@ -1329,7 +1428,14 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 <div className="space-y-1 text-xs text-text-secondary">
                   {templateVersions.slice().reverse().map((version) => (
                     <div key={`${version.version}-${version.updatedAt || 'builtin'}`} className="rounded-md border border-border bg-surface-2/70 px-2 py-2">
-                      <div className="font-semibold text-text-primary">v{version.version}{version.builtIn ? ' · built-in' : ''}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-text-primary">v{version.version}{version.builtIn ? ' · built-in' : ''}</div>
+                        {!selectedTemplate?.builtIn && version.version !== selectedTemplate?.version ? (
+                          <Button size="sm" variant="ghost" onClick={() => restoreTemplate(version.version)} disabled={restoringTemplate === version.version}>
+                            {restoringTemplate === version.version ? <Loader2 size={12} className="animate-spin" /> : 'Restore'}
+                          </Button>
+                        ) : null}
+                      </div>
                       <div>{version.updatedAt || 'bundled with app'}</div>
                       {version.description ? <div className="mt-1 text-text-tertiary">{version.description}</div> : null}
                     </div>

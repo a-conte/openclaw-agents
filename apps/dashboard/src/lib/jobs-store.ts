@@ -8,6 +8,7 @@ import type {
 } from '@openclaw/contracts';
 import {
   clearListenJobs,
+  cloneListenTemplate,
   createListenTemplate,
   createListenJob,
   deleteListenTemplate,
@@ -23,6 +24,7 @@ import {
   listListenJobs,
   pruneListenArtifacts,
   resumeListenJob,
+  restoreListenTemplate,
   retryListenJob,
   stopListenJob,
   updateListenTemplate,
@@ -116,6 +118,14 @@ export async function deleteJobTemplate(id: string) {
 
 export async function getJobTemplateVersions(id: string): Promise<JobTemplateVersionContract[]> {
   return listListenTemplateVersions(id);
+}
+
+export async function cloneJobTemplate(id: string, input?: { id?: string; name?: string }) {
+  return cloneListenTemplate(id, input);
+}
+
+export async function restoreJobTemplate(id: string, version: number) {
+  return restoreListenTemplate(id, version);
 }
 
 export async function getArtifactAdmin(): Promise<ArtifactAdminSummaryContract> {

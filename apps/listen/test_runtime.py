@@ -191,6 +191,59 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(versions[0]["version"], 1)
         self.assertEqual(versions[1]["version"], 2)
 
+    def test_clone_custom_template_copies_favorite_but_clears_recommended(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                cloned = workflow_templates.clone_custom_template("open_command_page", "open_command_page_clone", "Open Command Page Clone")
+        self.assertEqual(cloned["id"], "open_command_page_clone")
+        self.assertEqual(cloned["name"], "Open Command Page Clone")
+        self.assertFalse(cloned["recommended"])
+        self.assertFalse(cloned["builtIn"])
+
+    def test_restore_template_version_creates_new_latest_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "restorable",
+                        "name": "Restorable",
+                        "description": "v1",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v1"}]},
+                    }
+                )
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "restorable",
+                        "name": "Restorable",
+                        "description": "v2",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v2"}]},
+                    }
+                )
+                restored = workflow_templates.restore_template_version("restorable", 1)
+                versions = workflow_templates.list_template_versions("restorable")
+        self.assertEqual(restored["version"], 3)
+        self.assertEqual(restored["description"], "v1")
+        self.assertEqual(len(versions), 3)
+        self.assertEqual(versions[-1]["version"], 3)
+
+    def test_normalize_template_inputs_requires_required_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "required_template",
+                        "name": "Required Template",
+                        "description": "Requires input",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "ok"}]},
+                        "inputs": [{"key": "repo", "label": "Repo", "required": True, "defaultValue": ""}],
+                    }
+                )
+                with self.assertRaisesRegex(ValueError, "Missing required template input: repo"):
+                    workflow_templates.resolve_template("required_template", {})
+
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             jobs_dir = Path(tmp)
@@ -222,6 +275,7 @@ class ListenRuntimeTests(unittest.TestCase):
                         "mode": "workflow",
                         "status": "running",
                         "templateId": "open_command_page",
+                        "createdAt": "2026-03-18T00:00:00Z",
                         "startedAt": "2026-03-18T00:00:00Z",
                     }
                 ),
@@ -234,6 +288,7 @@ class ListenRuntimeTests(unittest.TestCase):
                         "mode": "workflow",
                         "status": "completed",
                         "templateId": "repo_status_check",
+                        "createdAt": "2026-03-18T00:00:00Z",
                         "startedAt": "2026-03-18T00:00:00Z",
                         "completedAt": "2026-03-18T00:00:05Z",
                         "stepStatus": [{"id": "step_1", "name": "Run test", "status": "failed"}],
@@ -247,6 +302,8 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(metrics["jobs"]["statusCounts"]["running"], 1)
         self.assertEqual(metrics["jobs"]["statusCounts"]["completed"], 1)
         self.assertTrue(metrics["templates"]["usage"])
+        self.assertTrue(metrics["templates"]["performance"])
+        self.assertTrue(metrics["trends"])
         self.assertTrue(metrics["steps"]["topFailures"])
 
 

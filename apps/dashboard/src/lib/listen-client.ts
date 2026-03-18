@@ -96,6 +96,20 @@ export async function deleteListenTemplate(templateId: string): Promise<{ ok?: b
   return listenFetch<{ ok?: boolean; deleted: string }>(`/templates/${templateId}`, { method: 'DELETE' });
 }
 
+export async function cloneListenTemplate(templateId: string, input?: { id?: string; name?: string }): Promise<ListenTemplate> {
+  return listenFetch<ListenTemplate>(`/templates/${templateId}/clone`, {
+    method: 'POST',
+    body: JSON.stringify(input || {}),
+  });
+}
+
+export async function restoreListenTemplate(templateId: string, version: number): Promise<ListenTemplate> {
+  return listenFetch<ListenTemplate>(`/templates/${templateId}/restore`, {
+    method: 'POST',
+    body: JSON.stringify({ version }),
+  });
+}
+
 export async function listListenTemplateVersions(templateId: string): Promise<JobTemplateVersionContract[]> {
   const payload = await listenFetch<{ versions: JobTemplateVersionContract[] }>(`/templates/${templateId}/versions`);
   return payload.versions;
