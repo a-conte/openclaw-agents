@@ -4,6 +4,7 @@ import {
   createListenJob,
   getListenJob,
   getListenPolicy,
+  listListenTemplates,
   listListenJobs,
   resumeListenJob,
   retryListenJob,
@@ -37,6 +38,8 @@ export async function createJob(input: {
   workflow?: string;
   args?: string[];
   workflowSpec?: Record<string, unknown>;
+  templateId?: string;
+  templateInputs?: Record<string, string>;
   thinking?: string;
   local?: boolean;
 }): Promise<JobContract> {
@@ -48,6 +51,8 @@ export async function createJob(input: {
     workflow: input.workflow,
     args: input.args,
     workflowSpec: input.workflowSpec,
+    templateId: input.templateId,
+    templateInputs: input.templateInputs,
     thinking: input.thinking,
     local: input.local,
   });
@@ -74,4 +79,8 @@ export async function clearJobs() {
 
 export async function getJobsPolicy() {
   return getListenPolicy();
+}
+
+export async function getJobTemplates() {
+  return listListenTemplates();
 }

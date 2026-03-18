@@ -82,6 +82,8 @@ export interface JobContract {
   command?: string | null;
   workflow?: string | null;
   workflowSpec?: Record<string, unknown> | null;
+  templateId?: string | null;
+  templateInputs?: Record<string, string> | null;
   args?: string[];
   thinking?: string | null;
   local?: boolean;
@@ -144,6 +146,19 @@ export interface JobContract {
   completedAt?: string;
   result?: unknown;
   error?: string;
+}
+
+export interface JobTemplateContract {
+  id: string;
+  name: string;
+  description: string;
+  inputs?: Array<{
+    key: string;
+    label: string;
+    description?: string;
+    required?: boolean;
+    defaultValue?: string;
+  }>;
 }
 
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {

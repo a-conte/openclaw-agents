@@ -34,6 +34,15 @@
     "workflowSpec": {
       "type": ["object", "null"]
     },
+    "templateId": {
+      "type": ["string", "null"]
+    },
+    "templateInputs": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "args": {
       "type": "array",
       "items": { "type": "string" }

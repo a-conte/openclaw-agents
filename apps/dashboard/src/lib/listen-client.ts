@@ -1,4 +1,4 @@
-import type { JobContract } from '@openclaw/contracts';
+import type { JobContract, JobTemplateContract } from '@openclaw/contracts';
 
 const DEFAULT_BASE_URL = process.env.OPENCLAW_LISTEN_BASE_URL?.trim() || 'http://127.0.0.1:7600';
 
@@ -12,6 +12,8 @@ type CreateAutomationJobInput = {
   workflow?: string;
   args?: string[];
   workflowSpec?: Record<string, unknown>;
+  templateId?: string;
+  templateInputs?: Record<string, string>;
 };
 
 export type ListenPolicy = {
@@ -21,6 +23,8 @@ export type ListenPolicy = {
   allowedDriveCommands?: string[];
   allowedWorkflows?: string[];
 };
+
+export type ListenTemplate = JobTemplateContract;
 
 function buildUrl(path: string) {
   return `${DEFAULT_BASE_URL}${path}`;
@@ -53,6 +57,11 @@ export async function getListenPolicy(): Promise<ListenPolicy> {
   return listenFetch<ListenPolicy>('/policy');
 }
 
+export async function listListenTemplates(): Promise<ListenTemplate[]> {
+  const payload = await listenFetch<{ templates: ListenTemplate[] }>('/templates');
+  return payload.templates;
+}
+
 export async function getListenJob(jobId: string): Promise<JobContract> {
   return listenFetch<JobContract>(`/job/${jobId}`);
 }
@@ -70,6 +79,8 @@ export async function createListenJob(input: CreateAutomationJobInput): Promise<
       workflow: input.workflow,
       args: input.args ?? [],
       workflowSpec: input.workflowSpec,
+      templateId: input.templateId,
+      templateInputs: input.templateInputs,
     }),
   });
   return getListenJob(created.job_id);

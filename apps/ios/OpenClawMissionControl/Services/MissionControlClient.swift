@@ -3,11 +3,13 @@ import Foundation
 protocol MissionControlClient {
     func loadInitialSnapshot() async throws -> DashboardSnapshot
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
+    func listJobTemplates() async throws -> [JobTemplate]
     func submitJob(request: JobRequest) async throws -> Job
     func listJobs(archived: Bool) async throws -> [Job]
     func jobPolicy() async throws -> JobPolicy
     func stopJob(id: String) async throws
     func retryJob(id: String) async throws -> Job
+    func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job
     func clearJobs() async throws
     func listTasks() async throws -> [TaskItem]
     func listWorkflowRuns() async throws -> [WorkflowRun]
@@ -28,6 +30,10 @@ struct PreviewMissionControlClient: MissionControlClient {
         Job.preview
     }
 
+    func listJobTemplates() async throws -> [JobTemplate] {
+        []
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         [Job.preview]
     }
@@ -40,6 +46,10 @@ struct PreviewMissionControlClient: MissionControlClient {
     }
 
     func retryJob(id: String) async throws -> Job {
+        Job.preview
+    }
+
+    func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job {
         Job.preview
     }
 
@@ -81,6 +91,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
         throw ConfigurationError.missingBaseURL
     }
 
+    func listJobTemplates() async throws -> [JobTemplate] {
+        throw ConfigurationError.missingBaseURL
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         throw ConfigurationError.missingBaseURL
     }
@@ -94,6 +108,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func retryJob(id: String) async throws -> Job {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -175,6 +193,12 @@ struct HTTPMissionControlClient: MissionControlClient {
         return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
     }
 
+    func listJobTemplates() async throws -> [JobTemplate] {
+        let url = baseURL.appending(path: "/api/jobs/templates")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([JobTemplate].self, from: data)
+    }
+
     func listJobs(archived: Bool = false) async throws -> [Job] {
         var url = baseURL.appending(path: "/api/jobs")
         if archived {
@@ -201,6 +225,16 @@ struct HTTPMissionControlClient: MissionControlClient {
         let url = baseURL.appending(path: "/api/jobs/\(id)/retry")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
+    }
+
+    func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job {
+        let url = baseURL.appending(path: "/api/jobs/\(id)/retry")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(JobResumeRequest(mode: mode, resumeFromStepId: resumeFromStepId))
         let (data, _) = try await session.data(for: request)
         return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
     }
@@ -256,6 +290,8 @@ struct MissionControlEventPayload: Codable, Equatable {
     let command: String?
     let workflow: String?
     let workflowSpec: JSONValue?
+    let templateId: String?
+    let templateInputs: [String: String]?
     let args: [String]?
     let createdAt: Date?
     let startedAt: Date?
@@ -302,6 +338,8 @@ struct MissionControlEventPayload: Codable, Equatable {
             command: command,
             workflow: workflow,
             workflowSpec: workflowSpec,
+            templateId: templateId,
+            templateInputs: templateInputs ?? [:],
             args: args,
             createdAt: createdAt,
             startedAt: startedAt,
@@ -330,9 +368,16 @@ struct JobRequest: Codable {
     let command: String?
     let workflow: String?
     let workflowSpec: JSONValue?
+    let templateId: String?
+    let templateInputs: [String: String]?
     let args: [String]
     let thinking: String?
     let local: Bool
+}
+
+private struct JobResumeRequest: Codable {
+    let mode: String
+    let resumeFromStepId: String?
 }
 
 enum JSONValue: Codable, Equatable {

@@ -10,6 +10,8 @@ struct Job: Codable, Identifiable, Equatable {
     let command: String?
     let workflow: String?
     let workflowSpec: JSONValue?
+    let templateId: String?
+    let templateInputs: [String: String]
     let args: [String]?
     let createdAt: Date
     var startedAt: Date?
@@ -38,6 +40,8 @@ struct Job: Codable, Identifiable, Equatable {
         command: nil,
         workflow: "safari_open_command_page",
         workflowSpec: nil,
+        templateId: "open_command_page",
+        templateInputs: ["url": "http://localhost:3000/command"],
         args: [],
         createdAt: Date(),
         startedAt: Date(),
@@ -66,6 +70,8 @@ struct Job: Codable, Identifiable, Equatable {
         command: String?,
         workflow: String?,
         workflowSpec: JSONValue?,
+        templateId: String? = nil,
+        templateInputs: [String: String] = [:],
         args: [String]?,
         createdAt: Date,
         startedAt: Date? = nil,
@@ -93,6 +99,8 @@ struct Job: Codable, Identifiable, Equatable {
         self.command = command
         self.workflow = workflow
         self.workflowSpec = workflowSpec
+        self.templateId = templateId
+        self.templateInputs = templateInputs
         self.args = args
         self.createdAt = createdAt
         self.startedAt = startedAt
@@ -122,6 +130,8 @@ struct Job: Codable, Identifiable, Equatable {
         case command
         case workflow
         case workflowSpec
+        case templateId
+        case templateInputs
         case args
         case createdAt
         case startedAt
@@ -152,6 +162,8 @@ struct Job: Codable, Identifiable, Equatable {
         command = try container.decodeIfPresent(String.self, forKey: .command)
         workflow = try container.decodeIfPresent(String.self, forKey: .workflow)
         workflowSpec = try container.decodeIfPresent(JSONValue.self, forKey: .workflowSpec)
+        templateId = try container.decodeIfPresent(String.self, forKey: .templateId)
+        templateInputs = try container.decodeIfPresent([String: String].self, forKey: .templateInputs) ?? [:]
         args = try container.decodeIfPresent([String].self, forKey: .args)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)
@@ -239,8 +251,9 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
     let completedAt: Date?
     let result: String?
     let error: String?
+    let artifacts: [String: JSONValue]
 
-    init(id: String, name: String, type: String, status: JobStepState, dangerous: Bool?, startedAt: Date?, completedAt: Date?, result: String?, error: String?) {
+    init(id: String, name: String, type: String, status: JobStepState, dangerous: Bool?, startedAt: Date?, completedAt: Date?, result: String?, error: String?, artifacts: [String: JSONValue] = [:]) {
         self.id = id
         self.name = name
         self.type = type
@@ -250,6 +263,7 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
         self.completedAt = completedAt
         self.result = result
         self.error = error
+        self.artifacts = artifacts
     }
 
     init(from decoder: Decoder) throws {
@@ -269,6 +283,7 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
             result = nil
         }
         error = try container.decodeIfPresent(String.self, forKey: .error)
+        artifacts = try container.decodeIfPresent([String: JSONValue].self, forKey: .artifacts) ?? [:]
     }
 }
 
@@ -283,7 +298,7 @@ struct JobPolicy: Codable, Equatable {
 }
 
 struct JobAttempt: Codable, Equatable, Identifiable {
-    var id: String { jobId ?? "\(attempt)-\(status ?? "unknown")" }
+    var id: String { jobId ?? "\(attempt ?? 0)-\(status ?? "unknown")" }
     let jobId: String?
     let attempt: Int?
     let status: String?
@@ -291,4 +306,20 @@ struct JobAttempt: Codable, Equatable, Identifiable {
     let resumeFromStepId: String?
     let completedAt: Date?
     let summary: String?
+}
+
+struct JobTemplate: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let description: String
+    let inputs: [JobTemplateInput]
+}
+
+struct JobTemplateInput: Codable, Equatable, Identifiable {
+    var id: String { key }
+    let key: String
+    let label: String
+    let description: String?
+    let required: Bool?
+    let defaultValue: String?
 }

@@ -37,6 +37,10 @@ private struct EmptyStreamClient: MissionControlClient {
         Job.preview
     }
 
+    func listJobTemplates() async throws -> [JobTemplate] {
+        []
+    }
+
     func listJobs(archived: Bool) async throws -> [Job] {
         []
     }
@@ -49,6 +53,10 @@ private struct EmptyStreamClient: MissionControlClient {
     }
 
     func retryJob(id: String) async throws -> Job {
+        Job.preview
+    }
+
+    func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job {
         Job.preview
     }
 

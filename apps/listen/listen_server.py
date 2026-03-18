@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from policy import check_command_policy, check_workflow_policy, current_policy
+from workflow_templates import get_template, list_templates
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -95,8 +96,12 @@ def new_job_payload(
     command_raw = data.get("command")
     workflow_raw = data.get("workflow")
     workflow_spec = data.get("workflowSpec")
+    template_id_raw = data.get("templateId")
+    template_inputs_raw = data.get("templateInputs")
     command = command_raw.strip() if isinstance(command_raw, str) else ""
     workflow = workflow_raw.strip() if isinstance(workflow_raw, str) else ""
+    template_id = template_id_raw.strip() if isinstance(template_id_raw, str) else ""
+    template_inputs = template_inputs_raw if isinstance(template_inputs_raw, dict) else {}
     raw_args = data.get("args", [])
     cmd_args = [str(item) for item in raw_args] if isinstance(raw_args, list) else []
     target_agent = clean_str(data.get("targetAgent")) or "main"
@@ -113,6 +118,8 @@ def new_job_payload(
         "command": command or None,
         "workflow": workflow or None,
         "workflowSpec": workflow_spec if isinstance(workflow_spec, dict) else None,
+        "templateId": template_id or None,
+        "templateInputs": template_inputs or None,
         "args": cmd_args or [],
         "targetAgent": target_agent,
         "status": "running",
@@ -145,6 +152,7 @@ def validate_job_request(data: dict[str, object]) -> str | None:
     command = clean_str(data.get("command"))
     workflow = clean_str(data.get("workflow"))
     workflow_spec = data.get("workflowSpec")
+    template_id = clean_str(data.get("templateId"))
     raw_args = data.get("args", [])
     cmd_args = [str(item) for item in raw_args] if isinstance(raw_args, list) else []
 
@@ -154,12 +162,14 @@ def validate_job_request(data: dict[str, object]) -> str | None:
         return "prompt is required"
     if mode in {"steer", "drive"} and not command:
         return "command is required"
-    if mode == "workflow" and not workflow and not isinstance(workflow_spec, dict):
-        return "workflow or workflowSpec is required"
+    if mode == "workflow" and not workflow and not isinstance(workflow_spec, dict) and not template_id:
+        return "workflow, workflowSpec, or templateId is required"
     if mode in {"steer", "drive"}:
         allowed, reason = check_command_policy(mode, command, cmd_args)
         if not allowed:
             return reason
+    if mode == "workflow" and template_id and get_template(template_id) is None:
+        return f"Unknown workflow template: {template_id}"
     if mode == "workflow" and workflow:
         allowed, reason = check_workflow_policy(workflow)
         if not allowed:
@@ -260,6 +270,8 @@ class Handler(BaseHTTPRequestHandler):
                 "command": job.get("command"),
                 "workflow": job.get("workflow"),
                 "workflowSpec": job.get("workflowSpec"),
+                "templateId": job.get("templateId"),
+                "templateInputs": job.get("templateInputs"),
                 "args": job.get("args", []),
             }
             error = validate_job_request(payload)
@@ -298,6 +310,9 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/policy":
             self._json(HTTPStatus.OK, current_policy())
+            return
+        if parsed.path == "/templates":
+            self._json(HTTPStatus.OK, {"templates": list_templates()})
             return
         if parsed.path == "/jobs":
             archived = parse_qs(parsed.query).get("archived", ["false"])[0] == "true"

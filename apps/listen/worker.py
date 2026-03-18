@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from policy import check_command_policy, check_step_policy, check_workflow_policy, current_policy
+from workflow_templates import resolve_template
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -555,6 +556,8 @@ def main() -> None:
     workflow = str(job.get("workflow") or "").strip()
     cmd_args = [str(item) for item in job.get("args", []) if str(item).strip()]
     workflow_spec = job.get("workflowSpec")
+    template_id = str(job.get("templateId") or "").strip()
+    template_inputs = job.get("templateInputs") if isinstance(job.get("templateInputs"), dict) else {}
     session = str(job.get("session", f"listen-{args.job_id}"))
     target_agent = str(job.get("targetAgent", "main"))
     thinking_raw = job.get("thinking")
@@ -609,7 +612,10 @@ def main() -> None:
             job["error"] = None if final.get("ok") else str(final.get("error") or "drive command failed")
             job["summary"] = f"Drive command {command} {'completed' if final.get('ok') else 'failed'}"
         elif mode == "workflow":
-            if isinstance(workflow_spec, dict):
+            if template_id:
+                spec, normalized_inputs = resolve_template(template_id, template_inputs)
+                job["templateInputs"] = normalized_inputs
+            elif isinstance(workflow_spec, dict):
                 spec = workflow_spec
             else:
                 allowed, reason = check_workflow_policy(workflow)
@@ -620,7 +626,7 @@ def main() -> None:
             job["status"] = "completed"
             job["result"] = payload
             job["error"] = None
-            job["summary"] = f"Workflow {'spec' if isinstance(workflow_spec, dict) else workflow} completed"
+            job["summary"] = f"Workflow {template_id or ('spec' if isinstance(workflow_spec, dict) else workflow)} completed"
         else:
             job["status"] = "completed"
             job["result"] = {"ok": True, "message": f"Recorded prompt: {prompt}"}
@@ -639,7 +645,7 @@ def main() -> None:
         if "timed out" in str(exc).lower():
             job["timedOut"] = True
         if mode == "workflow":
-            job["summary"] = f"Workflow {'spec' if isinstance(workflow_spec, dict) else workflow} failed"
+            job["summary"] = f"Workflow {template_id or ('spec' if isinstance(workflow_spec, dict) else workflow)} failed"
         else:
             job["summary"] = f"{mode.capitalize()} job failed"
 

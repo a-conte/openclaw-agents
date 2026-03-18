@@ -27,8 +27,12 @@ def main() -> None:
     start.add_argument("--local", action="store_true")
     start.add_argument("--command")
     start.add_argument("--workflow")
+    start.add_argument("--template")
+    start.add_argument("--input", action="append", default=[])
     start.add_argument("--arg", action="append", default=[])
     start.add_argument("--workflow-spec-file")
+
+    sub.add_parser("templates")
 
     get = sub.add_parser("get")
     get.add_argument("--job-id", required=True)
@@ -56,12 +60,18 @@ def main() -> None:
             raise SystemExit("--prompt is required for agent, shell, and note modes")
         if args.mode in {"steer", "drive"} and not args.command:
             raise SystemExit("--command is required for steer and drive modes")
-        if args.mode == "workflow" and not args.workflow and not args.workflow_spec_file:
-            raise SystemExit("--workflow or --workflow-spec-file is required for workflow mode")
+        if args.mode == "workflow" and not args.workflow and not args.workflow_spec_file and not args.template:
+            raise SystemExit("--workflow, --template, or --workflow-spec-file is required for workflow mode")
         workflow_spec = None
         if args.workflow_spec_file:
             with open(args.workflow_spec_file, "r", encoding="utf-8") as handle:
                 workflow_spec = json.load(handle)
+        template_inputs: dict[str, str] = {}
+        for item in args.input:
+            if "=" not in item:
+                raise SystemExit("--input must use key=value")
+            key, value = item.split("=", 1)
+            template_inputs[key.strip()] = value.strip()
         payload = {
             "prompt": args.prompt,
             "mode": args.mode,
@@ -70,10 +80,16 @@ def main() -> None:
             "local": args.local,
             "command": args.command,
             "workflow": args.workflow,
+            "templateId": args.template,
+            "templateInputs": template_inputs or None,
             "args": args.arg,
             "workflowSpec": workflow_spec,
         }
         print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))
+        return
+
+    if args.subcommand == "templates":
+        print(json.dumps(request_json(f"{base}/templates"), indent=2))
         return
 
     if args.subcommand == "get":

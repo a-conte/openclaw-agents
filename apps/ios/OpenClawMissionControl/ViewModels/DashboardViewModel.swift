@@ -10,6 +10,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var workflowRuns: [WorkflowRun] = []
     @Published private(set) var archivedJobs: [Job] = []
     @Published private(set) var jobPolicy: JobPolicy?
+    @Published private(set) var jobTemplates: [JobTemplate] = []
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
@@ -134,6 +135,9 @@ final class DashboardViewModel: ObservableObject {
             if jobPolicy == nil {
                 jobPolicy = try? await client.jobPolicy()
             }
+            if jobTemplates.isEmpty {
+                jobTemplates = (try? await client.listJobTemplates()) ?? []
+            }
         } catch {
             if !Task.isCancelled {
                 errorMessage = error.localizedDescription
@@ -192,6 +196,16 @@ final class DashboardViewModel: ObservableObject {
     func retryJob(id: String) async {
         do {
             let job = try await client.retryJob(id: id)
+            jobs.insert(job, at: 0)
+            await loadJobs()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func resumeJob(id: String, mode: String, resumeFromStepId: String? = nil) async {
+        do {
+            let job = try await client.resumeJob(id: id, mode: mode, resumeFromStepId: resumeFromStepId)
             jobs.insert(job, at: 0)
             await loadJobs()
         } catch {

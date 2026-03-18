@@ -6,20 +6,15 @@ struct JobSubmitView: View {
     @State private var selectedAgent = "main"
     @State private var selectedMode: JobMode = .agent
     @State private var command = ""
-    @State private var workflow = "safari_open_command_page"
     @State private var rawArgs = ""
     @State private var showArchived = false
     @State private var isSubmitting = false
     @State private var isClearing = false
+    @State private var selectedTemplateId = ""
+    @State private var templateInputs: [String: String] = [:]
+    @State private var selectedJob: Job?
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
-    private let workflows = [
-        "safari_open_command_page",
-        "safari_recover_localhost_command",
-        "safari_wait_and_click_ui",
-        "textedit_new_set_text",
-        "notes_create"
-    ]
 
     var body: some View {
         ScrollView {
@@ -40,7 +35,54 @@ struct JobSubmitView: View {
         .task {
             await viewModel.loadJobs()
             await viewModel.loadArchivedJobs()
+            initializeSelectedTemplateIfNeeded()
         }
+        .onChange(of: viewModel.jobTemplates) { _, _ in
+            initializeSelectedTemplateIfNeeded()
+        }
+        .onChange(of: selectedTemplateId) { _, _ in
+            if let template = selectedTemplate {
+                seedTemplateInputs(for: template)
+            }
+        }
+        .sheet(item: $selectedJob) { job in
+            JobDetailSheet(
+                job: job,
+                showArchived: showArchived,
+                stopAction: showArchived || job.status != .running ? nil : {
+                    _ = Task<Void, Never> {
+                        await viewModel.stopJob(id: job.id)
+                        await viewModel.loadJobs()
+                        selectedJob = currentJob(for: job.id)
+                    }
+                },
+                resumeFailedAction: job.status == .failed || job.status == .stopped ? {
+                    _ = Task<Void, Never> {
+                        await viewModel.resumeJob(id: job.id, mode: "resume_failed")
+                        await viewModel.loadJobs()
+                        selectedJob = currentJob(for: job.id)
+                    }
+                } : nil,
+                rerunAllAction: job.status == .failed || job.status == .stopped ? {
+                    _ = Task<Void, Never> {
+                        await viewModel.resumeJob(id: job.id, mode: "rerun_all")
+                        await viewModel.loadJobs()
+                        selectedJob = currentJob(for: job.id)
+                    }
+                } : nil,
+                resumeStepAction: { stepId in
+                    _ = Task<Void, Never> {
+                        await viewModel.resumeJob(id: job.id, mode: "resume_from", resumeFromStepId: stepId)
+                        await viewModel.loadJobs()
+                        selectedJob = currentJob(for: job.id)
+                    }
+                }
+            )
+        }
+    }
+
+    private var selectedTemplate: JobTemplate? {
+        viewModel.jobTemplates.first(where: { $0.id == selectedTemplateId })
     }
 
     private var submitForm: some View {
@@ -91,15 +133,42 @@ struct JobSubmitView: View {
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
             case .workflow:
-                Picker("Workflow", selection: $workflow) {
-                    ForEach(workflows, id: \.self) { item in
-                        Text(item).tag(item)
+                if viewModel.jobTemplates.isEmpty {
+                    Text("No workflow templates available.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Template", selection: $selectedTemplateId) {
+                        ForEach(viewModel.jobTemplates) { template in
+                            Text(template.name).tag(template.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if let template = selectedTemplate {
+                        Text(template.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(template.inputs) { input in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(input.label)
+                                    .font(.caption.weight(.semibold))
+                                TextField(input.defaultValue ?? input.label, text: Binding(
+                                    get: { templateInputs[input.key] ?? input.defaultValue ?? "" },
+                                    set: { templateInputs[input.key] = $0 }
+                                ), axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .lineLimit(1...3)
+                                if let description = input.description, !description.isEmpty {
+                                    Text(description)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                 }
-                .pickerStyle(.menu)
-                TextField("Args (comma separated)", text: $rawArgs, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
             }
 
             HStack(spacing: 12) {
@@ -111,6 +180,9 @@ struct JobSubmitView: View {
                         prompt = ""
                         command = ""
                         rawArgs = ""
+                        if let template = selectedTemplate {
+                            seedTemplateInputs(for: template)
+                        }
                     }
                 } label: {
                     if isSubmitting {
@@ -156,15 +228,20 @@ struct JobSubmitView: View {
                 ContentUnavailableView(showArchived ? "No archived jobs" : "No jobs", systemImage: "tray", description: Text("Submitted automation jobs will appear here."))
             } else {
                 ForEach(items) { job in
-                    JobCardView(
-                        job: job,
-                        stopAction: showArchived || job.status != .running ? nil : {
-                            _ = Task<Void, Never> { await viewModel.stopJob(id: job.id) }
-                        },
-                        retryAction: job.status == .failed || job.status == .stopped ? {
-                            _ = Task<Void, Never> { await viewModel.retryJob(id: job.id) }
-                        } : nil
-                    )
+                    Button {
+                        selectedJob = job
+                    } label: {
+                        JobCardView(
+                            job: job,
+                            stopAction: showArchived || job.status != .running ? nil : {
+                                _ = Task<Void, Never> { await viewModel.stopJob(id: job.id) }
+                            },
+                            retryAction: job.status == .failed || job.status == .stopped ? {
+                                _ = Task<Void, Never> { await viewModel.resumeJob(id: job.id, mode: "resume_failed") }
+                            } : nil
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -177,8 +254,28 @@ struct JobSubmitView: View {
         case .steer, .drive:
             return !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .workflow:
-            return !workflow.isEmpty
+            return selectedTemplate != nil
         }
+    }
+
+    private func initializeSelectedTemplateIfNeeded() {
+        if selectedTemplateId.isEmpty, let first = viewModel.jobTemplates.first {
+            selectedTemplateId = first.id
+            seedTemplateInputs(for: first)
+        }
+    }
+
+    private func seedTemplateInputs(for template: JobTemplate) {
+        var seeded: [String: String] = [:]
+        for input in template.inputs {
+            seeded[input.key] = templateInputs[input.key] ?? input.defaultValue ?? ""
+        }
+        templateInputs = seeded
+    }
+
+    private func currentJob(for id: String) -> Job? {
+        let source = showArchived ? viewModel.archivedJobs : viewModel.jobs
+        return source.first(where: { $0.id == id })
     }
 
     private func buildRequest() -> JobRequest {
@@ -187,8 +284,10 @@ struct JobSubmitView: View {
             mode: selectedMode.rawValue,
             targetAgent: selectedAgent,
             command: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command.trimmingCharacters(in: .whitespacesAndNewlines),
-            workflow: workflow.isEmpty ? nil : workflow,
+            workflow: nil,
             workflowSpec: nil,
+            templateId: selectedMode == .workflow ? selectedTemplate?.id : nil,
+            templateInputs: selectedMode == .workflow ? templateInputs : nil,
             args: rawArgs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty },
             thinking: nil,
             local: false
@@ -220,83 +319,31 @@ private struct JobCardView: View {
                     .foregroundStyle(statusColor)
             }
 
-            if !job.prompt.isEmpty {
-                Text(job.prompt)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-            }
-
             if let summary = job.summary, !summary.isEmpty {
                 Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(3)
             }
 
             Text("Attempt \(job.attempt)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-            if let retryMode = job.retryMode, !retryMode.isEmpty {
-                Text("Retry mode: \(retryMode)")
+            if let templateId = job.templateId, !templateId.isEmpty {
+                Text("Template: \(templateId)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-            }
-
-            if let resumeFromStepId = job.resumeFromStepId, !resumeFromStepId.isEmpty {
-                Text("Resume from: \(resumeFromStepId)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let result = job.result, !result.isEmpty {
-                Text(result)
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .lineLimit(4)
-            }
-
-            if let error = job.error {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(4)
-            }
-
-            if !job.updates.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(job.updates.suffix(3)) { update in
-                        Text("• \(update.message)")
-                            .font(.caption2)
-                            .foregroundStyle(update.level == .error ? .red : .secondary)
-                    }
-                }
             }
 
             if !job.stepStatus.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(job.stepStatus.suffix(4)) { step in
+                    ForEach(job.stepStatus.suffix(3)) { step in
                         Text("• \(step.name) · \(step.status.rawValue)")
                             .font(.caption2)
                             .foregroundStyle(step.status == .failed ? .red : .secondary)
                     }
                 }
-            }
-
-            if !job.history.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(job.history.suffix(3)) { attempt in
-                        Text("• #\(attempt.attempt ?? 0) · \(attempt.status ?? "unknown")")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if let policy = job.policy, !policy.allowed, let reason = policy.reason {
-                Text(reason)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
             }
 
             HStack {
@@ -305,7 +352,7 @@ private struct JobCardView: View {
                         .buttonStyle(.bordered)
                 }
                 if let retryAction, job.status == .failed || job.status == .stopped {
-                    Button("Retry", action: retryAction)
+                    Button("Resume Failed", action: retryAction)
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -316,6 +363,9 @@ private struct JobCardView: View {
     }
 
     private var title: String {
+        if let templateId = job.templateId, !templateId.isEmpty {
+            return templateId
+        }
         if let workflow = job.workflow, !workflow.isEmpty {
             return workflow
         }
@@ -333,5 +383,157 @@ private struct JobCardView: View {
         case .failed: return .red
         case .stopped: return .orange
         }
+    }
+}
+
+private struct JobDetailSheet: View {
+    let job: Job
+    let showArchived: Bool
+    let stopAction: (() -> Void)?
+    let resumeFailedAction: (() -> Void)?
+    let rerunAllAction: (() -> Void)?
+    let resumeStepAction: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(job.templateId ?? job.workflow ?? job.command ?? job.mode?.rawValue.capitalized ?? "Job")
+                            .font(.title.bold())
+                        Text("Attempt \(job.attempt)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let summary = job.summary, !summary.isEmpty {
+                            Text(summary)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let error = job.error {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+
+                    if !job.templateInputs.isEmpty {
+                        detailCard(title: "Template Inputs") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(job.templateInputs.keys.sorted(), id: \.self) { key in
+                                    Text("\(key): \(job.templateInputs[key] ?? "")")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    detailCard(title: "Attempt History") {
+                        if job.history.isEmpty {
+                            Text("No prior attempts recorded.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(job.history) { attempt in
+                                    Text("#\(attempt.attempt ?? 0) · \(attempt.status ?? "unknown")\(attempt.resumeFromStepId.map { " · from \($0)" } ?? "")")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    detailCard(title: "Steps") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(job.stepStatus) { step in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(step.name)
+                                                .font(.headline)
+                                            Text("\(step.type) · \(step.status.rawValue)")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        if (job.status == .failed || job.status == .stopped) && !showArchived {
+                                            Button("Resume Here") {
+                                                resumeStepAction(step.id)
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
+                                    }
+                                    if let result = step.result, !result.isEmpty {
+                                        Text(result)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let error = step.error {
+                                        Text(error)
+                                            .font(.caption)
+                                            .foregroundStyle(.red)
+                                    }
+                                    if !step.artifacts.isEmpty {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            ForEach(step.artifacts.keys.sorted(), id: \.self) { key in
+                                                Text("\(key): \(step.artifacts[key]?.displayString ?? "")")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(14)
+                                .background(.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
+
+                    if !job.updates.isEmpty {
+                        detailCard(title: "Recent Updates") {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(job.updates.suffix(10)) { update in
+                                    Text("• \(update.message)")
+                                        .font(.caption)
+                                        .foregroundStyle(update.level == .error ? .red : .secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(24)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Job Detail")
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if let stopAction {
+                        Button("Stop", action: stopAction)
+                    }
+                    if let resumeFailedAction {
+                        Button("Resume Failed", action: resumeFailedAction)
+                    }
+                    if let rerunAllAction {
+                        Button("Rerun All", action: rerunAllAction)
+                    }
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func detailCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+        .padding(18)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

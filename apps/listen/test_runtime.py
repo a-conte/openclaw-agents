@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import listen_server
 import worker
+import workflow_templates
 
 
 class ListenRuntimeTests(unittest.TestCase):
@@ -73,6 +74,21 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(artifacts["exitCode"], 0)
         self.assertEqual(artifacts["screenshot"], "/tmp/example.png")
         self.assertEqual(artifacts["matches"][0]["text"], "Reload this page")
+
+    def test_validate_job_request_accepts_known_template_id(self) -> None:
+        error = listen_server.validate_job_request(
+            {
+                "mode": "workflow",
+                "templateId": "open_command_page",
+            }
+        )
+        self.assertIsNone(error)
+
+    def test_resolve_template_builds_browser_snapshot_review(self) -> None:
+        spec, inputs = workflow_templates.resolve_template("browser_snapshot_review", {"url": "http://localhost:3000/command"})
+        self.assertEqual(inputs["url"], "http://localhost:3000/command")
+        self.assertEqual(spec["steps"][0]["type"], "steer")
+        self.assertEqual(spec["steps"][-1]["command"], "ocr")
 
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
