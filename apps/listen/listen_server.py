@@ -16,9 +16,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from artifacts import archive_all_active_artifacts, archive_job_artifacts, list_job_artifacts, resolve_job_artifact
+from artifacts import (
+    archive_all_active_artifacts,
+    archive_job_artifacts,
+    artifact_summary,
+    list_job_artifacts,
+    prune_archived_artifacts,
+    resolve_job_artifact,
+)
 from policy import check_command_policy, check_workflow_policy, current_policy
-from workflow_templates import get_template, list_templates
+from workflow_templates import delete_custom_template, get_template, list_custom_templates, list_templates, save_custom_template
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -235,6 +242,33 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/jobs/clear":
             self._json(HTTPStatus.OK, {"archived": archive_jobs()})
             return
+        if parsed.path == "/artifacts/prune":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            days = data.get("olderThanDays", 30)
+            try:
+                result = prune_archived_artifacts(int(days))
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, result)
+            return
+        if parsed.path == "/templates":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            try:
+                template = save_custom_template(data)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.CREATED, template)
+            return
         if parsed.path == "/job":
             try:
                 data = self._read_json()
@@ -312,11 +346,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/artifacts/admin":
+            self._json(HTTPStatus.OK, artifact_summary())
+            return
         if parsed.path == "/policy":
             self._json(HTTPStatus.OK, current_policy())
             return
         if parsed.path == "/templates":
             self._json(HTTPStatus.OK, {"templates": list_templates()})
+            return
+        if parsed.path == "/templates/custom":
+            self._json(HTTPStatus.OK, {"templates": list_custom_templates()})
             return
         if parsed.path == "/jobs":
             archived = parse_qs(parsed.query).get("archived", ["false"])[0] == "true"
@@ -369,6 +409,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/templates/"):
+            template_id = parsed.path.rsplit("/", 1)[-1]
+            if not template_id:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "template id required"})
+                return
+            deleted = delete_custom_template(template_id)
+            if not deleted:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "template not found"})
+                return
+            self._json(HTTPStatus.OK, {"ok": True, "deleted": template_id})
+            return
         if not parsed.path.startswith("/job/"):
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
@@ -390,6 +441,25 @@ class Handler(BaseHTTPRequestHandler):
         job["summary"] = job.get("summary") or "Job stopped by operator"
         write_job(job_id, job)
         self._json(HTTPStatus.OK, {"ok": True, "job_id": job_id})
+
+    def do_PUT(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/templates/"):
+            template_id = parsed.path.rsplit("/", 1)[-1]
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            data["id"] = template_id
+            try:
+                template = save_custom_template(data)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, template)
+            return
+        self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
 
 def main() -> None:

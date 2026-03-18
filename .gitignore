@@ -62,3 +62,6 @@ apps/steer/__pycache__/
 
 # Local job state for listen/direct verification
 apps/listen/jobs/
+
+# Local custom workflow templates for listen
+apps/listen/templates.json

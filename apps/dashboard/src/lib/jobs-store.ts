@@ -1,16 +1,21 @@
-import type { JobContract } from '@openclaw/contracts';
+import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
 import {
   clearListenJobs,
+  createListenTemplate,
   createListenJob,
+  deleteListenTemplate,
   fetchListenArtifact,
   getListenJob,
+  getListenArtifactAdmin,
   getListenPolicy,
   listListenTemplates,
   listListenArtifacts,
   listListenJobs,
+  pruneListenArtifacts,
   resumeListenJob,
   retryListenJob,
   stopListenJob,
+  updateListenTemplate,
 } from './listen-client';
 
 const KNOWN_AGENTS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
@@ -85,6 +90,26 @@ export async function getJobsPolicy() {
 
 export async function getJobTemplates() {
   return listListenTemplates();
+}
+
+export async function createJobTemplate(input: JobTemplateContract) {
+  return createListenTemplate(input);
+}
+
+export async function updateJobTemplate(id: string, input: JobTemplateContract) {
+  return updateListenTemplate(id, input);
+}
+
+export async function deleteJobTemplate(id: string) {
+  return deleteListenTemplate(id);
+}
+
+export async function getArtifactAdmin(): Promise<ArtifactAdminSummaryContract> {
+  return getListenArtifactAdmin();
+}
+
+export async function pruneArtifacts(olderThanDays: number) {
+  return pruneListenArtifacts(olderThanDays);
 }
 
 export async function getJobArtifacts(id: string) {

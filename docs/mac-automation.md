@@ -78,6 +78,8 @@ python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_open_c
 python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_recover_localhost_command
 python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_wait_and_click_ui --arg "Reload this page" --arg button
 python3 apps/direct/direct_cli.py start --mode workflow --workflow textedit_new_set_text --arg "OpenClaw remote note"
+python3 apps/direct/direct_cli.py templates
+python3 apps/direct/direct_cli.py start --mode workflow --template open_command_page --input url=http://localhost:3000/command
 python3 apps/direct/direct_cli.py list
 python3 apps/direct/direct_cli.py latest 3
 python3 apps/direct/direct_cli.py clear
@@ -97,11 +99,14 @@ python3 apps/direct/direct_cli.py clear
 - `drive send`, `poll`, and `fanout` cover raw interactive input, regex waits, and parallel tmux execution.
 - `drive proc list` maps processes back to tmux pane PIDs where possible, and `proc tree|top` provide cleanup and resource inspection.
 - `listen` stores job state in `apps/listen/jobs/*.json`.
-- `listen` also supports job archiving plus per-job `updates` and `summary` fields.
+- `listen` also supports job archiving plus per-job `updates`, `summary`, per-step durations, and file-backed artifacts.
+- custom workflow templates are stored locally in `apps/listen/templates.json` and can be managed over the `listen` HTTP API.
+- archived artifact storage can be summarized and pruned via the new artifact admin endpoints.
 - `mode=agent` uses the real `openclaw agent` CLI.
 - `mode=shell` uses `drive` for tmux-backed execution.
 - `mode=steer` and `mode=drive` let remote jobs call the local automation/tooling CLIs directly with structured commands.
-- `mode=workflow` provides a few named higher-level Safari/TextEdit/Notes flows on top of `steer`.
+- `mode=workflow` supports both named flows and saved `workflowSpec` templates.
+- `apps/listen/client.py` is the first agent-native client path for submitting, waiting on, and inspecting automation jobs directly from Python code.
 
 ## Gaps vs. `mac-mini-agent`
 

@@ -1,5 +1,6 @@
 export type {
   AgentSummaryContract,
+  ArtifactAdminSummaryContract,
   EventEnvelopeContract,
   JobContract,
   JobTemplateContract,

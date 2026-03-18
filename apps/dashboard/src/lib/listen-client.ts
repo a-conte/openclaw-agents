@@ -1,4 +1,4 @@
-import type { JobContract, JobTemplateContract } from '@openclaw/contracts';
+import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
 
 const DEFAULT_BASE_URL = process.env.OPENCLAW_LISTEN_BASE_URL?.trim() || 'http://127.0.0.1:7600';
 
@@ -71,6 +71,24 @@ export async function listListenTemplates(): Promise<ListenTemplate[]> {
   return payload.templates;
 }
 
+export async function createListenTemplate(input: ListenTemplate): Promise<ListenTemplate> {
+  return listenFetch<ListenTemplate>('/templates', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateListenTemplate(templateId: string, input: ListenTemplate): Promise<ListenTemplate> {
+  return listenFetch<ListenTemplate>(`/templates/${templateId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteListenTemplate(templateId: string): Promise<{ ok?: boolean; deleted: string }> {
+  return listenFetch<{ ok?: boolean; deleted: string }>(`/templates/${templateId}`, { method: 'DELETE' });
+}
+
 export async function getListenJob(jobId: string): Promise<JobContract> {
   return listenFetch<JobContract>(`/job/${jobId}`);
 }
@@ -133,4 +151,15 @@ export async function resumeListenJob(
 
 export async function clearListenJobs(): Promise<{ archived: number }> {
   return listenFetch<{ archived: number }>('/jobs/clear', { method: 'POST' });
+}
+
+export async function getListenArtifactAdmin(): Promise<ArtifactAdminSummaryContract> {
+  return listenFetch<ArtifactAdminSummaryContract>('/artifacts/admin');
+}
+
+export async function pruneListenArtifacts(olderThanDays: number): Promise<{ removedJobs: string[]; removedBytes: number; olderThanDays: number }> {
+  return listenFetch<{ removedJobs: string[]; removedBytes: number; olderThanDays: number }>('/artifacts/prune', {
+    method: 'POST',
+    body: JSON.stringify({ olderThanDays }),
+  });
 }

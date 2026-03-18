@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import type { JobContract } from '@openclaw/contracts';
+import type { ArtifactAdminSummaryContract, JobContract, JobTemplateContract } from '@openclaw/contracts';
 import {
   AlertTriangle,
   ArrowRight,
@@ -40,7 +40,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
 import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
-import { JOB_TEMPLATES, findJobTemplate } from '@/lib/job-templates';
+import { JOB_TEMPLATES } from '@/lib/job-templates';
 import type { Agent, Briefing, RepoStatus, SystemRecommendation, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
 import { formatDate, relativeTime } from '@/lib/utils';
 
@@ -57,6 +57,15 @@ type AttentionItem = {
 type AgentSummary = Agent & {
   lastActivity?: number;
   state: 'active' | 'quiet' | 'stale';
+};
+
+type AutomationTemplate = JobTemplateContract & {
+  mode?: NonNullable<JobContract['mode']>;
+  targetAgent?: string;
+  prompt?: string;
+  command?: string;
+  workflow?: string;
+  args?: string[];
 };
 
 export default function CommandPage() {
@@ -824,13 +833,24 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [showArchived, setShowArchived] = useState(false);
   const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
   const [policy, setPolicy] = useState<any | null>(null);
+  const [artifactAdmin, setArtifactAdmin] = useState<ArtifactAdminSummaryContract | null>(null);
+  const [serverTemplates, setServerTemplates] = useState<AutomationTemplate[]>(JOB_TEMPLATES.map((template) => ({ ...template, builtIn: true })));
+  const [templateIdDraft, setTemplateIdDraft] = useState('');
+  const [templateNameDraft, setTemplateNameDraft] = useState('');
+  const [templateDescriptionDraft, setTemplateDescriptionDraft] = useState('');
+  const [templateCategoryDraft, setTemplateCategoryDraft] = useState('custom');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [pruningArtifacts, setPruningArtifacts] = useState(false);
+  const [pruneDays, setPruneDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
 
   const visibleJobs = showArchived ? archivedJobs : jobs;
   const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) || visibleJobs[0];
+  const selectedTemplate = serverTemplates.find((template) => template.id === selectedTemplateId);
 
   const builtWorkflowSpec = useMemo(() => {
     return {
@@ -882,6 +902,22 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setPolicy(payload);
   }
 
+  async function loadArtifactAdmin() {
+    const response = await fetch('/api/jobs/artifacts/admin');
+    const payload = await response.json();
+    setArtifactAdmin(payload);
+  }
+
+  async function loadTemplates() {
+    const response = await fetch('/api/jobs/templates');
+    const payload = await response.json();
+    if (Array.isArray(payload) && payload.length > 0) {
+      setServerTemplates(payload as AutomationTemplate[]);
+    } else if (Array.isArray(payload)) {
+      setServerTemplates([]);
+    }
+  }
+
   async function submit() {
     setSubmitting(true);
     setError(null);
@@ -900,18 +936,21 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
           return;
         }
       }
+      const requestBody: Record<string, unknown> = {
+        prompt,
+        mode,
+        targetAgent,
+        command: command || undefined,
+        workflow: workflow || undefined,
+        args: argsText.split(',').map((item) => item.trim()).filter(Boolean),
+      };
+      if (workflowSpec) {
+        requestBody.workflowSpec = workflowSpec;
+      }
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          mode,
-          targetAgent,
-          command: command || undefined,
-          workflow: workflow || undefined,
-          args: argsText.split(',').map((item) => item.trim()).filter(Boolean),
-          workflowSpec,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -923,6 +962,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setArgsText('');
       onChanged();
       await loadPolicy();
+      await loadArtifactAdmin();
     } catch {
       setError('Network error while submitting automation job');
     } finally {
@@ -957,8 +997,29 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       await fetch('/api/jobs/clear', { method: 'POST' });
       onChanged();
       await loadArchived();
+      await loadArtifactAdmin();
     } finally {
       setClearing(false);
+    }
+  }
+
+  async function pruneArtifactStore() {
+    setPruningArtifacts(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/jobs/artifacts/prune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ olderThanDays: Number(pruneDays || '30') }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'Failed to prune archived artifacts');
+        return;
+      }
+      await loadArtifactAdmin();
+    } finally {
+      setPruningArtifacts(false);
     }
   }
 
@@ -977,10 +1038,18 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setWorkflowSteps((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
-  function applyTemplate(templateId: string) {
-    const template = findJobTemplate(templateId);
+  function loadTemplateIntoDrafts(template: JobTemplateContract | undefined) {
     if (!template) return;
-    setMode(template.mode);
+    setTemplateIdDraft(template.id || '');
+    setTemplateNameDraft(template.name || '');
+    setTemplateDescriptionDraft(template.description || '');
+    setTemplateCategoryDraft(template.category || 'custom');
+  }
+
+  function applyTemplate(templateId: string) {
+    const template = serverTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    setMode(template.mode || 'workflow');
     setTargetAgent(template.targetAgent || 'main');
     setPrompt(template.prompt || '');
     setCommand(template.command || '');
@@ -992,11 +1061,87 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     } else {
       setWorkflowSpecText('');
     }
+    loadTemplateIntoDrafts(template);
+  }
+
+  async function saveTemplate() {
+    setSavingTemplate(true);
+    setError(null);
+    try {
+      let workflowSpec: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(workflowSpecText);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          setError('workflowSpec JSON must be an object');
+          return;
+        }
+        workflowSpec = parsed as Record<string, unknown>;
+      } catch {
+        setError('workflowSpec JSON is invalid');
+        return;
+      }
+      const payload: AutomationTemplate = {
+        id: templateIdDraft || selectedTemplateId || '',
+        name: templateNameDraft || 'Untitled Template',
+        description: templateDescriptionDraft || 'Custom workflow template',
+        category: templateCategoryDraft || 'custom',
+        workflowSpec,
+        mode: 'workflow',
+        inputs: selectedTemplate?.inputs || [],
+      };
+      const isExistingCustom = serverTemplates.some((template) => template.id === payload.id && !template.builtIn);
+      const response = await fetch(isExistingCustom ? `/api/jobs/templates/${payload.id}` : '/api/jobs/templates', {
+        method: isExistingCustom ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || 'Failed to save template');
+        return;
+      }
+      await loadTemplates();
+      setSelectedTemplateId(result.id);
+      loadTemplateIntoDrafts(result);
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  async function deleteTemplate() {
+    if (!selectedTemplate || selectedTemplate.builtIn) return;
+    setDeletingTemplate(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/templates/${selectedTemplate.id}`, { method: 'DELETE' });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || 'Failed to delete template');
+        return;
+      }
+      await loadTemplates();
+      const fallbackId = serverTemplates.find((template) => template.builtIn)?.id || '';
+      setSelectedTemplateId(fallbackId);
+      setTemplateIdDraft('');
+      setTemplateNameDraft('');
+      setTemplateDescriptionDraft('');
+      setTemplateCategoryDraft('custom');
+    } finally {
+      setDeletingTemplate(false);
+    }
   }
 
   useEffect(() => {
     void loadPolicy();
+    void loadArtifactAdmin();
+    void loadTemplates();
   }, []);
+
+  useEffect(() => {
+    if (selectedTemplate) {
+      loadTemplateIntoDrafts(selectedTemplate);
+    }
+  }, [selectedTemplateId, serverTemplates]);
 
   return (
     <Panel title="Automation Jobs" eyebrow="Remote Control" icon={<Play size={15} className="text-accent-blue" />}>
@@ -1010,18 +1155,54 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             </div>
           ) : null}
 
+          {artifactAdmin ? (
+            <div className="rounded-lg border border-border bg-surface-3 p-3">
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Artifact Store</div>
+              <div className="space-y-1 text-xs text-text-secondary">
+                <div>Active: {artifactAdmin.active.jobCount} jobs · {artifactAdmin.active.bytes} bytes</div>
+                <div>Archived: {artifactAdmin.archived.jobCount} jobs · {artifactAdmin.archived.bytes} bytes</div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <input value={pruneDays} onChange={(event) => setPruneDays(event.target.value)} className="w-20 rounded-md border border-border bg-surface-2/80 px-2 py-1 text-xs text-text-primary" />
+                <Button size="sm" variant="ghost" onClick={pruneArtifactStore} disabled={pruningArtifacts}>
+                  {pruningArtifacts ? <Loader2 size={12} className="animate-spin" /> : 'Prune Archived'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-lg border border-border bg-surface-3 p-3">
             <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Workflow Templates</div>
             <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-sm text-text-primary">
-              {JOB_TEMPLATES.map((template) => (
-                <option key={template.id} value={template.id}>{template.name}</option>
+              {serverTemplates.map((template) => (
+                <option key={template.id} value={template.id}>{template.name}{template.builtIn ? ' (Built-in)' : ''}</option>
               ))}
             </select>
             <div className="mt-2 text-xs text-text-secondary">
-              {findJobTemplate(selectedTemplateId)?.description || 'Apply a reusable starter flow to the builder.'}
+              {selectedTemplate?.description || 'Apply a reusable starter flow to the builder.'}
             </div>
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => applyTemplate(selectedTemplateId)}>Apply Template</Button>
+              {selectedTemplate?.builtIn ? null : (
+                <Button size="sm" variant="ghost" onClick={deleteTemplate} disabled={deletingTemplate}>
+                  {deletingTemplate ? <Loader2 size={12} className="animate-spin" /> : 'Delete'}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface-3 p-3">
+            <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Template Editor</div>
+            <div className="grid gap-2">
+              <input value={templateIdDraft} onChange={(event) => setTemplateIdDraft(event.target.value)} placeholder="template_id" className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary" />
+              <input value={templateNameDraft} onChange={(event) => setTemplateNameDraft(event.target.value)} placeholder="Template name" className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary" />
+              <input value={templateCategoryDraft} onChange={(event) => setTemplateCategoryDraft(event.target.value)} placeholder="Category" className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary" />
+              <textarea value={templateDescriptionDraft} onChange={(event) => setTemplateDescriptionDraft(event.target.value)} placeholder="Template description" className="min-h-[72px] w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-xs text-text-primary" />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="secondary" onClick={saveTemplate} disabled={savingTemplate}>
+                {savingTemplate ? <Loader2 size={12} className="animate-spin" /> : 'Save Template'}
+              </Button>
             </div>
           </div>
 
@@ -1055,6 +1236,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
 
           {mode === 'workflow' && (
             <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+                Using a selected template submits `templateId` for built-in or saved templates. Edit the builder/JSON and save a custom template if you want a reusable variant.
+              </div>
               <div className="rounded-lg border border-border bg-surface-3 p-3">
                 <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Step Builder</div>
                 <div className="space-y-3">

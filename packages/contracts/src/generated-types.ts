@@ -136,6 +136,9 @@ export interface JobTemplateContract {
   id: string;
   name: string;
   description: string;
+  category?: string;
+  builtIn?: boolean;
+  workflowSpec?: Record<string, unknown> | null;
   inputs?: Array<{
     key: string;
     label: string;
@@ -143,6 +146,19 @@ export interface JobTemplateContract {
     required?: boolean;
     defaultValue?: string;
   }>;
+}
+
+export interface ArtifactAdminSummaryContract {
+  active: {
+    jobCount: number;
+    bytes: number;
+    jobs?: string[];
+  };
+  archived: {
+    jobCount: number;
+    bytes: number;
+    jobs?: string[];
+  };
 }
 
 export interface EventEnvelopeContract<TPayload extends Record<string, unknown> = Record<string, unknown>> {

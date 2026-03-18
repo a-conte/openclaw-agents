@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -124,6 +123,46 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(inputs["url"], "http://localhost:3000/command")
         self.assertEqual(spec["steps"][0]["type"], "steer")
         self.assertEqual(spec["steps"][-1]["command"], "ocr")
+
+    def test_save_and_resolve_custom_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                saved = workflow_templates.save_custom_template(
+                    {
+                        "id": "Ops Review",
+                        "name": "Ops Review",
+                        "description": "Custom workflow",
+                        "category": "ops",
+                        "workflowSpec": {
+                            "steps": [
+                                {"id": "note_1", "type": "note", "message": "hello"},
+                            ]
+                        },
+                        "inputs": [{"key": "repo", "label": "Repo", "defaultValue": "/tmp/repo"}],
+                    }
+                )
+                spec, inputs = workflow_templates.resolve_template("ops_review", {"repo": "/Users/test/repo"})
+        self.assertEqual(saved["id"], "ops_review")
+        self.assertEqual(spec["steps"][0]["type"], "note")
+        self.assertEqual(inputs["repo"], "/Users/test/repo")
+
+    def test_delete_custom_template_removes_saved_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "cleanup_template",
+                        "name": "Cleanup Template",
+                        "description": "Custom workflow",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "done"}]},
+                    }
+                )
+                deleted = workflow_templates.delete_custom_template("cleanup_template")
+                template = workflow_templates.get_template("cleanup_template")
+        self.assertTrue(deleted)
+        self.assertIsNone(template)
 
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

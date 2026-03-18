@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -151,3 +152,51 @@ def archive_all_active_artifacts() -> int:
         if path.is_dir() and archive_job_artifacts(path.name):
             count += 1
     return count
+
+
+def _dir_size(path: Path) -> int:
+    total = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            total += item.stat().st_size
+    return total
+
+
+def artifact_summary() -> dict[str, Any]:
+    active_jobs = sorted(path.name for path in BASE_DIR.iterdir() if path.is_dir()) if BASE_DIR.exists() else []
+    archived_jobs = sorted(path.name for path in ARCHIVED_BASE_DIR.iterdir() if path.is_dir()) if ARCHIVED_BASE_DIR.exists() else []
+    return {
+        "active": {
+            "jobCount": len(active_jobs),
+            "bytes": _dir_size(BASE_DIR),
+            "jobs": active_jobs[:50],
+        },
+        "archived": {
+            "jobCount": len(archived_jobs),
+            "bytes": _dir_size(ARCHIVED_BASE_DIR),
+            "jobs": archived_jobs[:50],
+        },
+    }
+
+
+def prune_archived_artifacts(older_than_days: int) -> dict[str, Any]:
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
+    cutoff = time.time() - (older_than_days * 24 * 60 * 60)
+    removed_jobs: list[str] = []
+    removed_bytes = 0
+    if not ARCHIVED_BASE_DIR.exists():
+        return {"removedJobs": removed_jobs, "removedBytes": removed_bytes}
+    for path in sorted(ARCHIVED_BASE_DIR.iterdir()):
+        if not path.is_dir():
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except FileNotFoundError:
+            continue
+        if mtime > cutoff:
+            continue
+        removed_bytes += _dir_size(path)
+        removed_jobs.append(path.name)
+        shutil.rmtree(path, ignore_errors=True)
+    return {"removedJobs": removed_jobs, "removedBytes": removed_bytes, "olderThanDays": older_than_days}
