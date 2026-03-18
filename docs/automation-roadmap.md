@@ -50,19 +50,19 @@ Completed or materially in place:
   - guided bootstrap script via `scripts/bootstrap-mac.sh`
   - `docs/bootstrap-mac.md` now points to the script-backed flow
 - iPad polish:
-  - metrics, policy, artifact summary, template metadata, artifact preview, custom template editing, and template diff surfaces are partially implemented
+  - metrics, policy admin, artifact summary/actions, template metadata, artifact preview, custom template editing, template restore, and template diff surfaces are materially implemented
 
 Still meaningfully open:
 
 - deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
 - richer job lineage visualization beyond summary chains
 - deeper workflow-library coverage beyond the new Wave 2 starter set
-- full tablet-first parity on iPad
+- full tablet-first parity on iPad, especially around deeper dashboard-equivalent observability and admin navigation
 
 Current active focus:
 
 - deeper workflow-library coverage
-- broader tablet-first parity and admin polish on iPad
+- broader tablet-first parity and admin navigation polish on iPad
 
 ## Wave 1
 
@@ -236,7 +236,7 @@ Goal:
 - Make the iPad app feel closer to the dashboard for daily operation.
 
 Status:
-- In progress
+- In progress, with core admin parity substantially improved
 
 Deliverables:
 - [x] better artifact previews

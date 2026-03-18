@@ -15,6 +15,11 @@ struct JobSubmitView: View {
     @State private var selectedJob: Job?
     @State private var editingTemplate: EditableTemplateState?
     @State private var selectedTemplateDiff: JobTemplateDiff?
+    @State private var compressDays = "7"
+    @State private var pruneDays = "30"
+    @State private var isCompressingArtifacts = false
+    @State private var isPruningArtifacts = false
+    @State private var restoringTemplateVersion: Int?
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -134,6 +139,32 @@ struct JobSubmitView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
+            if let policyAdmin = viewModel.policyAdmin {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Policy admin")
+                        .font(.caption.weight(.semibold))
+                    if let summary = policyAdmin.summary, !summary.isEmpty {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(policyAdmin.env.prefix(3)) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.name)
+                                .font(.caption2.weight(.semibold))
+                            Text(entry.value.isEmpty ? "(empty)" : entry.value)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                            Text(entry.description)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
             if let metrics = viewModel.jobMetrics {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Observability")
@@ -145,6 +176,40 @@ struct JobSubmitView: View {
                         Text("Average completed duration: \(duration / 1000)s")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 12) {
+                        if let duration = metrics.jobs.medianCompletedDurationMs {
+                            Text("Median: \(duration / 1000)s")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let duration = metrics.jobs.p95CompletedDurationMs {
+                            Text("P95: \(duration / 1000)s")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if !metrics.steps.topFailures.isEmpty {
+                        metricList(
+                            title: "Top step failures",
+                            items: metrics.steps.topFailures.prefix(3).map { "\($0.name) · \($0.count)" }
+                        )
+                    }
+                    if !metrics.policy.topBlockReasons.isEmpty {
+                        metricList(
+                            title: "Top policy blocks",
+                            items: metrics.policy.topBlockReasons.prefix(3).map { "\($0.reason) · \($0.count)" }
+                        )
+                    }
+                    if !metrics.longRunning.isEmpty {
+                        metricList(
+                            title: "Long-running jobs",
+                            items: metrics.longRunning.prefix(3).map { item in
+                                let label = item.templateId ?? item.workflow ?? item.mode ?? (item.jobId ?? "job")
+                                let age = item.ageMs.map { "\($0 / 1000)s" } ?? "n/a"
+                                return "\(label) · \(age)"
+                            }
+                        )
                     }
                 }
                 .padding(12)
@@ -162,6 +227,51 @@ struct JobSubmitView: View {
                         Text("Retention target: \(retentionDays) days")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    }
+                    if let oldestArchivedAgeDays = artifactAdmin.oldestArchivedAgeDays {
+                        Text("Oldest archived artifact set: \(Int(oldestArchivedAgeDays)) days")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Compress days", text: $compressDays)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.numberPad)
+                        Button {
+                            Task {
+                                isCompressingArtifacts = true
+                                defer { isCompressingArtifacts = false }
+                                await viewModel.compressArtifacts(olderThanDays: Int(compressDays) ?? 7)
+                            }
+                        } label: {
+                            if isCompressingArtifacts {
+                                ProgressView()
+                            } else {
+                                Text("Compress")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isCompressingArtifacts)
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Prune days", text: $pruneDays)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.numberPad)
+                        Button(role: .destructive) {
+                            Task {
+                                isPruningArtifacts = true
+                                defer { isPruningArtifacts = false }
+                                await viewModel.pruneArtifacts(olderThanDays: Int(pruneDays) ?? 30)
+                            }
+                        } label: {
+                            if isPruningArtifacts {
+                                ProgressView()
+                            } else {
+                                Text("Prune")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isPruningArtifacts)
                     }
                 }
                 .padding(12)
@@ -278,17 +388,37 @@ struct JobSubmitView: View {
                                         }
                                         Spacer()
                                         if let latestVersion, version.version != latestVersion {
-                                            Button("Compare") {
-                                                Task {
-                                                    await viewModel.loadTemplateDiff(
-                                                        id: template.id,
-                                                        fromVersion: version.version,
-                                                        toVersion: latestVersion
-                                                    )
-                                                    selectedTemplateDiff = viewModel.selectedTemplateDiff
+                                            HStack(spacing: 8) {
+                                                Button("Compare") {
+                                                    Task {
+                                                        await viewModel.loadTemplateDiff(
+                                                            id: template.id,
+                                                            fromVersion: version.version,
+                                                            toVersion: latestVersion
+                                                        )
+                                                        selectedTemplateDiff = viewModel.selectedTemplateDiff
+                                                    }
+                                                }
+                                                .buttonStyle(.bordered)
+
+                                                if template.builtIn != true {
+                                                    Button {
+                                                        Task {
+                                                            restoringTemplateVersion = version.version
+                                                            defer { restoringTemplateVersion = nil }
+                                                            await viewModel.restoreTemplate(id: template.id, version: version.version)
+                                                        }
+                                                    } label: {
+                                                        if restoringTemplateVersion == version.version {
+                                                            ProgressView()
+                                                        } else {
+                                                            Text("Restore")
+                                                        }
+                                                    }
+                                                    .buttonStyle(.bordered)
+                                                    .disabled(restoringTemplateVersion != nil)
                                                 }
                                             }
-                                            .buttonStyle(.bordered)
                                         }
                                     }
                                     .padding(.vertical, 2)
@@ -414,6 +544,21 @@ struct JobSubmitView: View {
             parts.append("\(retention)d retention")
         }
         return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private func metricList(title: String, items: [String]) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                ForEach(items, id: \.self) { item in
+                    Text("• \(item)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private func currentJob(for id: String) -> Job? {

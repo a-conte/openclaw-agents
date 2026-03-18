@@ -1434,6 +1434,50 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                   </div>
                 </div>
               ) : null}
+              {jobMetrics.steps.topFailures.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Top Step Failures</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.steps.topFailures.slice(0, 4).map((item) => (
+                      <div key={item.name} className="flex items-center justify-between rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <span>{item.name}</span>
+                        <span>{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {jobMetrics.policy.topBlockReasons.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Top Policy Blocks</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.policy.topBlockReasons.slice(0, 4).map((item) => (
+                      <div key={item.reason} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{item.reason}</span>
+                          <span>{item.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {jobMetrics.longRunning.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Long-Running Jobs</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.longRunning.slice(0, 4).map((item) => (
+                      <div key={item.id || `${item.mode}-${item.ageMs}`} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{item.templateId || item.workflow || item.mode || item.id}</span>
+                          <span>{typeof item.ageMs === 'number' ? `${Math.round(item.ageMs / 1000)}s` : 'n/a'}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">{item.id || 'no job id'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {jobMetrics.lineage.recentChains.length > 0 ? (
                 <div className="mt-3">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent Retry Chains</div>

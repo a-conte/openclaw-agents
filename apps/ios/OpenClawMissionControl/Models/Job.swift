@@ -383,6 +383,14 @@ struct ArtifactAdminSummary: Codable, Equatable {
     let oldestArchivedAgeDays: Double?
 }
 
+struct ArtifactAdminActionResult: Codable, Equatable {
+    let removedJobs: [String]
+    let removedBytes: Int
+    let compressedJobs: [String]
+    let compressedBytes: Int
+    let olderThanDays: Int?
+}
+
 struct JobMetrics: Codable, Equatable {
     struct Jobs: Codable, Equatable {
         let active: Int
@@ -391,6 +399,8 @@ struct JobMetrics: Codable, Equatable {
         let statusCounts: [String: Int]
         let modeCounts: [String: Int]
         let averageCompletedDurationMs: Int?
+        let medianCompletedDurationMs: Int?
+        let p95CompletedDurationMs: Int?
     }
 
     struct TemplateUsage: Codable, Equatable, Identifiable {

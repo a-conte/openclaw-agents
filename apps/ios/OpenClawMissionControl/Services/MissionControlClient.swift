@@ -8,12 +8,15 @@ protocol MissionControlClient {
     func templateDiff(id: String, fromVersion: Int, toVersion: Int?) async throws -> JobTemplateDiff
     func createJobTemplate(_ draft: JobTemplateDraft) async throws -> JobTemplate
     func updateJobTemplate(id: String, draft: JobTemplateDraft) async throws -> JobTemplate
+    func restoreJobTemplate(id: String, version: Int) async throws -> JobTemplate
     func deleteJobTemplate(id: String) async throws
     func submitJob(request: JobRequest) async throws -> Job
     func listJobs(archived: Bool) async throws -> [Job]
     func jobPolicy() async throws -> JobPolicy
     func jobPolicyAdmin() async throws -> PolicyAdmin
     func artifactAdmin() async throws -> ArtifactAdminSummary
+    func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult
+    func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult
     func jobMetrics() async throws -> JobMetrics
     func stopJob(id: String) async throws
     func retryJob(id: String) async throws -> Job
@@ -73,6 +76,22 @@ struct PreviewMissionControlClient: MissionControlClient {
         try await createJobTemplate(draft)
     }
 
+    func restoreJobTemplate(id: String, version: Int) async throws -> JobTemplate {
+        try await createJobTemplate(
+            JobTemplateDraft(
+                id: id,
+                name: "Restored",
+                description: "Restored template",
+                category: "custom",
+                favorite: false,
+                recommended: false,
+                artifactRetentionDays: 30,
+                inputs: [],
+                workflowSpec: .object([:])
+            )
+        )
+    }
+
     func deleteJobTemplate(id: String) async throws {
     }
 
@@ -96,9 +115,17 @@ struct PreviewMissionControlClient: MissionControlClient {
         ArtifactAdminSummary(active: .init(jobCount: 0, bytes: 0, jobs: []), archived: .init(jobCount: 0, bytes: 0, jobs: []), retentionDays: 30, oldestArchivedAgeDays: nil)
     }
 
+    func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        ArtifactAdminActionResult(removedJobs: [], removedBytes: 0, compressedJobs: [], compressedBytes: 0, olderThanDays: olderThanDays)
+    }
+
+    func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        ArtifactAdminActionResult(removedJobs: [], removedBytes: 0, compressedJobs: [], compressedBytes: 0, olderThanDays: olderThanDays)
+    }
+
     func jobMetrics() async throws -> JobMetrics {
         JobMetrics(
-            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil),
+            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil, medianCompletedDurationMs: nil, p95CompletedDurationMs: nil),
             templates: .init(total: 0, custom: 0, usage: []),
             steps: .init(topFailures: []),
             policy: .init(blockedJobs: 0, topBlockReasons: []),
@@ -180,6 +207,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
         throw ConfigurationError.missingBaseURL
     }
 
+    func restoreJobTemplate(id: String, version: Int) async throws -> JobTemplate {
+        throw ConfigurationError.missingBaseURL
+    }
+
     func deleteJobTemplate(id: String) async throws {
         throw ConfigurationError.missingBaseURL
     }
@@ -197,6 +228,14 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func artifactAdmin() async throws -> ArtifactAdminSummary {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -341,6 +380,16 @@ struct HTTPMissionControlClient: MissionControlClient {
         return try MissionControlJSON.makeDecoder().decode(JobTemplate.self, from: data)
     }
 
+    func restoreJobTemplate(id: String, version: Int) async throws -> JobTemplate {
+        let url = baseURL.appending(path: "/api/jobs/templates/\(id)/restore")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["version": version])
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(JobTemplate.self, from: data)
+    }
+
     func deleteJobTemplate(id: String) async throws {
         let url = baseURL.appending(path: "/api/jobs/templates/\(id)")
         var request = URLRequest(url: url)
@@ -373,6 +422,26 @@ struct HTTPMissionControlClient: MissionControlClient {
         let url = baseURL.appending(path: "/api/jobs/artifacts/admin")
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode(ArtifactAdminSummary.self, from: data)
+    }
+
+    func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        let url = baseURL.appending(path: "/api/jobs/artifacts/prune")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["olderThanDays": olderThanDays])
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(ArtifactAdminActionResult.self, from: data)
+    }
+
+    func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        let url = baseURL.appending(path: "/api/jobs/artifacts/compress")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["olderThanDays": olderThanDays])
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(ArtifactAdminActionResult.self, from: data)
     }
 
     func jobMetrics() async throws -> JobMetrics {

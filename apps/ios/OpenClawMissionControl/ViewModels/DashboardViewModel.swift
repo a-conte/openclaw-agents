@@ -137,18 +137,7 @@ final class DashboardViewModel: ObservableObject {
     func loadJobs() async {
         do {
             jobs = try await client.listJobs(archived: false)
-            if jobPolicy == nil {
-                jobPolicy = try? await client.jobPolicy()
-            }
-            if policyAdmin == nil {
-                policyAdmin = try? await client.jobPolicyAdmin()
-            }
-            if artifactAdmin == nil {
-                artifactAdmin = try? await client.artifactAdmin()
-            }
-            if jobMetrics == nil {
-                jobMetrics = try? await client.jobMetrics()
-            }
+            await refreshAdminDataIfNeeded()
             if jobTemplates.isEmpty {
                 jobTemplates = (try? await client.listJobTemplates()) ?? []
             }
@@ -232,10 +221,7 @@ final class DashboardViewModel: ObservableObject {
             try await client.clearJobs()
             await loadJobs()
             await loadArchivedJobs()
-            jobPolicy = try? await client.jobPolicy()
-            policyAdmin = try? await client.jobPolicyAdmin()
-            artifactAdmin = try? await client.artifactAdmin()
-            jobMetrics = try? await client.jobMetrics()
+            await refreshAdminData(force: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -279,6 +265,18 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    func restoreTemplate(id: String, version: Int) async {
+        do {
+            _ = try await client.restoreJobTemplate(id: id, version: version)
+            jobTemplates = (try? await client.listJobTemplates()) ?? jobTemplates
+            selectedTemplateVersions = (try? await client.listTemplateVersions(id: id)) ?? selectedTemplateVersions
+            selectedTemplateDiff = nil
+            await refreshAdminData(force: true)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func deleteTemplate(id: String) async {
         do {
             try await client.deleteJobTemplate(id: id)
@@ -290,7 +288,47 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    func pruneArtifacts(olderThanDays: Int) async {
+        do {
+            _ = try await client.pruneArtifacts(olderThanDays: olderThanDays)
+            await refreshAdminData(force: true)
+            await loadArchivedJobs()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func compressArtifacts(olderThanDays: Int) async {
+        do {
+            _ = try await client.compressArtifacts(olderThanDays: olderThanDays)
+            await refreshAdminData(force: true)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func artifactURL(jobId: String, relativePath: String) -> URL? {
         client.artifactURL(jobId: jobId, relativePath: relativePath)
+    }
+
+    private func refreshAdminDataIfNeeded() async {
+        if jobPolicy == nil || policyAdmin == nil || artifactAdmin == nil || jobMetrics == nil {
+            await refreshAdminData(force: false)
+        }
+    }
+
+    private func refreshAdminData(force: Bool) async {
+        if force || jobPolicy == nil {
+            jobPolicy = try? await client.jobPolicy()
+        }
+        if force || policyAdmin == nil {
+            policyAdmin = try? await client.jobPolicyAdmin()
+        }
+        if force || artifactAdmin == nil {
+            artifactAdmin = try? await client.artifactAdmin()
+        }
+        if force || jobMetrics == nil {
+            jobMetrics = try? await client.jobMetrics()
+        }
     }
 }

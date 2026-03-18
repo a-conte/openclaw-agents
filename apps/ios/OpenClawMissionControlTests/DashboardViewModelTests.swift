@@ -71,6 +71,22 @@ private struct EmptyStreamClient: MissionControlClient {
         try await createJobTemplate(draft)
     }
 
+    func restoreJobTemplate(id: String, version: Int) async throws -> JobTemplate {
+        try await createJobTemplate(
+            JobTemplateDraft(
+                id: id,
+                name: "Restored",
+                description: "Restored template",
+                category: "custom",
+                favorite: false,
+                recommended: false,
+                artifactRetentionDays: 30,
+                inputs: [],
+                workflowSpec: .object([:])
+            )
+        )
+    }
+
     func deleteJobTemplate(id: String) async throws {
     }
 
@@ -90,9 +106,17 @@ private struct EmptyStreamClient: MissionControlClient {
         ArtifactAdminSummary(active: .init(jobCount: 0, bytes: 0, jobs: []), archived: .init(jobCount: 0, bytes: 0, jobs: []), retentionDays: 30, oldestArchivedAgeDays: nil)
     }
 
+    func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        ArtifactAdminActionResult(removedJobs: [], removedBytes: 0, compressedJobs: [], compressedBytes: 0, olderThanDays: olderThanDays)
+    }
+
+    func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult {
+        ArtifactAdminActionResult(removedJobs: [], removedBytes: 0, compressedJobs: [], compressedBytes: 0, olderThanDays: olderThanDays)
+    }
+
     func jobMetrics() async throws -> JobMetrics {
         JobMetrics(
-            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil),
+            jobs: .init(active: 0, archived: 0, total: 0, statusCounts: [:], modeCounts: [:], averageCompletedDurationMs: nil, medianCompletedDurationMs: nil, p95CompletedDurationMs: nil),
             templates: .init(total: 0, custom: 0, usage: []),
             steps: .init(topFailures: []),
             policy: .init(blockedJobs: 0, topBlockReasons: []),
