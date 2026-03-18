@@ -35,8 +35,9 @@ python3 apps/steer/steer_cli.py apps --json
 python3 apps/steer/steer_cli.py focus --app Safari
 python3 apps/steer/steer_cli.py open-url --app Safari --url https://news.ycombinator.com
 python3 apps/steer/steer_cli.py click --x 640 --y 480 --json
-python3 apps/steer/steer_cli.py ocr --app Safari --text Retry --json
-python3 apps/steer/steer_cli.py ocr-click --app Safari --text Retry --json
+python3 apps/steer/steer_cli.py drag --from-x 640 --from-y 480 --to-x 900 --to-y 480 --json
+python3 apps/steer/steer_cli.py ocr --app Safari --window --text Retry --json
+python3 apps/steer/steer_cli.py ocr-click --app Safari --window --text Retry --json
 python3 apps/steer/steer_cli.py safari current-url --json
 python3 apps/steer/steer_cli.py safari reload --json
 python3 apps/steer/steer_cli.py ui dump --app Safari --json
@@ -61,8 +62,8 @@ python3 apps/direct/direct_cli.py list
 - `steer type`, `steer focus`, and Notes/TextEdit automation require macOS Accessibility permissions for the calling terminal.
 - `steer ui dump|find|click` uses the macOS accessibility tree. It works best for apps and pages with stable accessible labels.
 - `steer ocr|ocr-click` uses Apple Vision on a screenshot, so the calling terminal also needs Screen Recording permission if the screenshot comes from `steer see`.
-- `steer ocr --app ...` first activates the app, but the capture is still whatever macOS actually shows on the current screen/Space.
-- `steer see` uses full-screen screenshot capture today. It does not yet crop to a window.
+- `steer ocr --app ... --window` and `steer see --app ... --window` crop to the target app's front-window bounds via Accessibility metadata.
+- `steer ocr --app ...` without `--window` still captures whatever macOS actually shows on the current screen/Space.
 - `drive run` uses a sentinel marker to detect command completion inside tmux.
 - `drive proc list` maps processes back to tmux pane PIDs where possible.
 - `listen` stores job state in `apps/listen/jobs/*.json`.
@@ -73,6 +74,5 @@ python3 apps/direct/direct_cli.py list
 
 Still missing if you want near-parity:
 
-- coordinate clicking and dragging
 - richer window management and window-scoped capture
 - deeper app-specific flows and self-healing GUI waits

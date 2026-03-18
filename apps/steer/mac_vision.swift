@@ -35,6 +35,15 @@ struct ClickResult: Codable {
     let clicks: Int
 }
 
+struct DragResult: Codable {
+    let ok: Bool
+    let fromX: Double
+    let fromY: Double
+    let toX: Double
+    let toY: Double
+    let steps: Int
+}
+
 enum VisionError: Error, LocalizedError {
     case usage(String)
     case imageLoadFailed(String)
@@ -141,10 +150,40 @@ func postMouseClick(x: Double, y: Double, clicks: Int) throws -> ClickResult {
     return ClickResult(ok: true, x: x, y: y, clicks: clicks)
 }
 
+func postMouseDrag(fromX: Double, fromY: Double, toX: Double, toY: Double, steps: Int) throws -> DragResult {
+    let start = CGPoint(x: fromX, y: fromY)
+    let end = CGPoint(x: toX, y: toY)
+    let stepCount = max(steps, 1)
+    guard let move = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: start, mouseButton: .left),
+          let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: start, mouseButton: .left),
+          let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: end, mouseButton: .left) else {
+        throw VisionError.requestFailed("Failed to create drag events")
+    }
+    move.post(tap: .cghidEventTap)
+    down.post(tap: .cghidEventTap)
+    usleep(90000)
+
+    for step in 1...stepCount {
+        let progress = Double(step) / Double(stepCount)
+        let current = CGPoint(
+            x: start.x + ((end.x - start.x) * progress),
+            y: start.y + ((end.y - start.y) * progress)
+        )
+        guard let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: current, mouseButton: .left) else {
+            throw VisionError.requestFailed("Failed to create drag event")
+        }
+        drag.post(tap: .cghidEventTap)
+        usleep(12000)
+    }
+
+    up.post(tap: .cghidEventTap)
+    return DragResult(ok: true, fromX: fromX, fromY: fromY, toX: toX, toY: toY, steps: stepCount)
+}
+
 do {
     let args = Array(CommandLine.arguments.dropFirst())
     guard let command = args.first else {
-        throw VisionError.usage("Usage: mac_vision.swift <ocr|click> ...")
+        throw VisionError.usage("Usage: mac_vision.swift <ocr|click|drag> ...")
     }
 
     switch command {
@@ -168,6 +207,24 @@ do {
             clicks = parsedClicks
         }
         try encodeAndPrint(postMouseClick(x: x, y: y, clicks: clicks))
+    case "drag":
+        guard args.count >= 9, args[1] == "--from-x", args[3] == "--from-y", args[5] == "--to-x", args[7] == "--to-y" else {
+            throw VisionError.usage("Usage: mac_vision.swift drag --from-x <x> --from-y <y> --to-x <x> --to-y <y> [--steps <n>]")
+        }
+        guard let fromX = Double(args[2]),
+              let fromY = Double(args[4]),
+              let toX = Double(args[6]),
+              let toY = Double(args[8]) else {
+            throw VisionError.usage("Drag coordinates must be numeric")
+        }
+        var steps = 24
+        if args.count >= 11 {
+            guard args[9] == "--steps", let parsedSteps = Int(args[10]), parsedSteps > 0 else {
+                throw VisionError.usage("Usage: mac_vision.swift drag --from-x <x> --from-y <y> --to-x <x> --to-y <y> [--steps <n>]")
+            }
+            steps = parsedSteps
+        }
+        try encodeAndPrint(postMouseDrag(fromX: fromX, fromY: fromY, toX: toX, toY: toY, steps: steps))
     default:
         throw VisionError.usage("Unknown command: \(command)")
     }

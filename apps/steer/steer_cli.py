@@ -22,6 +22,10 @@ def run_cmd(args: list[str], *, check: bool = True) -> subprocess.CompletedProce
     return subprocess.run(args, text=True, capture_output=True, check=check)
 
 
+def run_cmd_no_check(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, text=True, capture_output=True, check=False)
+
+
 def apple_script_quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -65,6 +69,13 @@ def osa(script: str) -> str:
         fail(stderr or "AppleScript command failed")
 
 
+def osa_try(script: str) -> tuple[bool, str]:
+    result = run_cmd_no_check(["osascript", "-e", script])
+    if result.returncode == 0:
+        return True, result.stdout.strip()
+    return False, (result.stderr or "").strip()
+
+
 def osa_lines(script: str) -> list[str]:
     out = osa(script)
     if not out:
@@ -97,6 +108,11 @@ def cmd_apps() -> dict[str, object]:
     return {"ok": True, "apps": items}
 
 
+def parse_tuple_text(value: str) -> list[int]:
+    parts = [part.strip().strip("{}") for part in value.split(",") if part.strip()]
+    return [int(float(part)) for part in parts]
+
+
 def cmd_focus(app: str) -> dict[str, object]:
     osa(f'tell application "{app}" to activate')
     return {"ok": True, "app": app}
@@ -114,13 +130,70 @@ def app_pid(app: str) -> int | None:
     return int(first) if first.isdigit() else None
 
 
-def cmd_see(app: str | None) -> dict[str, object]:
+def get_window_bounds(app: str) -> dict[str, object]:
+    script = f'''
+    tell application "System Events"
+      tell process "{app}"
+        if (count of windows) is 0 then error "No windows available"
+        set w to front window
+        set p to position of w
+        set s to size of w
+        return ((name of w as text) & tab & (item 1 of p as text) & tab & (item 2 of p as text) & tab & (item 1 of s as text) & tab & (item 2 of s as text))
+      end tell
+    end tell
+    '''
+    last_error = f"No windows available for {app}"
+    for _ in range(5):
+        ok, output = osa_try(script)
+        if ok:
+            parts = output.split("\t")
+            if len(parts) >= 5:
+                return {
+                    "name": parts[0],
+                    "x": int(float(parts[1])),
+                    "y": int(float(parts[2])),
+                    "width": int(float(parts[3])),
+                    "height": int(float(parts[4])),
+                }
+        last_error = output or last_error
+        time.sleep(0.2)
+    fail(last_error)
+
+
+def cmd_see(
+    app: str | None,
+    *,
+    window: bool = False,
+    region: tuple[int, int, int, int] | None = None,
+) -> dict[str, object]:
     if app:
         cmd_focus(app)
-        time.sleep(0.3)
+        time.sleep(0.6)
     path = Path("/tmp") / f"steer-{int(time.time() * 1000)}.png"
-    run_cmd(["screencapture", "-x", str(path)])
-    return {"ok": True, "app": frontmost_app(), "screenshot": str(path)}
+    capture_region = region
+    window_info = None
+    args = ["screencapture", "-x"]
+    if window:
+        if not app:
+            fail("--window requires --app")
+        window_info = get_window_bounds(app)
+        capture_region = (
+            int(window_info["x"]),
+            int(window_info["y"]),
+            int(window_info["width"]),
+            int(window_info["height"]),
+        )
+    if capture_region:
+        x, y, width, height = capture_region
+        args.extend(["-R", f"{x},{y},{width},{height}"])
+    args.append(str(path))
+    run_cmd(args)
+    payload = {"ok": True, "app": frontmost_app(), "screenshot": str(path)}
+    if capture_region:
+        payload["region"] = list(capture_region)
+    if window_info:
+        payload["window"] = window_info
+    return payload
 
 
 def cmd_type(text: str) -> dict[str, object]:
@@ -294,40 +367,90 @@ def cmd_click(x: float, y: float, clicks: int) -> dict[str, object]:
     return run_vision_helper(["click", "--x", str(x), "--y", str(y), "--clicks", str(clicks)])
 
 
-def cmd_ocr(app: str | None, image: str | None, text: str | None, contains: bool) -> dict[str, object]:
+def cmd_drag(from_x: float, from_y: float, to_x: float, to_y: float, steps: int) -> dict[str, object]:
+    return run_vision_helper(
+        [
+            "drag",
+            "--from-x",
+            str(from_x),
+            "--from-y",
+            str(from_y),
+            "--to-x",
+            str(to_x),
+            "--to-y",
+            str(to_y),
+            "--steps",
+            str(steps),
+        ]
+    )
+
+
+def cmd_ocr(
+    app: str | None,
+    image: str | None,
+    text: str | None,
+    contains: bool,
+    *,
+    window: bool = False,
+    region: tuple[int, int, int, int] | None = None,
+) -> dict[str, object]:
     screenshot = None
+    offset = [0.0, 0.0]
     if image:
         target_image = image
     else:
-        capture = cmd_see(app)
+        capture = cmd_see(app, window=window, region=region)
         screenshot = capture["screenshot"]
         target_image = str(screenshot)
+        if capture.get("region"):
+            capture_region = list(capture["region"])
+            offset = [float(capture_region[0]), float(capture_region[1])]
     result = run_vision_helper(["ocr", "--image", target_image])
     matches = result.get("matches", [])
     if text:
         matches = [match for match in matches if text_matches(str(match.get("text", "")), text, contains)]
+    adjusted_matches = []
+    for match in matches:
+        updated = dict(match)
+        box = dict(updated.get("box", {}))
+        box["screenLeft"] = float(box.get("left", 0.0)) + offset[0]
+        box["screenTop"] = float(box.get("top", 0.0)) + offset[1]
+        box["screenCenterX"] = float(box.get("centerX", 0.0)) + offset[0]
+        box["screenCenterY"] = float(box.get("centerY", 0.0)) + offset[1]
+        updated["box"] = box
+        adjusted_matches.append(updated)
     payload = {
         "ok": True,
         "app": app or result.get("app"),
         "image": result.get("image"),
         "width": result.get("width"),
         "height": result.get("height"),
-        "matches": matches,
+        "matches": adjusted_matches,
     }
     if screenshot:
         payload["screenshot"] = screenshot
+    if offset != [0.0, 0.0]:
+        payload["offset"] = offset
     return payload
 
 
-def cmd_ocr_click(app: str | None, text: str, contains: bool, clicks: int) -> dict[str, object]:
-    result = cmd_ocr(app, None, text, contains)
+def cmd_ocr_click(
+    app: str | None,
+    text: str,
+    contains: bool,
+    clicks: int,
+    *,
+    window: bool = False,
+    region: tuple[int, int, int, int] | None = None,
+) -> dict[str, object]:
+    result = cmd_ocr(app, None, text, contains, window=window, region=region)
     matches = result.get("matches", [])
     if not matches:
         fail("No OCR text match found")
     match = matches[0]
     box = match.get("box", {})
-    x = float(box.get("centerX"))
-    y = float(box.get("centerY"))
+    x = float(box.get("screenCenterX", box.get("centerX", 0.0)))
+    y = float(box.get("screenCenterY", box.get("centerY", 0.0)))
     click_result = cmd_click(x, y, clicks)
     return {
         "ok": True,
@@ -442,6 +565,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     see = sub.add_parser("see")
     see.add_argument("--app")
+    see.add_argument("--window", action="store_true")
+    see.add_argument("--region")
     see.add_argument("--json", action="store_true")
 
     type_cmd = sub.add_parser("type")
@@ -464,11 +589,21 @@ def build_parser() -> argparse.ArgumentParser:
     click.add_argument("--clicks", type=int, default=1)
     click.add_argument("--json", action="store_true")
 
+    drag = sub.add_parser("drag")
+    drag.add_argument("--from-x", type=float, required=True)
+    drag.add_argument("--from-y", type=float, required=True)
+    drag.add_argument("--to-x", type=float, required=True)
+    drag.add_argument("--to-y", type=float, required=True)
+    drag.add_argument("--steps", type=int, default=24)
+    drag.add_argument("--json", action="store_true")
+
     ocr = sub.add_parser("ocr")
     ocr.add_argument("--app")
     ocr.add_argument("--image")
     ocr.add_argument("--text")
     ocr.add_argument("--contains", action="store_true")
+    ocr.add_argument("--window", action="store_true")
+    ocr.add_argument("--region")
     ocr.add_argument("--json", action="store_true")
 
     ocr_click = sub.add_parser("ocr-click")
@@ -476,6 +611,8 @@ def build_parser() -> argparse.ArgumentParser:
     ocr_click.add_argument("--text", required=True)
     ocr_click.add_argument("--contains", action="store_true")
     ocr_click.add_argument("--clicks", type=int, default=1)
+    ocr_click.add_argument("--window", action="store_true")
+    ocr_click.add_argument("--region")
     ocr_click.add_argument("--json", action="store_true")
 
     safari = sub.add_parser("safari")
@@ -544,6 +681,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    region = None
+    if hasattr(args, "region") and args.region:
+        region_values = parse_tuple_text(args.region)
+        if len(region_values) != 4:
+            fail("--region must be x,y,width,height")
+        region = tuple(region_values)
     if args.command == "apps":
         print_result(cmd_apps(), args.json)
         return
@@ -551,7 +694,7 @@ def main() -> None:
         print_result(cmd_focus(args.app), args.json)
         return
     if args.command == "see":
-        print_result(cmd_see(args.app), args.json)
+        print_result(cmd_see(args.app, window=args.window, region=region), args.json)
         return
     if args.command == "type":
         print_result(cmd_type(args.text), args.json)
@@ -566,11 +709,17 @@ def main() -> None:
     if args.command == "click":
         print_result(cmd_click(args.x, args.y, args.clicks), args.json)
         return
+    if args.command == "drag":
+        print_result(cmd_drag(args.from_x, args.from_y, args.to_x, args.to_y, args.steps), args.json)
+        return
     if args.command == "ocr":
-        print_result(cmd_ocr(args.app, args.image, args.text, args.contains), args.json)
+        print_result(cmd_ocr(args.app, args.image, args.text, args.contains, window=args.window, region=region), args.json)
         return
     if args.command == "ocr-click":
-        print_result(cmd_ocr_click(args.app, args.text, args.contains, args.clicks), args.json)
+        print_result(
+            cmd_ocr_click(args.app, args.text, args.contains, args.clicks, window=args.window, region=region),
+            args.json,
+        )
         return
     if args.command == "safari":
         if args.safari_command == "current-url":

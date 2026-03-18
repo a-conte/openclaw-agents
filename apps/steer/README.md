@@ -6,11 +6,12 @@ Current MVP:
 
 - `steer apps`
 - `steer focus --app`
-- `steer see [--app]`
+- `steer see [--app] [--window|--region]`
 - `steer type`
 - `steer hotkey`
 - `steer open-url`
 - `steer click`
+- `steer drag`
 - `steer ocr|ocr-click`
 - `steer safari current-url`
 - `steer safari reload|focus-location|go-back|go-forward`
@@ -26,15 +27,16 @@ python3 apps/steer/steer_cli.py apps --json
 python3 apps/steer/steer_cli.py focus --app Safari
 python3 apps/steer/steer_cli.py open-url --url https://news.ycombinator.com --app Safari
 python3 apps/steer/steer_cli.py click --x 640 --y 480 --json
-python3 apps/steer/steer_cli.py ocr --app Safari --text Retry --json
-python3 apps/steer/steer_cli.py ocr-click --app Safari --text Retry --json
+python3 apps/steer/steer_cli.py drag --from-x 640 --from-y 480 --to-x 900 --to-y 480 --json
+python3 apps/steer/steer_cli.py ocr --app Safari --window --text Retry --json
+python3 apps/steer/steer_cli.py ocr-click --app Safari --window --text Retry --json
 python3 apps/steer/steer_cli.py safari current-url --json
 python3 apps/steer/steer_cli.py safari reload --json
 python3 apps/steer/steer_cli.py ui dump --app Safari --json
 python3 apps/steer/steer_cli.py ui find --app Safari --name Retry --role button --json
 python3 apps/steer/steer_cli.py ui click --app Safari --name Retry --role button --json
 python3 apps/steer/steer_cli.py window list --app Safari --json
-python3 apps/steer/steer_cli.py see --app Safari --json
+python3 apps/steer/steer_cli.py see --app Safari --window --json
 python3 apps/steer/steer_cli.py textedit new --text "hello"
 python3 apps/steer/steer_cli.py notes create --title "OpenClaw" --body "Mission Control note"
 ```
@@ -42,3 +44,4 @@ python3 apps/steer/steer_cli.py notes create --title "OpenClaw" --body "Mission 
 Notes:
 
 - `ocr` and `ocr-click` operate on the currently visible screen capture. `--app` activates an app first, but macOS Spaces/window focus can still affect what is actually captured.
+- `--window` captures the front window bounds for the target app. `--region` accepts `x,y,width,height`.
