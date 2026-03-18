@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import artifacts
 import listen_server
 import worker
 import workflow_templates
@@ -59,21 +60,30 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertIn("result", result)
 
     def test_extract_step_artifacts_keeps_compact_structured_fields(self) -> None:
-        artifacts = worker.extract_step_artifacts(
-            {
-                "ok": True,
-                "output": "hello",
-                "stdout": "world",
-                "exitCode": 0,
-                "screenshot": "/tmp/example.png",
-                "matches": [{"text": "Reload this page", "confidence": 0.98, "box": {"screenCenterX": 123.456}}],
-            }
-        )
-        self.assertEqual(artifacts["output"], "hello")
-        self.assertEqual(artifacts["stdout"], "world")
-        self.assertEqual(artifacts["exitCode"], 0)
-        self.assertEqual(artifacts["screenshot"], "/tmp/example.png")
-        self.assertEqual(artifacts["matches"][0]["text"], "Reload this page")
+        with tempfile.TemporaryDirectory() as tmp:
+            base_dir = Path(tmp) / "artifacts"
+            screenshot = Path(tmp) / "example.png"
+            screenshot.write_text("fake-image", encoding="utf-8")
+            with patch.object(artifacts, "BASE_DIR", base_dir):
+                extracted = worker.extract_step_artifacts(
+                    "job-1",
+                    "step-1",
+                    {
+                        "ok": True,
+                        "output": "hello",
+                        "stdout": "world",
+                        "exitCode": 0,
+                        "screenshot": str(screenshot),
+                        "matches": [{"text": "Reload this page", "confidence": 0.98, "box": {"screenCenterX": 123.456}}],
+                    },
+                )
+        self.assertEqual(extracted["output"]["kind"], "text")
+        self.assertEqual(extracted["output"]["preview"], "hello")
+        self.assertEqual(extracted["stdout"]["preview"], "world")
+        self.assertEqual(extracted["exitCode"], 0)
+        self.assertEqual(extracted["screenshot"]["sourcePath"], str(screenshot))
+        self.assertEqual(extracted["matches"]["kind"], "json")
+        self.assertIn("Reload this page", extracted["matches"]["preview"])
 
     def test_validate_job_request_accepts_known_template_id(self) -> None:
         error = listen_server.validate_job_request(

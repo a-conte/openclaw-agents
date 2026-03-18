@@ -105,7 +105,7 @@ def make_sentinel(command: str) -> tuple[str, str, str]:
     token = uuid.uuid4().hex[:10]
     start_token = f"__START_{token}"
     done_token = f"__DONE_{token}"
-    wrapped = f"printf '\\n{start_token}\\n'; {command}; status=$?; printf '\\n{done_token}:%s\\n' \"$status\""
+    wrapped = f"printf '\\n{start_token}\\n'; {command}; drive_exit_code=$?; printf '\\n{done_token}:%s\\n' \"$drive_exit_code\""
     return start_token, done_token, wrapped
 
 

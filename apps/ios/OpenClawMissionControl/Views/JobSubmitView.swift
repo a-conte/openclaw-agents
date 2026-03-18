@@ -454,7 +454,7 @@ private struct JobDetailSheet: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(step.name)
                                                 .font(.headline)
-                                            Text("\(step.type) · \(step.status.rawValue)")
+                                            Text(stepMetaLine(step))
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -479,9 +479,13 @@ private struct JobDetailSheet: View {
                                     if !step.artifacts.isEmpty {
                                         VStack(alignment: .leading, spacing: 4) {
                                             ForEach(step.artifacts.keys.sorted(), id: \.self) { key in
-                                                Text("\(key): \(step.artifacts[key]?.displayString ?? "")")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(key)
+                                                        .font(.caption2.weight(.semibold))
+                                                    Text(artifactSummary(step.artifacts[key]))
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                }
                                             }
                                         }
                                     }
@@ -535,5 +539,38 @@ private struct JobDetailSheet: View {
         }
         .padding(18)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func stepMetaLine(_ step: JobStepStatus) -> String {
+        var parts = ["\(step.type) · \(step.status.rawValue)"]
+        if let durationMs = step.durationMs {
+            parts.append(durationText(durationMs))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func durationText(_ durationMs: Int) -> String {
+        if durationMs < 1000 {
+            return "\(durationMs)ms"
+        }
+        let seconds = Double(durationMs) / 1000
+        if seconds < 60 {
+            return String(format: "%.1fs", seconds)
+        }
+        return String(format: "%.1fm", seconds / 60)
+    }
+
+    private func artifactSummary(_ value: JSONValue?) -> String {
+        guard let value else { return "" }
+        if case .object(let object) = value,
+           case .string(let relativePath)? = object["relativePath"] {
+            let preview = object["preview"]?.displayString
+            let kind = object["kind"]?.displayString ?? "artifact"
+            return [preview, relativePath, kind].compactMap { item in
+                guard let item, !item.isEmpty else { return nil }
+                return item
+            }.joined(separator: " · ")
+        }
+        return value.displayString
     }
 }

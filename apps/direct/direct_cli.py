@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 import urllib.request
 
 
@@ -12,6 +13,18 @@ def request_json(url: str, method: str = "GET", payload: dict[str, object] | Non
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def wait_for_job(base: str, job_id: str, *, timeout: float, poll_interval: float) -> dict[str, object]:
+    deadline = time.time() + timeout
+    while True:
+        payload = request_json(f"{base}/job/{job_id}")
+        status = str(payload.get("status") or "")
+        if status in {"completed", "failed", "stopped"}:
+            return payload
+        if time.time() >= deadline:
+            raise SystemExit(f"timed out waiting for job {job_id}")
+        time.sleep(poll_interval)
 
 
 def main() -> None:
@@ -31,6 +44,9 @@ def main() -> None:
     start.add_argument("--input", action="append", default=[])
     start.add_argument("--arg", action="append", default=[])
     start.add_argument("--workflow-spec-file")
+    start.add_argument("--wait", action="store_true")
+    start.add_argument("--timeout", type=float, default=300.0)
+    start.add_argument("--poll-interval", type=float, default=1.0)
 
     sub.add_parser("templates")
 
@@ -51,6 +67,14 @@ def main() -> None:
 
     retry = sub.add_parser("retry")
     retry.add_argument("--job-id", required=True)
+    retry.add_argument("--wait", action="store_true")
+    retry.add_argument("--timeout", type=float, default=300.0)
+    retry.add_argument("--poll-interval", type=float, default=1.0)
+
+    wait_cmd = sub.add_parser("wait")
+    wait_cmd.add_argument("--job-id", required=True)
+    wait_cmd.add_argument("--timeout", type=float, default=300.0)
+    wait_cmd.add_argument("--poll-interval", type=float, default=1.0)
 
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
@@ -85,7 +109,14 @@ def main() -> None:
             "args": args.arg,
             "workflowSpec": workflow_spec,
         }
-        print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))
+        created = request_json(f"{base}/job", "POST", payload)
+        if args.wait:
+            job_id = str(created.get("job_id") or "")
+            if not job_id:
+                raise SystemExit("listen did not return a job_id")
+            print(json.dumps(wait_for_job(base, job_id, timeout=max(args.timeout, 0.1), poll_interval=max(args.poll_interval, 0.1)), indent=2))
+            return
+        print(json.dumps(created, indent=2))
         return
 
     if args.subcommand == "templates":
@@ -118,7 +149,18 @@ def main() -> None:
         return
 
     if args.subcommand == "retry":
-        print(json.dumps(request_json(f"{base}/job/{args.job_id}/retry", "POST"), indent=2))
+        created = request_json(f"{base}/job/{args.job_id}/retry", "POST")
+        if args.wait:
+            job_id = str(created.get("job_id") or "")
+            if not job_id:
+                raise SystemExit("listen did not return a job_id")
+            print(json.dumps(wait_for_job(base, job_id, timeout=max(args.timeout, 0.1), poll_interval=max(args.poll_interval, 0.1)), indent=2))
+            return
+        print(json.dumps(created, indent=2))
+        return
+
+    if args.subcommand == "wait":
+        print(json.dumps(wait_for_job(base, args.job_id, timeout=max(args.timeout, 0.1), poll_interval=max(args.poll_interval, 0.1)), indent=2))
         return
 
 

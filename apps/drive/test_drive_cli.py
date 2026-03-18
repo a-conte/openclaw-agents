@@ -6,6 +6,13 @@ import drive_cli
 
 
 class DriveCliTests(unittest.TestCase):
+    def test_make_sentinel_avoids_zsh_status_variable(self) -> None:
+        start_token, done_token, wrapped = drive_cli.make_sentinel("printf 'hello'")
+        self.assertIn(start_token, wrapped)
+        self.assertIn(done_token, wrapped)
+        self.assertIn("drive_exit_code=$?", wrapped)
+        self.assertNotIn("status=$?", wrapped)
+
     def test_extract_command_output_strips_tmux_prompt_and_sentinels(self) -> None:
         output = "\n".join(
             [

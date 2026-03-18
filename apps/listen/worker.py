@@ -80,6 +80,12 @@ def set_step_state(
             "dangerous": dangerous,
         }
     )
+    if status == "running":
+        payload.pop("completedAt", None)
+        payload.pop("durationMs", None)
+        payload.pop("result", None)
+        payload.pop("error", None)
+        payload.pop("artifacts", None)
     if started_at:
         payload["startedAt"] = started_at
     if completed_at:

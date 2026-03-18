@@ -249,11 +249,12 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
     let dangerous: Bool?
     let startedAt: Date?
     let completedAt: Date?
+    let durationMs: Int?
     let result: String?
     let error: String?
     let artifacts: [String: JSONValue]
 
-    init(id: String, name: String, type: String, status: JobStepState, dangerous: Bool?, startedAt: Date?, completedAt: Date?, result: String?, error: String?, artifacts: [String: JSONValue] = [:]) {
+    init(id: String, name: String, type: String, status: JobStepState, dangerous: Bool?, startedAt: Date?, completedAt: Date?, durationMs: Int? = nil, result: String?, error: String?, artifacts: [String: JSONValue] = [:]) {
         self.id = id
         self.name = name
         self.type = type
@@ -261,6 +262,7 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
         self.dangerous = dangerous
         self.startedAt = startedAt
         self.completedAt = completedAt
+        self.durationMs = durationMs
         self.result = result
         self.error = error
         self.artifacts = artifacts
@@ -275,6 +277,7 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
         dangerous = try container.decodeIfPresent(Bool.self, forKey: .dangerous)
         startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)
         completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
+        durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
         if let stringResult = try? container.decodeIfPresent(String.self, forKey: .result) {
             result = stringResult
         } else if let jsonValue = try? container.decodeIfPresent(JSONValue.self, forKey: .result) {
@@ -284,6 +287,20 @@ struct JobStepStatus: Codable, Equatable, Identifiable {
         }
         error = try container.decodeIfPresent(String.self, forKey: .error)
         artifacts = try container.decodeIfPresent([String: JSONValue].self, forKey: .artifacts) ?? [:]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case type
+        case status
+        case dangerous
+        case startedAt
+        case completedAt
+        case durationMs
+        case result
+        case error
+        case artifacts
     }
 }
 

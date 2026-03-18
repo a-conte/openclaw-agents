@@ -26,12 +26,52 @@ function durationText(startedAt?: string, completedAt?: string) {
   return `${minutes.toFixed(1)}m`;
 }
 
-function renderArtifactValue(value: unknown) {
-  if (typeof value === 'string') return value;
-  return JSON.stringify(value);
+function durationMsText(durationMs?: number) {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 0) return null;
+  if (durationMs < 1000) return `${durationMs}ms`;
+  const seconds = durationMs / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  return `${(seconds / 60).toFixed(1)}m`;
 }
 
-function StepArtifacts({ artifacts }: { artifacts: Record<string, unknown> | undefined }) {
+type ArtifactReference = {
+  relativePath?: string;
+  preview?: string | null;
+  kind?: string;
+  name?: string;
+  size?: number;
+  sourcePath?: string;
+};
+
+function isArtifactReference(value: unknown): value is ArtifactReference {
+  return typeof value === 'object' && value !== null && 'relativePath' in value;
+}
+
+function renderArtifactValue(jobId: string, value: unknown) {
+  if (isArtifactReference(value) && typeof value.relativePath === 'string' && value.relativePath) {
+    const label = value.preview || value.name || value.relativePath;
+    return (
+      <div className="space-y-1">
+        <Link
+          href={`/api/jobs/${jobId}/artifact?path=${encodeURIComponent(value.relativePath)}`}
+          target="_blank"
+          className="text-accent hover:text-accent-hover"
+        >
+          {label}
+        </Link>
+        <div className="text-[11px] text-text-tertiary">
+          {value.kind || 'artifact'}
+          {typeof value.size === 'number' ? ` · ${value.size} bytes` : ''}
+          {value.sourcePath ? ` · source ${value.sourcePath}` : ''}
+        </div>
+      </div>
+    );
+  }
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value, null, 2);
+}
+
+function StepArtifacts({ jobId, artifacts }: { jobId: string; artifacts: Record<string, unknown> | undefined }) {
   if (!artifacts || Object.keys(artifacts).length === 0) return null;
 
   return (
@@ -42,7 +82,7 @@ function StepArtifacts({ artifacts }: { artifacts: Record<string, unknown> | und
           <div key={key}>
             <div className="font-semibold capitalize text-text-primary">{key}</div>
             <div className="mt-1 whitespace-pre-wrap break-words">
-              {renderArtifactValue(value)}
+              {renderArtifactValue(jobId, value)}
             </div>
           </div>
         ))}
@@ -143,7 +183,9 @@ export function JobDetailPanel({
                   <div className="mt-1 text-[11px] text-text-tertiary">
                     {step.type}
                     {step.completedAt ? ` · ${relativeTime(step.completedAt)}` : ''}
-                    {durationText(step.startedAt, step.completedAt) ? ` · ${durationText(step.startedAt, step.completedAt)}` : ''}
+                    {(durationMsText(step.durationMs) || durationText(step.startedAt, step.completedAt))
+                      ? ` · ${durationMsText(step.durationMs) || durationText(step.startedAt, step.completedAt)}`
+                      : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -154,7 +196,7 @@ export function JobDetailPanel({
                 </div>
               </div>
               {step.error ? <div className="mt-2 text-xs text-red-300">{step.error}</div> : null}
-              <StepArtifacts artifacts={step.artifacts as Record<string, unknown> | undefined} />
+              <StepArtifacts jobId={job.id} artifacts={step.artifacts as Record<string, unknown> | undefined} />
             </div>
           )) : <div className="text-xs text-text-secondary">No step details for this job.</div>}
         </div>
