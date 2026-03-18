@@ -143,6 +143,61 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "imessage_status_ping",
+        "name": "iMessage Status Ping",
+        "description": "Send a short templated iMessage status update to the operator.",
+        "category": "operator",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "recipient",
+                "label": "Recipient",
+                "description": "Phone number or contact handle available in Messages.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "message",
+                "label": "Message",
+                "description": "Short status update body.",
+                "required": False,
+                "defaultValue": "OpenClaw update: workflow completed.",
+            },
+        ],
+    },
+    {
+        "id": "mail_draft_incident_summary",
+        "name": "Mail Draft Incident Summary",
+        "description": "Create a reviewable Apple Mail draft for an incident or operator handoff.",
+        "category": "operator",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "to",
+                "label": "Recipient Email",
+                "description": "Email address for the draft recipient.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "subject",
+                "label": "Subject",
+                "description": "Subject line for the draft.",
+                "required": False,
+                "defaultValue": "OpenClaw incident summary",
+            },
+            {
+                "key": "body",
+                "label": "Body",
+                "description": "Draft email body.",
+                "required": False,
+                "defaultValue": "Incident summary:\n- Context:\n- Evidence:\n- Next action:",
+            },
+        ],
+    },
+    {
         "id": "repo_test_build",
         "name": "Repo Test + Build",
         "description": "Run a test command and build command in a repo with captured shell artifacts.",
@@ -1053,6 +1108,39 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "type": "agent",
                     "targetAgent": agent,
                     "prompt": prompt,
+                }
+            ]
+        }, inputs
+
+    if template_id == "imessage_status_ping":
+        recipient = inputs.get("recipient") or ""
+        message = inputs.get("message") or "OpenClaw update: workflow completed."
+        return {
+            "steps": [
+                {
+                    "id": "send_imessage_status",
+                    "name": "Send iMessage status update",
+                    "type": "steer",
+                    "dangerous": True,
+                    "command": "messages",
+                    "args": ["send", "--recipient", recipient, "--text", message],
+                }
+            ]
+        }, inputs
+
+    if template_id == "mail_draft_incident_summary":
+        to = inputs.get("to") or ""
+        subject = inputs.get("subject") or "OpenClaw incident summary"
+        body = inputs.get("body") or "Incident summary:\n- Context:\n- Evidence:\n- Next action:"
+        return {
+            "steps": [
+                {
+                    "id": "draft_incident_mail",
+                    "name": "Create Mail draft",
+                    "type": "steer",
+                    "dangerous": True,
+                    "command": "mail",
+                    "args": ["draft", "--to", to, "--subject", subject, "--body", body],
                 }
             ]
         }, inputs

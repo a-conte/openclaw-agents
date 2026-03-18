@@ -79,7 +79,7 @@ def normalize_command_key(mode: str, command: str, args: list[str]) -> str:
 
 def top_level_dangerous(mode: str, command: str, args: list[str]) -> bool:
     key = normalize_command_key(mode, command, args)
-    return key in {"proc.kill", "session.kill", "window.close", "click.right"}
+    return key in {"proc.kill", "session.kill", "window.close", "click.right", "messages.send", "mail.draft"}
 
 
 def check_command_policy(mode: str, command: str, args: list[str], dangerous: bool = False) -> tuple[bool, str | None]:

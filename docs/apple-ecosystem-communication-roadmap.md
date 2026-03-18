@@ -18,8 +18,7 @@ What already exists:
 What does not yet exist:
 
 - true APNs-backed iPad push delivery
-- iMessage as a real operator notification channel
-- Apple Mail draft/review workflows as a first-class communication surface
+- Apple-native delivery execution from notification events themselves
 - Apple Shortcuts integration for mobile control
 - fully unified Apple delivery routing across all channels
 
@@ -154,9 +153,10 @@ Definition of done:
 
 Suggested slices:
 
-- `Add iMessage templated alert workflow`
-- `Add Mail draft incident summary workflow`
-- `Add Apple delivery routing config`
+- `Done: iMessage templated alert workflow`
+- `Done: Mail draft incident summary workflow`
+- `Done: Apple delivery routing config in dashboard-first settings`
+- `Open: event-driven delivery dispatch for iMessage/Mail beyond explicit workflow steps`
 
 ## Wave 3
 

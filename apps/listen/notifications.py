@@ -23,6 +23,7 @@ def _default_preferences() -> dict[str, Any]:
         "channels": dict(_DEFAULT_CHANNELS),
         "agentAllowlist": [],
         "templateAllowlist": [],
+        "templateRouting": {},
         "updatedAt": now_iso(),
     }
 
@@ -82,6 +83,27 @@ def update_notification_preferences(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw, list):
             current[key] = [str(item).strip() for item in raw if str(item).strip()]
 
+    raw_routing = data.get("templateRouting")
+    if isinstance(raw_routing, dict):
+        normalized_routing: dict[str, Any] = {}
+        for template_id, route in raw_routing.items():
+            template_key = str(template_id).strip()
+            if not template_key or not isinstance(route, dict):
+                continue
+            route_channels = dict(_DEFAULT_CHANNELS)
+            raw_channels = route.get("channels")
+            if isinstance(raw_channels, dict):
+                for name in route_channels:
+                    if name in raw_channels:
+                        route_channels[name] = bool(raw_channels[name])
+            normalized_routing[template_key] = {
+                "channels": route_channels,
+                "recipient": str(route.get("recipient") or "").strip() or None,
+                "mailTo": str(route.get("mailTo") or "").strip() or None,
+                "mailSubjectPrefix": str(route.get("mailSubjectPrefix") or "").strip() or None,
+            }
+        current["templateRouting"] = normalized_routing
+
     if "dashboardPrimary" in data:
         current["dashboardPrimary"] = bool(data.get("dashboardPrimary"))
 
@@ -138,6 +160,14 @@ def _channels_for_event(preferences: dict[str, Any]) -> list[str]:
     return [name for name, enabled in channels.items() if bool(enabled)]
 
 
+def _route_for_template(preferences: dict[str, Any], template_id: str) -> dict[str, Any] | None:
+    raw_routing = preferences.get("templateRouting")
+    if not isinstance(raw_routing, dict) or not template_id:
+        return None
+    route = raw_routing.get(template_id)
+    return route if isinstance(route, dict) else None
+
+
 def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
     preferences = get_notification_preferences()
     status = str(job.get("status") or "").strip()
@@ -170,7 +200,11 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(agent_allowlist, list) and agent_allowlist and target_agent not in agent_allowlist:
         return None
 
-    channels = _channels_for_event(preferences)
+    route = _route_for_template(preferences, template_id)
+    if route and isinstance(route.get("channels"), dict):
+        channels = [name for name, enabled in route["channels"].items() if bool(enabled)]
+    else:
+        channels = _channels_for_event(preferences)
     summary = str(job.get("summary") or "").strip()
     error = str(job.get("error") or "").strip()
     title_target = template_id or str(job.get("workflow") or "").strip() or str(job.get("mode") or "job")
@@ -189,6 +223,7 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
         "templateId": template_id or None,
         "summary": summary or None,
         "dashboardPrimary": bool(preferences.get("dashboardPrimary", True)),
+        "routing": route or None,
     }
 
     state = _load_state()

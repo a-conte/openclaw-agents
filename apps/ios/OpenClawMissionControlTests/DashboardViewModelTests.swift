@@ -134,6 +134,7 @@ private struct EmptyStreamClient: MissionControlClient {
             channels: NotificationChannels(push: true, notes: true, imessage: false, mail_draft: false),
             agentAllowlist: [],
             templateAllowlist: [],
+            templateRouting: nil,
             updatedAt: Date()
         )
     }

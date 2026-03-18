@@ -27,6 +27,8 @@ struct JobSubmitView: View {
     @State private var notificationSeverityThreshold = "error"
     @State private var notificationsPushEnabled = true
     @State private var notificationsNotesEnabled = true
+    @State private var notificationsImessageEnabled = false
+    @State private var notificationsMailDraftEnabled = false
     @State private var isSavingNotificationPreferences = false
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
@@ -202,6 +204,8 @@ struct JobSubmitView: View {
                     .pickerStyle(.segmented)
                     Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
                     Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
+                    Toggle("Enable iMessage delivery routes", isOn: $notificationsImessageEnabled)
+                    Toggle("Enable Mail draft delivery routes", isOn: $notificationsMailDraftEnabled)
                     Button {
                         Task {
                             isSavingNotificationPreferences = true
@@ -212,11 +216,12 @@ struct JobSubmitView: View {
                                 channels: NotificationChannels(
                                     push: notificationsPushEnabled,
                                     notes: notificationsNotesEnabled,
-                                    imessage: notificationPreferences.channels.imessage,
-                                    mail_draft: notificationPreferences.channels.mail_draft
+                                    imessage: notificationsImessageEnabled,
+                                    mail_draft: notificationsMailDraftEnabled
                                 ),
                                 agentAllowlist: notificationPreferences.agentAllowlist,
                                 templateAllowlist: notificationPreferences.templateAllowlist,
+                                templateRouting: notificationPreferences.templateRouting,
                                 updatedAt: notificationPreferences.updatedAt
                             )
                             await viewModel.saveNotificationPreferences(updated)
@@ -690,6 +695,8 @@ struct JobSubmitView: View {
         notificationSeverityThreshold = preferences.severityThreshold
         notificationsPushEnabled = preferences.channels.push
         notificationsNotesEnabled = preferences.channels.notes
+        notificationsImessageEnabled = preferences.channels.imessage
+        notificationsMailDraftEnabled = preferences.channels.mail_draft
     }
 }
 

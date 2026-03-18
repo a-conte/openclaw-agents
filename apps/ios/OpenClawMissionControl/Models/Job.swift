@@ -331,6 +331,7 @@ struct NotificationPreferences: Codable, Equatable {
     let channels: NotificationChannels
     let agentAllowlist: [String]
     let templateAllowlist: [String]
+    let templateRouting: [String: NotificationTemplateRoute]?
     let updatedAt: Date?
 }
 
@@ -339,6 +340,13 @@ struct NotificationChannels: Codable, Equatable {
     let notes: Bool
     let imessage: Bool
     let mail_draft: Bool
+}
+
+struct NotificationTemplateRoute: Codable, Equatable {
+    let channels: NotificationChannels
+    let recipient: String?
+    let mailTo: String?
+    let mailSubjectPrefix: String?
 }
 
 struct NotificationDevice: Codable, Equatable, Identifiable {
@@ -363,6 +371,7 @@ struct NotificationEvent: Codable, Equatable, Identifiable {
     let templateId: String?
     let summary: String?
     let dashboardPrimary: Bool?
+    let routing: NotificationTemplateRoute?
 }
 
 struct JobTemplate: Codable, Equatable, Identifiable {

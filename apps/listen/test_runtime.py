@@ -28,6 +28,17 @@ class ListenRuntimeTests(unittest.TestCase):
             )
         self.assertIn("requires OPENCLAW_LISTEN_ALLOW_DANGEROUS=true", error or "")
 
+    def test_validate_job_request_blocks_imessage_send_by_default(self) -> None:
+        with patch.dict(os.environ, {"OPENCLAW_LISTEN_ALLOW_DANGEROUS": "false"}, clear=False):
+            error = listen_server.validate_job_request(
+                {
+                    "mode": "steer",
+                    "command": "messages",
+                    "args": ["send", "--recipient", "+15551234567", "--text", "hello"],
+                }
+            )
+        self.assertIn("requires OPENCLAW_LISTEN_ALLOW_DANGEROUS=true", error or "")
+
     def test_deep_resolve_replaces_step_placeholders(self) -> None:
         resolved = worker.deep_resolve(
             {
@@ -156,6 +167,12 @@ class ListenRuntimeTests(unittest.TestCase):
                         "severityThreshold": "error",
                         "channels": {"push": True, "notes": False, "imessage": False, "mail_draft": False},
                         "agentAllowlist": ["main"],
+                        "templateRouting": {
+                            "operator_handoff_note": {
+                                "channels": {"push": False, "notes": True, "imessage": True, "mail_draft": False},
+                                "recipient": "+15551234567",
+                            }
+                        },
                     }
                 )
                 registered = notifications.register_notification_device({"id": "ipad-1", "name": "Primary iPad", "platform": "ios"})
@@ -171,9 +188,11 @@ class ListenRuntimeTests(unittest.TestCase):
                 )
                 events = notifications.list_notification_events()
         self.assertEqual(updated["severityThreshold"], "error")
+        self.assertIn("operator_handoff_note", updated["templateRouting"])
         self.assertEqual(registered["id"], "ipad-1")
         self.assertIsNotNone(emitted)
         self.assertEqual(events[0]["jobId"], "job-1")
+        self.assertIn("imessage", events[0]["channels"])
 
     def test_resolve_template_builds_browser_snapshot_review(self) -> None:
         spec, inputs = workflow_templates.resolve_template("browser_snapshot_review", {"url": "http://localhost:3000/command"})
@@ -191,6 +210,18 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(inputs["title"], "Ops")
         self.assertEqual(spec["steps"][0]["command"], "notes")
         self.assertEqual(spec["steps"][0]["args"][:3], ["create", "--title", "Ops"])
+
+    def test_resolve_template_builds_imessage_status_ping(self) -> None:
+        spec, inputs = workflow_templates.resolve_template("imessage_status_ping", {"recipient": "+15551234567", "message": "hello"})
+        self.assertEqual(inputs["recipient"], "+15551234567")
+        self.assertEqual(spec["steps"][0]["command"], "messages")
+        self.assertEqual(spec["steps"][0]["args"][:3], ["send", "--recipient", "+15551234567"])
+
+    def test_resolve_template_builds_mail_draft_incident_summary(self) -> None:
+        spec, inputs = workflow_templates.resolve_template("mail_draft_incident_summary", {"to": "ops@example.com"})
+        self.assertEqual(inputs["to"], "ops@example.com")
+        self.assertEqual(spec["steps"][0]["command"], "mail")
+        self.assertEqual(spec["steps"][0]["args"][:3], ["draft", "--to", "ops@example.com"])
 
     def test_save_and_resolve_custom_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

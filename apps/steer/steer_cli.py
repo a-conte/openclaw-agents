@@ -1039,6 +1039,39 @@ def cmd_notes_create(title: str, body: str) -> dict[str, object]:
     return {"ok": True, "app": "Notes", "title": title}
 
 
+def cmd_messages_send(recipient: str, text: str) -> dict[str, object]:
+    recipient_escaped = apple_script_quote(recipient)
+    text_escaped = apple_script_quote(text)
+    script = f'''
+    tell application "Messages"
+      activate
+      set targetService to 1st service whose service type = iMessage
+      set targetBuddy to buddy "{recipient_escaped}" of targetService
+      send "{text_escaped}" to targetBuddy
+    end tell
+    '''
+    osa(script)
+    return {"ok": True, "app": "Messages", "recipient": recipient}
+
+
+def cmd_mail_draft(to: str, subject: str, body: str) -> dict[str, object]:
+    to_escaped = apple_script_quote(to)
+    subject_escaped = apple_script_quote(subject)
+    body_escaped = apple_script_quote(body)
+    script = f'''
+    tell application "Mail"
+      activate
+      set draftMessage to make new outgoing message with properties {{subject:"{subject_escaped}", content:"{body_escaped}" & return & return}}
+      tell draftMessage
+        make new to recipient at end of to recipients with properties {{address:"{to_escaped}"}}
+        set visible to true
+      end tell
+    end tell
+    '''
+    osa(script)
+    return {"ok": True, "app": "Mail", "to": to, "subject": subject}
+
+
 def print_result(data: dict[str, object], as_json: bool) -> None:
     if as_json:
         print(json.dumps(data, indent=2))
@@ -1256,6 +1289,21 @@ def build_parser() -> argparse.ArgumentParser:
     notes_create.add_argument("--body", required=True)
     notes_create.add_argument("--json", action="store_true")
 
+    messages = sub.add_parser("messages")
+    messages_sub = messages.add_subparsers(dest="messages_command", required=True)
+    messages_send = messages_sub.add_parser("send")
+    messages_send.add_argument("--recipient", required=True)
+    messages_send.add_argument("--text", required=True)
+    messages_send.add_argument("--json", action="store_true")
+
+    mail = sub.add_parser("mail")
+    mail_sub = mail.add_subparsers(dest="mail_command", required=True)
+    mail_draft = mail_sub.add_parser("draft")
+    mail_draft.add_argument("--to", required=True)
+    mail_draft.add_argument("--subject", required=True)
+    mail_draft.add_argument("--body", required=True)
+    mail_draft.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -1399,6 +1447,14 @@ def main() -> None:
     if args.command == "notes":
         if args.notes_command == "create":
             print_result(cmd_notes_create(args.title, args.body), args.json)
+            return
+    if args.command == "messages":
+        if args.messages_command == "send":
+            print_result(cmd_messages_send(args.recipient, args.text), args.json)
+            return
+    if args.command == "mail":
+        if args.mail_command == "draft":
+            print_result(cmd_mail_draft(args.to, args.subject, args.body), args.json)
             return
 
 

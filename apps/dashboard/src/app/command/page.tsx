@@ -87,6 +87,17 @@ type AppleNotificationPreferences = {
   };
   agentAllowlist: string[];
   templateAllowlist: string[];
+  templateRouting?: Record<string, {
+    channels: {
+      push: boolean;
+      notes: boolean;
+      imessage: boolean;
+      mail_draft: boolean;
+    };
+    recipient?: string | null;
+    mailTo?: string | null;
+    mailSubjectPrefix?: string | null;
+  }>;
   updatedAt?: string;
 };
 
@@ -101,6 +112,12 @@ type AppleNotificationEvent = {
   createdAt: string;
   targetAgent?: string | null;
   templateId?: string | null;
+  routing?: {
+    channels?: Record<string, boolean>;
+    recipient?: string | null;
+    mailTo?: string | null;
+    mailSubjectPrefix?: string | null;
+  } | null;
 };
 
 export default function CommandPage() {
@@ -1424,10 +1441,202 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                     })}
                   />
                 </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span>iMessage delivery enabled</span>
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences.channels.imessage}
+                    onChange={(event) => void saveNotificationPreferences({
+                      ...notificationPreferences,
+                      dashboardPrimary: true,
+                      channels: { ...notificationPreferences.channels, imessage: event.target.checked },
+                    })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span>Mail draft delivery enabled</span>
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences.channels.mail_draft}
+                    onChange={(event) => void saveNotificationPreferences({
+                      ...notificationPreferences,
+                      dashboardPrimary: true,
+                      channels: { ...notificationPreferences.channels, mail_draft: event.target.checked },
+                    })}
+                  />
+                </label>
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Supplemental device policy</div>
-                  <div>The dashboard remains the primary Mission Control. Apple delivery only mirrors high-signal alerts and Notes handoffs.</div>
+                  <div>The dashboard remains the primary Mission Control. Apple delivery mirrors high-signal alerts and structured Apple handoffs.</div>
                 </div>
+                {selectedTemplate ? (() => {
+                  const route = notificationPreferences.templateRouting?.[selectedTemplate.id] || {
+                    channels: { push: false, notes: false, imessage: false, mail_draft: false },
+                    recipient: '',
+                    mailTo: '',
+                    mailSubjectPrefix: '',
+                  };
+                  return (
+                    <div className="rounded-md border border-border bg-surface-2/70 p-2">
+                      <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Template delivery routing</div>
+                      <div className="mb-2 font-semibold text-text-primary">{selectedTemplate.name}</div>
+                      <div className="grid gap-2">
+                        <label className="flex items-center justify-between gap-2">
+                          <span>Mirror to iPad alerts</span>
+                          <input
+                            type="checkbox"
+                            checked={route.channels.push}
+                            onChange={(event) => {
+                              const templateRouting = {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  channels: { ...route.channels, push: event.target.checked },
+                                },
+                              };
+                              void saveNotificationPreferences({ ...notificationPreferences, templateRouting });
+                            }}
+                          />
+                        </label>
+                        <label className="flex items-center justify-between gap-2">
+                          <span>Create Notes handoff</span>
+                          <input
+                            type="checkbox"
+                            checked={route.channels.notes}
+                            onChange={(event) => {
+                              const templateRouting = {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  channels: { ...route.channels, notes: event.target.checked },
+                                },
+                              };
+                              void saveNotificationPreferences({ ...notificationPreferences, templateRouting });
+                            }}
+                          />
+                        </label>
+                        <label className="flex items-center justify-between gap-2">
+                          <span>Allow iMessage follow-up</span>
+                          <input
+                            type="checkbox"
+                            checked={route.channels.imessage}
+                            onChange={(event) => {
+                              const templateRouting = {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  channels: { ...route.channels, imessage: event.target.checked },
+                                },
+                              };
+                              void saveNotificationPreferences({ ...notificationPreferences, templateRouting });
+                            }}
+                          />
+                        </label>
+                        <input
+                          value={route.recipient || ''}
+                          onChange={(event) => {
+                            const next = {
+                              ...notificationPreferences,
+                              templateRouting: {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  recipient: event.target.value,
+                                },
+                              },
+                            };
+                            setNotificationPreferences(next);
+                          }}
+                          onBlur={(event) => void saveNotificationPreferences({
+                            ...notificationPreferences,
+                            templateRouting: {
+                              ...(notificationPreferences.templateRouting || {}),
+                              [selectedTemplate.id]: {
+                                ...route,
+                                recipient: event.target.value,
+                              },
+                            },
+                          })}
+                          placeholder="iMessage recipient"
+                          className="w-full rounded-md border border-border bg-surface-1/70 px-2 py-1 text-xs text-text-primary"
+                        />
+                        <label className="flex items-center justify-between gap-2">
+                          <span>Create Mail draft</span>
+                          <input
+                            type="checkbox"
+                            checked={route.channels.mail_draft}
+                            onChange={(event) => {
+                              const templateRouting = {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  channels: { ...route.channels, mail_draft: event.target.checked },
+                                },
+                              };
+                              void saveNotificationPreferences({ ...notificationPreferences, templateRouting });
+                            }}
+                          />
+                        </label>
+                        <input
+                          value={route.mailTo || ''}
+                          onChange={(event) => {
+                            const next = {
+                              ...notificationPreferences,
+                              templateRouting: {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  mailTo: event.target.value,
+                                },
+                              },
+                            };
+                            setNotificationPreferences(next);
+                          }}
+                          onBlur={(event) => void saveNotificationPreferences({
+                            ...notificationPreferences,
+                            templateRouting: {
+                              ...(notificationPreferences.templateRouting || {}),
+                              [selectedTemplate.id]: {
+                                ...route,
+                                mailTo: event.target.value,
+                              },
+                            },
+                          })}
+                          placeholder="Mail draft recipient"
+                          className="w-full rounded-md border border-border bg-surface-1/70 px-2 py-1 text-xs text-text-primary"
+                        />
+                        <input
+                          value={route.mailSubjectPrefix || ''}
+                          onChange={(event) => {
+                            const next = {
+                              ...notificationPreferences,
+                              templateRouting: {
+                                ...(notificationPreferences.templateRouting || {}),
+                                [selectedTemplate.id]: {
+                                  ...route,
+                                  mailSubjectPrefix: event.target.value,
+                                },
+                              },
+                            };
+                            setNotificationPreferences(next);
+                          }}
+                          onBlur={(event) => void saveNotificationPreferences({
+                            ...notificationPreferences,
+                            templateRouting: {
+                              ...(notificationPreferences.templateRouting || {}),
+                              [selectedTemplate.id]: {
+                                ...route,
+                                mailSubjectPrefix: event.target.value,
+                              },
+                            },
+                          })}
+                          placeholder="Mail subject prefix"
+                          className="w-full rounded-md border border-border bg-surface-1/70 px-2 py-1 text-xs text-text-primary"
+                        />
+                      </div>
+                    </div>
+                  );
+                })() : null}
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent alerts</div>
                   <div className="space-y-1">
@@ -1446,6 +1655,14 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                           <span className="text-[11px] uppercase text-text-tertiary">{event.severity}</span>
                         </div>
                         <div className="mt-1 text-[11px] text-text-secondary">{event.body}</div>
+                        {event.routing ? (
+                          <div className="mt-1 text-[11px] text-text-tertiary">
+                            {[
+                              event.routing.recipient ? `iMessage: ${event.routing.recipient}` : null,
+                              event.routing.mailTo ? `Mail: ${event.routing.mailTo}` : null,
+                            ].filter(Boolean).join(' · ') || 'Template-specific delivery routing'}
+                          </div>
+                        ) : null}
                       </button>
                     )) : <div className="text-[11px] text-text-tertiary">No Apple alert events recorded yet.</div>}
                   </div>

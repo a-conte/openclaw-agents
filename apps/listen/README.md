@@ -72,6 +72,7 @@ Custom templates:
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
 - `GET /notifications/preferences` returns Apple delivery preferences used by the dashboard and iPad app
 - `GET /notifications/events` returns recent Apple alert events for supplemental iPad delivery and dashboard review
+- notification preferences may include per-template routing for `push`, `notes`, `imessage`, and `mail_draft`
 
 Agent-facing client:
 
@@ -102,6 +103,8 @@ Built-in workflows:
 - `daemon_recovery_handoff`
 - `operator_handoff_note`
 - `operator_handoff_bundle`
+- `imessage_status_ping`
+- `mail_draft_incident_summary`
 
 Examples:
 
