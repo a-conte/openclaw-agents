@@ -185,6 +185,16 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
+    func retryJob(id: String) async {
+        do {
+            let job = try await client.retryJob(id: id)
+            jobs.insert(job, at: 0)
+            await loadJobs()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func clearJobs() async {
         do {
             try await client.clearJobs()

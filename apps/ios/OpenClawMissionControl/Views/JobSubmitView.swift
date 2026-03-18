@@ -141,9 +141,15 @@ struct JobSubmitView: View {
                 ContentUnavailableView(showArchived ? "No archived jobs" : "No jobs", systemImage: "tray", description: Text("Submitted automation jobs will appear here."))
             } else {
                 ForEach(items) { job in
-                    JobCardView(job: job, stopAction: showArchived || job.status != .running ? nil : {
-                        Task { await viewModel.stopJob(id: job.id) }
-                    })
+                    JobCardView(
+                        job: job,
+                        stopAction: showArchived || job.status != .running ? nil : {
+                            _ = Task<Void, Never> { await viewModel.stopJob(id: job.id) }
+                        },
+                        retryAction: job.status == .failed || job.status == .stopped ? {
+                            _ = Task<Void, Never> { await viewModel.retryJob(id: job.id) }
+                        } : nil
+                    )
                 }
             }
         }
@@ -167,6 +173,7 @@ struct JobSubmitView: View {
             targetAgent: selectedAgent,
             command: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command.trimmingCharacters(in: .whitespacesAndNewlines),
             workflow: workflow.isEmpty ? nil : workflow,
+            workflowSpec: nil,
             args: rawArgs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty },
             thinking: nil,
             local: false
@@ -177,6 +184,7 @@ struct JobSubmitView: View {
 private struct JobCardView: View {
     let job: Job
     let stopAction: (() -> Void)?
+    let retryAction: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -229,14 +237,36 @@ private struct JobCardView: View {
                     ForEach(job.updates.suffix(3)) { update in
                         Text("• \(update.message)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(update.level == .error ? .red : .secondary)
                     }
                 }
             }
 
-            if let stopAction {
-                Button("Stop", action: stopAction)
-                    .buttonStyle(.bordered)
+            if !job.stepStatus.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(job.stepStatus.suffix(4)) { step in
+                        Text("• \(step.name) · \(step.status.rawValue)")
+                            .font(.caption2)
+                            .foregroundStyle(step.status == .failed ? .red : .secondary)
+                    }
+                }
+            }
+
+            if let policy = job.policy, !policy.allowed, let reason = policy.reason {
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            HStack {
+                if let stopAction {
+                    Button("Stop", action: stopAction)
+                        .buttonStyle(.bordered)
+                }
+                if let retryAction, job.status == .failed || job.status == .stopped {
+                    Button("Retry", action: retryAction)
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .padding(18)

@@ -4,6 +4,7 @@ import {
   createListenJob,
   getListenJob,
   listListenJobs,
+  retryListenJob,
   stopListenJob,
 } from './listen-client';
 
@@ -33,6 +34,7 @@ export async function createJob(input: {
   command?: string;
   workflow?: string;
   args?: string[];
+  workflowSpec?: Record<string, unknown>;
   thinking?: string;
   local?: boolean;
 }): Promise<JobContract> {
@@ -43,6 +45,7 @@ export async function createJob(input: {
     command: input.command,
     workflow: input.workflow,
     args: input.args,
+    workflowSpec: input.workflowSpec,
     thinking: input.thinking,
     local: input.local,
   });
@@ -50,6 +53,10 @@ export async function createJob(input: {
 
 export async function stopJob(id: string) {
   return stopListenJob(id);
+}
+
+export async function retryJob(id: string) {
+  return retryListenJob(id);
 }
 
 export async function clearJobs() {

@@ -6,6 +6,7 @@ protocol MissionControlClient {
     func submitJob(request: JobRequest) async throws -> Job
     func listJobs(archived: Bool) async throws -> [Job]
     func stopJob(id: String) async throws
+    func retryJob(id: String) async throws -> Job
     func clearJobs() async throws
     func listTasks() async throws -> [TaskItem]
     func listWorkflowRuns() async throws -> [WorkflowRun]
@@ -31,6 +32,10 @@ struct PreviewMissionControlClient: MissionControlClient {
     }
 
     func stopJob(id: String) async throws {
+    }
+
+    func retryJob(id: String) async throws -> Job {
+        Job.preview
     }
 
     func clearJobs() async throws {
@@ -76,6 +81,10 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func stopJob(id: String) async throws {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func retryJob(id: String) async throws -> Job {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -173,6 +182,14 @@ struct HTTPMissionControlClient: MissionControlClient {
         _ = try await session.data(for: request)
     }
 
+    func retryJob(id: String) async throws -> Job {
+        let url = baseURL.appending(path: "/api/jobs/\(id)/retry")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
+    }
+
     func clearJobs() async throws {
         let url = baseURL.appending(path: "/api/jobs/clear")
         var request = URLRequest(url: url)
@@ -223,6 +240,7 @@ struct MissionControlEventPayload: Codable, Equatable {
     let mode: String?
     let command: String?
     let workflow: String?
+    let workflowSpec: JSONValue?
     let args: [String]?
     let createdAt: Date?
     let startedAt: Date?
@@ -231,6 +249,12 @@ struct MissionControlEventPayload: Codable, Equatable {
     let error: String?
     let summary: String?
     let updates: [JobUpdate]?
+    let stepStatus: [JobStepStatus]?
+    let currentStepId: String?
+    let timedOut: Bool?
+    let attempt: Int?
+    let retryOf: String?
+    let policy: JobPolicy?
 
     var agentStatus: AgentStatus? {
         status.flatMap { AgentStatus(rawValue: $0) }
@@ -259,6 +283,7 @@ struct MissionControlEventPayload: Codable, Equatable {
             mode: jobMode,
             command: command,
             workflow: workflow,
+            workflowSpec: workflowSpec,
             args: args,
             createdAt: createdAt,
             startedAt: startedAt,
@@ -266,7 +291,13 @@ struct MissionControlEventPayload: Codable, Equatable {
             result: result?.displayString,
             error: error,
             summary: summary,
-            updates: updates ?? []
+            updates: updates ?? [],
+            stepStatus: stepStatus ?? [],
+            currentStepId: currentStepId,
+            timedOut: timedOut ?? false,
+            attempt: attempt ?? 1,
+            retryOf: retryOf,
+            policy: policy
         )
     }
 }
@@ -277,6 +308,7 @@ struct JobRequest: Codable {
     let targetAgent: String
     let command: String?
     let workflow: String?
+    let workflowSpec: JSONValue?
     let args: [String]
     let thinking: String?
     let local: Bool

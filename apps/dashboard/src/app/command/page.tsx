@@ -780,6 +780,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [command, setCommand] = useState('');
   const [workflow, setWorkflow] = useState('safari_open_command_page');
   const [argsText, setArgsText] = useState('');
+  const [workflowSpecText, setWorkflowSpecText] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -798,6 +799,20 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setSubmitting(true);
     setError(null);
     try {
+      let workflowSpec: Record<string, unknown> | undefined;
+      if (mode === 'workflow' && workflowSpecText.trim()) {
+        try {
+          const parsed = JSON.parse(workflowSpecText);
+          if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+            setError('workflowSpec JSON must be an object');
+            return;
+          }
+          workflowSpec = parsed as Record<string, unknown>;
+        } catch {
+          setError('workflowSpec JSON is invalid');
+          return;
+        }
+      }
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -808,6 +823,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
           command: command || undefined,
           workflow: workflow || undefined,
           args: argsText.split(',').map((item) => item.trim()).filter(Boolean),
+          workflowSpec,
         }),
       });
       const payload = await response.json();
@@ -818,6 +834,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setPrompt('');
       setCommand('');
       setArgsText('');
+      setWorkflowSpecText('');
       onChanged();
     } catch {
       setError('Network error while submitting automation job');
@@ -828,6 +845,19 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
 
   async function stop(jobId: string) {
     await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+    onChanged();
+    if (showArchived) {
+      await loadArchived();
+    }
+  }
+
+  async function retry(jobId: string) {
+    const response = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' });
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(payload.error || 'Failed to retry job');
+      return;
+    }
     onChanged();
     if (showArchived) {
       await loadArchived();
@@ -926,6 +956,12 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 placeholder="Args (comma separated)"
                 className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
               />
+              <textarea
+                value={workflowSpecText}
+                onChange={(event) => setWorkflowSpecText(event.target.value)}
+                placeholder='Advanced workflowSpec JSON, e.g. {"steps":[...]}'
+                className="min-h-[144px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              />
             </>
           )}
 
@@ -974,14 +1010,32 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                     {job.status === 'running' && !showArchived && (
                       <Button size="sm" variant="ghost" onClick={() => void stop(job.id)}>Stop</Button>
                     )}
+                    {(job.status === 'failed' || job.status === 'stopped') && (
+                      <Button size="sm" variant="secondary" onClick={() => void retry(job.id)}>Retry</Button>
+                    )}
                   </div>
                 </div>
                 {job.prompt ? <div className="mt-2 text-xs text-text-secondary">{job.prompt}</div> : null}
                 {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+                {job.timedOut ? <div className="mt-2 text-xs text-yellow-200">Timed out</div> : null}
+                {job.policy && job.policy.allowed === false ? (
+                  <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/8 px-3 py-2 text-xs text-yellow-100">
+                    {job.policy.reason || 'Blocked by policy'}
+                  </div>
+                ) : null}
                 {Array.isArray(job.updates) && job.updates.length > 0 ? (
                   <div className="mt-3 space-y-1 text-xs text-text-tertiary">
                     {job.updates.slice(-3).map((update) => (
-                      <div key={`${update.at}-${update.message}`}>• {update.message}</div>
+                      <div key={`${update.at}-${update.message}`} className={update.level === 'error' ? 'text-red-300' : undefined}>• {update.message}</div>
+                    ))}
+                  </div>
+                ) : null}
+                {Array.isArray(job.stepStatus) && job.stepStatus.length > 0 ? (
+                  <div className="mt-3 space-y-1 text-xs text-text-tertiary">
+                    {job.stepStatus.slice(-4).map((step) => (
+                      <div key={step.id} className={step.status === 'failed' ? 'text-red-300' : undefined}>
+                        • {step.name} · {step.status}
+                      </div>
                     ))}
                   </div>
                 ) : null}

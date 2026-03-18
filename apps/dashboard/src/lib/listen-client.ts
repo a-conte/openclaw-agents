@@ -11,6 +11,7 @@ type CreateAutomationJobInput = {
   command?: string;
   workflow?: string;
   args?: string[];
+  workflowSpec?: Record<string, unknown>;
 };
 
 function buildUrl(path: string) {
@@ -56,6 +57,7 @@ export async function createListenJob(input: CreateAutomationJobInput): Promise<
       command: input.command,
       workflow: input.workflow,
       args: input.args ?? [],
+      workflowSpec: input.workflowSpec,
     }),
   });
   return getListenJob(created.job_id);
@@ -63,6 +65,11 @@ export async function createListenJob(input: CreateAutomationJobInput): Promise<
 
 export async function stopListenJob(jobId: string): Promise<{ ok?: boolean; job_id: string }> {
   return listenFetch<{ ok?: boolean; job_id: string }>(`/job/${jobId}`, { method: 'DELETE' });
+}
+
+export async function retryListenJob(jobId: string): Promise<JobContract> {
+  const created = await listenFetch<{ job_id: string }>(`/job/${jobId}/retry`, { method: 'POST' });
+  return getListenJob(created.job_id);
 }
 
 export async function clearListenJobs(): Promise<{ archived: number }> {

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import urllib.parse
 import urllib.request
 
 
@@ -29,6 +28,7 @@ def main() -> None:
     start.add_argument("--command")
     start.add_argument("--workflow")
     start.add_argument("--arg", action="append", default=[])
+    start.add_argument("--workflow-spec-file")
 
     get = sub.add_parser("get")
     get.add_argument("--job-id", required=True)
@@ -45,6 +45,9 @@ def main() -> None:
     stop = sub.add_parser("stop")
     stop.add_argument("--job-id", required=True)
 
+    retry = sub.add_parser("retry")
+    retry.add_argument("--job-id", required=True)
+
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
 
@@ -53,8 +56,12 @@ def main() -> None:
             raise SystemExit("--prompt is required for agent, shell, and note modes")
         if args.mode in {"steer", "drive"} and not args.command:
             raise SystemExit("--command is required for steer and drive modes")
-        if args.mode == "workflow" and not args.workflow:
-            raise SystemExit("--workflow is required for workflow mode")
+        if args.mode == "workflow" and not args.workflow and not args.workflow_spec_file:
+            raise SystemExit("--workflow or --workflow-spec-file is required for workflow mode")
+        workflow_spec = None
+        if args.workflow_spec_file:
+            with open(args.workflow_spec_file, "r", encoding="utf-8") as handle:
+                workflow_spec = json.load(handle)
         payload = {
             "prompt": args.prompt,
             "mode": args.mode,
@@ -64,6 +71,7 @@ def main() -> None:
             "command": args.command,
             "workflow": args.workflow,
             "args": args.arg,
+            "workflowSpec": workflow_spec,
         }
         print(json.dumps(request_json(f"{base}/job", "POST", payload), indent=2))
         return
@@ -91,6 +99,10 @@ def main() -> None:
 
     if args.subcommand == "stop":
         print(json.dumps(request_json(f"{base}/job/{args.job_id}", "DELETE"), indent=2))
+        return
+
+    if args.subcommand == "retry":
+        print(json.dumps(request_json(f"{base}/job/{args.job_id}/retry", "POST"), indent=2))
         return
 
 

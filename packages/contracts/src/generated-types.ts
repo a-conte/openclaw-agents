@@ -81,11 +81,35 @@ export interface JobContract {
   mode?: 'agent' | 'shell' | 'steer' | 'drive' | 'workflow' | 'note';
   command?: string | null;
   workflow?: string | null;
+  workflowSpec?: Record<string, unknown> | null;
   args?: string[];
   thinking?: string | null;
   local?: boolean;
-  updates?: Array<{ at: string; message: string }>;
+  updates?: Array<{ at: string; message: string; level?: 'info' | 'error'; stepId?: string }>;
   summary?: string;
+  stepStatus?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+    dangerous?: boolean;
+    startedAt?: string;
+    completedAt?: string;
+    result?: unknown;
+    error?: string;
+  }>;
+  currentStepId?: string | null;
+  timedOut?: boolean;
+  attempt?: number;
+  retryOf?: string | null;
+  policy?: {
+    allowed: boolean;
+    reason?: string;
+    allowDangerous?: boolean;
+    allowedSteerCommands?: string[];
+    allowedDriveCommands?: string[];
+    allowedWorkflows?: string[];
+  };
   createdAt: string;
   startedAt?: string;
   completedAt?: string;

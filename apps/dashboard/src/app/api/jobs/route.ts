@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   }
 
   const mode = typeof data.mode === 'string' ? data.mode : 'agent';
+  const workflowSpec = data.workflowSpec;
   if (!['agent', 'shell', 'steer', 'drive', 'workflow', 'note'].includes(mode)) {
     return NextResponse.json({ error: 'mode must be one of: agent, shell, steer, drive, workflow, note' }, { status: 400 });
   }
@@ -37,8 +38,8 @@ export async function POST(request: Request) {
   if ((mode === 'steer' || mode === 'drive') && (typeof data.command !== 'string' || data.command.trim().length === 0)) {
     return NextResponse.json({ error: 'command is required for steer and drive jobs' }, { status: 400 });
   }
-  if (mode === 'workflow' && (typeof data.workflow !== 'string' || data.workflow.trim().length === 0)) {
-    return NextResponse.json({ error: 'workflow is required for workflow jobs' }, { status: 400 });
+  if (mode === 'workflow' && (typeof data.workflow !== 'string' || data.workflow.trim().length === 0) && (typeof workflowSpec !== 'object' || workflowSpec === null || Array.isArray(workflowSpec))) {
+    return NextResponse.json({ error: 'workflow or workflowSpec is required for workflow jobs' }, { status: 400 });
   }
 
   const job = await createJob({
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
     command: typeof data.command === 'string' ? data.command.trim() : undefined,
     workflow: typeof data.workflow === 'string' ? data.workflow.trim() : undefined,
     args: Array.isArray(data.args) ? data.args.map((item: unknown) => String(item)) : [],
+    workflowSpec: typeof workflowSpec === 'object' && workflowSpec !== null && !Array.isArray(workflowSpec) ? workflowSpec : undefined,
     thinking: typeof data.thinking === 'string' ? data.thinking : undefined,
     local: Boolean(data.local),
   });
