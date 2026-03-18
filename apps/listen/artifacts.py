@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import time
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +12,10 @@ from typing import Any
 JOBS_DIR = Path(__file__).resolve().parent / "jobs"
 BASE_DIR = JOBS_DIR / "artifacts"
 ARCHIVED_BASE_DIR = JOBS_DIR / "archived-artifacts"
+EXPORT_BASE_DIR = JOBS_DIR / "exports"
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 ARCHIVED_BASE_DIR.mkdir(parents=True, exist_ok=True)
+EXPORT_BASE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _safe_step_id(step_id: str) -> str:
@@ -131,6 +134,69 @@ def archive_job_artifacts(job_id: str) -> bool:
     return True
 
 
+def _job_json_path(job_id: str, *, archived: bool = False) -> Path | None:
+    preferred = (JOBS_DIR / "archived" / f"{job_id}.json") if archived else (JOBS_DIR / f"{job_id}.json")
+    if preferred.exists():
+        return preferred
+    alternate = (JOBS_DIR / f"{job_id}.json") if archived else (JOBS_DIR / "archived" / f"{job_id}.json")
+    if alternate.exists():
+        return alternate
+    return None
+
+
+def _export_bundle_path(job_id: str, kind: str) -> Path:
+    safe_kind = kind.replace("/", "_").replace(" ", "_")
+    return EXPORT_BASE_DIR / f"{job_id}-{safe_kind}.zip"
+
+
+def bundle_job_artifacts(job_id: str, *, archived: bool = False, kind: str = "bundle") -> dict[str, Any] | None:
+    root = _existing_root(job_id, archived=archived)
+    job_json = _job_json_path(job_id, archived=archived)
+    if root is None and job_json is None:
+        return None
+    bundle_path = _export_bundle_path(job_id, kind)
+    bundle_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        if root is not None:
+            for path in sorted(root.rglob("*")):
+                if path.is_file():
+                    archive.write(path, arcname=str(Path("artifacts") / path.relative_to(root)))
+        if job_json is not None and job_json.exists():
+            archive.write(job_json, arcname=f"{job_id}.json")
+    return _artifact_ref(bundle_path, EXPORT_BASE_DIR, kind="bundle", preview=f"{kind} for {job_id}")
+
+
+def resolve_export_bundle(job_id: str, kind: str = "bundle") -> Path | None:
+    path = _export_bundle_path(job_id, kind)
+    if path.exists() and path.is_file():
+        return path
+    return None
+
+
+def _retention_days_for_job(job_id: str, default_days: int) -> int:
+    job_path = _job_json_path(job_id, archived=True) or _job_json_path(job_id, archived=False)
+    if job_path is None or not job_path.exists():
+        return default_days
+    try:
+        job = json.loads(job_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return default_days
+    template_id = str(job.get("templateId") or "").strip()
+    if not template_id:
+        return default_days
+    try:
+        from workflow_templates import get_template
+        template = get_template(template_id)
+    except Exception:
+        template = None
+    if not isinstance(template, dict):
+        return default_days
+    retention = template.get("artifactRetentionDays")
+    if isinstance(retention, int) and retention >= 0:
+        return retention
+    return default_days
+
+
 def delete_job_artifacts(job_id: str, *, archived: bool | None = None) -> int:
     removed = 0
     roots: list[Path] = []
@@ -184,6 +250,10 @@ def artifact_summary() -> dict[str, Any]:
             "bytes": _dir_size(ARCHIVED_BASE_DIR),
             "jobs": archived_jobs[:50],
         },
+        "exports": {
+            "bundleCount": len(list(EXPORT_BASE_DIR.glob("*.zip"))) if EXPORT_BASE_DIR.exists() else 0,
+            "bytes": _dir_size(EXPORT_BASE_DIR),
+        },
         "retentionDays": int(os.environ.get("OPENCLAW_LISTEN_ARTIFACT_RETENTION_DAYS", "30").strip() or "30"),
         "oldestArchivedAgeDays": oldest_archived_age_days,
     }
@@ -192,7 +262,6 @@ def artifact_summary() -> dict[str, Any]:
 def prune_archived_artifacts(older_than_days: int) -> dict[str, Any]:
     if older_than_days < 0:
         raise ValueError("older_than_days must be non-negative")
-    cutoff = time.time() - (older_than_days * 24 * 60 * 60)
     removed_jobs: list[str] = []
     removed_bytes = 0
     if not ARCHIVED_BASE_DIR.exists():
@@ -204,6 +273,8 @@ def prune_archived_artifacts(older_than_days: int) -> dict[str, Any]:
             mtime = path.stat().st_mtime
         except FileNotFoundError:
             continue
+        effective_days = _retention_days_for_job(path.name, older_than_days)
+        cutoff = time.time() - (effective_days * 24 * 60 * 60)
         if mtime > cutoff:
             continue
         removed_bytes += _dir_size(path)

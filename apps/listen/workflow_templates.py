@@ -21,6 +21,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "browser",
         "builtIn": True,
         "recommended": True,
+        "artifactRetentionDays": 14,
         "inputs": [
             {
                 "key": "url",
@@ -38,6 +39,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "browser",
         "builtIn": True,
         "recommended": True,
+        "artifactRetentionDays": 14,
         "inputs": [
             {
                 "key": "url",
@@ -55,6 +57,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "repo",
         "builtIn": True,
         "favorite": True,
+        "artifactRetentionDays": 14,
         "inputs": [
             {
                 "key": "repoPath",
@@ -71,6 +74,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Open a page in Safari, wait for the URL, then capture a window-scoped screenshot and OCR snapshot.",
         "category": "browser",
         "builtIn": True,
+        "artifactRetentionDays": 30,
         "inputs": [
             {
                 "key": "url",
@@ -94,6 +98,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Create a TextEdit note for operator handoff or escalation.",
         "category": "operator",
         "builtIn": True,
+        "artifactRetentionDays": 30,
         "inputs": [
             {
                 "key": "text",
@@ -111,6 +116,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "category": "agent",
         "builtIn": True,
         "favorite": True,
+        "artifactRetentionDays": 14,
         "inputs": [
             {
                 "key": "agent",
@@ -134,6 +140,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Run a test command and build command in a repo with captured shell artifacts.",
         "category": "repo",
         "builtIn": True,
+        "artifactRetentionDays": 14,
         "inputs": [
             {
                 "key": "repoPath",
@@ -164,6 +171,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Open the dashboard, wait for the page, and capture an API health response plus a Safari snapshot.",
         "category": "health",
         "builtIn": True,
+        "artifactRetentionDays": 30,
         "inputs": [
             {
                 "key": "url",
@@ -187,6 +195,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Capture a browser snapshot and create an operator handoff note for a live incident.",
         "category": "operator",
         "builtIn": True,
+        "artifactRetentionDays": 90,
         "inputs": [
             {
                 "key": "url",
@@ -210,6 +219,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Collect repo status, open a browser page, and capture a follow-up OCR snapshot for mixed shell/browser work.",
         "category": "repo",
         "builtIn": True,
+        "artifactRetentionDays": 21,
         "inputs": [
             {
                 "key": "repoPath",
@@ -233,6 +243,7 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         "description": "Restart the local listen server and verify that the health page is reachable again.",
         "category": "daemon",
         "builtIn": True,
+        "artifactRetentionDays": 7,
         "inputs": [
             {
                 "key": "listenCommand",
@@ -247,6 +258,114 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
                 "description": "Endpoint checked after restart.",
                 "required": False,
                 "defaultValue": "http://127.0.0.1:7600/policy",
+            },
+        ],
+    },
+    {
+        "id": "repo_repair_loop",
+        "name": "Repo Repair Loop",
+        "description": "Inspect repo status, run tests, and capture a focused repair brief.",
+        "category": "repo",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to inspect and test.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "testCommand",
+                "label": "Test Command",
+                "description": "Test command used before repair recommendations.",
+                "required": False,
+                "defaultValue": "npm run dashboard:test",
+            },
+        ],
+    },
+    {
+        "id": "dashboard_audit",
+        "name": "Dashboard Audit",
+        "description": "Open the dashboard, verify the command page, and capture both screenshot and OCR evidence.",
+        "category": "health",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Dashboard URL",
+                "description": "Target dashboard page.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            }
+        ],
+    },
+    {
+        "id": "browser_auth_recovery",
+        "name": "Browser Auth Recovery",
+        "description": "Open a browser page, recover error UI if needed, and capture a final browser snapshot.",
+        "category": "browser",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Target URL",
+                "description": "Browser page to recover.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            }
+        ],
+    },
+    {
+        "id": "daemon_restart_verify_bundle",
+        "name": "Daemon Restart Verify Bundle",
+        "description": "Restart a daemon, verify health, and capture process state for the operator record.",
+        "category": "daemon",
+        "builtIn": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "restartCommand",
+                "label": "Restart Command",
+                "description": "Command used to restart the daemon.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "healthCommand",
+                "label": "Health Command",
+                "description": "Command used to verify the daemon after restart.",
+                "required": True,
+                "defaultValue": "",
+            },
+        ],
+    },
+    {
+        "id": "operator_handoff_bundle",
+        "name": "Operator Handoff Bundle",
+        "description": "Create a handoff note together with browser screenshot and OCR evidence for the next operator.",
+        "category": "operator",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 90,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Context URL",
+                "description": "Browser page to capture as evidence.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "noteText",
+                "label": "Note Text",
+                "description": "Initial handoff note text.",
+                "required": False,
+                "defaultValue": "Operator handoff:\n- Context:\n- Evidence:\n- Next action:\n- Risks:",
             },
         ],
     },
@@ -277,6 +396,13 @@ def _load_custom_templates() -> list[dict[str, Any]]:
             normalized["builtIn"] = False
             normalized["favorite"] = bool(normalized.get("favorite", False))
             normalized["recommended"] = bool(normalized.get("recommended", False))
+            retention = normalized.get("artifactRetentionDays")
+            if isinstance(retention, int):
+                normalized["artifactRetentionDays"] = retention
+            elif isinstance(retention, str) and retention.strip():
+                normalized["artifactRetentionDays"] = int(retention)
+            else:
+                normalized["artifactRetentionDays"] = None
             templates.append(normalized)
     return templates
 
@@ -443,6 +569,7 @@ def validate_custom_template(payload: dict[str, Any]) -> dict[str, Any]:
         "category": category,
         "favorite": bool(payload.get("favorite", False)),
         "recommended": bool(payload.get("recommended", False)),
+        "artifactRetentionDays": int(payload.get("artifactRetentionDays")) if str(payload.get("artifactRetentionDays") or "").strip() else None,
         "inputs": _normalize_inputs(payload.get("inputs")),
         "workflowSpec": workflow_spec,
         "builtIn": False,
@@ -497,6 +624,7 @@ def clone_custom_template(source_template_id: str, new_template_id: str | None =
         "category": str(source.get("category") or "custom"),
         "favorite": bool(source.get("favorite", False)),
         "recommended": False,
+        "artifactRetentionDays": source.get("artifactRetentionDays"),
         "inputs": deepcopy(source.get("inputs", [])) if isinstance(source.get("inputs"), list) else [],
         "workflowSpec": deepcopy(source.get("workflowSpec") or resolve_template(source_template_id, {})[0]),
     }
@@ -519,6 +647,7 @@ def restore_template_version(template_id: str, version: int) -> dict[str, Any]:
             "category": str(template.get("category") or "custom"),
             "favorite": bool(template.get("favorite", False)),
             "recommended": bool(template.get("recommended", False)),
+            "artifactRetentionDays": template.get("artifactRetentionDays"),
             "inputs": deepcopy(template.get("inputs", [])) if isinstance(template.get("inputs"), list) else [],
             "workflowSpec": deepcopy(match.get("workflowSpec") or template.get("workflowSpec")),
         }
@@ -819,6 +948,176 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "name": "Fetch listen health",
                     "type": "shell",
                     "prompt": f"curl -fsSL {health_url}",
+                },
+            ]
+        }, inputs
+
+    if template_id == "repo_repair_loop":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        test_command = inputs.get("testCommand") or "npm run dashboard:test"
+        return {
+            "steps": [
+                {
+                    "id": "repo_status_repair",
+                    "name": "Inspect repo status",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git status --short",
+                },
+                {
+                    "id": "repo_tests_repair",
+                    "name": "Run repo tests",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {test_command}",
+                },
+                {
+                    "id": "repo_repair_brief",
+                    "name": "Draft repair brief",
+                    "type": "agent",
+                    "targetAgent": "dev",
+                    "prompt": f"Review the repo state for {repo_path} and propose the smallest repair plan after running `{test_command}`.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "dashboard_audit":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        return {
+            "steps": [
+                {
+                    "id": "open_dashboard_audit",
+                    "name": "Open dashboard audit page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_dashboard_audit",
+                    "name": "Wait for dashboard page",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["url", "--url", "/command", "--contains", "--timeout", "12", "--interval", "0.75"],
+                },
+                {
+                    "id": "see_dashboard_audit",
+                    "name": "Capture dashboard screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_dashboard_audit",
+                    "name": "Capture dashboard OCR",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "browser_auth_recovery":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        return {
+            "steps": [
+                {
+                    "id": "open_browser_recovery",
+                    "name": "Open target browser page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "wait_browser_reload",
+                    "name": "Wait for browser recovery UI",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": ["ui", "--app", "Safari", "--name", "Reload this page", "--role", "button", "--timeout", "8", "--interval", "0.75"],
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "click_browser_reload",
+                    "name": "Attempt browser reload",
+                    "type": "steer",
+                    "command": "ui",
+                    "args": ["click", "--app", "Safari", "--name", "Reload this page", "--role", "button"],
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "snapshot_browser_recovery",
+                    "name": "Capture browser recovery state",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_browser_recovery",
+                    "name": "OCR browser recovery state",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "daemon_restart_verify_bundle":
+        restart_command = inputs.get("restartCommand") or ""
+        health_command = inputs.get("healthCommand") or ""
+        return {
+            "steps": [
+                {
+                    "id": "daemon_restart",
+                    "name": "Restart daemon",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": restart_command,
+                },
+                {
+                    "id": "daemon_health",
+                    "name": "Verify daemon health",
+                    "type": "shell",
+                    "prompt": health_command,
+                },
+                {
+                    "id": "daemon_process_snapshot",
+                    "name": "Capture process snapshot",
+                    "type": "drive",
+                    "command": "proc",
+                    "args": ["list", "--json"],
+                },
+            ]
+        }, inputs
+
+    if template_id == "operator_handoff_bundle":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        note_text = inputs.get("noteText") or "Operator handoff:\n- Context:\n- Evidence:\n- Next action:\n- Risks:"
+        return {
+            "steps": [
+                {
+                    "id": "open_handoff_context",
+                    "name": "Open handoff context",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "capture_handoff_context",
+                    "name": "Capture handoff screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "ocr_handoff_context",
+                    "name": "Capture handoff OCR",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+                {
+                    "id": "draft_handoff_bundle_note",
+                    "name": "Draft handoff note",
+                    "type": "steer",
+                    "command": "textedit",
+                    "args": ["new", "--text", note_text],
                 },
             ]
         }, inputs

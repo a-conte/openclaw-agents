@@ -142,6 +142,17 @@ export async function fetchListenArtifact(jobId: string, relativePath: string): 
   return response;
 }
 
+export async function fetchListenArtifactBundle(jobId: string, kind = 'bundle'): Promise<Response> {
+  const response = await fetch(buildUrl(`/job/${jobId}/bundle?kind=${encodeURIComponent(kind)}`), {
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Listen artifact bundle request failed with ${response.status}`);
+  }
+  return response;
+}
+
 export async function createListenJob(input: CreateAutomationJobInput): Promise<JobContract> {
   const created = await listenFetch<{ job_id: string }>('/job', {
     method: 'POST',

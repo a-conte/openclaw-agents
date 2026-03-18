@@ -6,6 +6,7 @@ Current endpoints:
 
 - `POST /job`
 - `GET /job/<id>`
+- `GET /job/<id>/bundle`
 - `GET /jobs`
 - `GET /policy`
 - `GET /policy/admin`
@@ -42,6 +43,7 @@ Job records now keep:
 - `summary` for a compact final outcome
 - file-backed step artifacts under `apps/listen/jobs/artifacts`
 - archived jobs under `apps/listen/jobs/archived`
+- export bundles under `apps/listen/jobs/exports`
 
 Custom templates:
 
@@ -49,6 +51,7 @@ Custom templates:
 - custom templates are stored locally in `apps/listen/templates.json`
 - use `POST /templates` and `PUT /templates/<id>` to save reusable workflow specs
 - `GET /templates/<id>/versions` returns saved version history for custom templates
+- templates may include `artifactRetentionDays` to override the default archived-artifact retention window
 - archived artifact retention can be inspected with `GET /artifacts/admin` and pruned with `POST /artifacts/prune`
 - `GET /metrics` returns job/template/policy observability summaries
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
@@ -68,6 +71,11 @@ Built-in workflows:
 - `safari_wait_and_click_ui <label> [role]`
 - `textedit_new_set_text <text>`
 - `notes_create <title> <body>`
+- `repo_repair_loop`
+- `dashboard_audit`
+- `browser_auth_recovery`
+- `daemon_restart_verify_bundle`
+- `operator_handoff_bundle`
 
 Examples:
 
@@ -93,6 +101,8 @@ curl -X POST http://127.0.0.1:7600/templates \
 curl http://127.0.0.1:7600/artifacts/admin
 curl http://127.0.0.1:7600/policy/admin
 curl http://127.0.0.1:7600/metrics
+curl http://127.0.0.1:7600/job/<job-id>/bundle
+curl http://127.0.0.1:7600/job/<job-id>/bundle?kind=incident
 curl http://127.0.0.1:7600/jobs
 curl http://127.0.0.1:7600/jobs?archived=true
 curl -X POST http://127.0.0.1:7600/jobs/clear

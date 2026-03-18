@@ -145,6 +145,12 @@ export function JobDetailPanel({
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Link href={`/api/jobs/${job.id}/bundle`} target="_blank" className="text-xs text-accent hover:text-accent-hover">
+          Download Bundle
+        </Link>
+        <Link href={`/api/jobs/${job.id}/bundle?kind=incident`} target="_blank" className="text-xs text-accent hover:text-accent-hover">
+          Incident Bundle
+        </Link>
         {job.status === 'running' && !archived && onStop ? (
           <Button size="sm" variant="ghost" onClick={() => onStop(job.id)}>Stop</Button>
         ) : null}

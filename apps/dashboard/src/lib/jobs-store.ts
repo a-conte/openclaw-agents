@@ -14,6 +14,7 @@ import {
   createListenJob,
   deleteListenTemplate,
   diffListenTemplateVersions,
+  fetchListenArtifactBundle,
   fetchListenArtifact,
   getListenJob,
   getListenArtifactAdmin,
@@ -156,4 +157,8 @@ export async function getJobArtifacts(id: string) {
 
 export async function getJobArtifact(id: string, relativePath: string) {
   return fetchListenArtifact(id, relativePath);
+}
+
+export async function getJobArtifactBundle(id: string, kind = 'bundle') {
+  return fetchListenArtifactBundle(id, kind);
 }

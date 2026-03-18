@@ -21,8 +21,10 @@ from artifacts import (
     archive_all_active_artifacts,
     archive_job_artifacts,
     artifact_summary,
+    bundle_job_artifacts,
     list_job_artifacts,
     prune_archived_artifacts,
+    resolve_export_bundle,
     resolve_job_artifact,
 )
 from policy import check_command_policy, check_workflow_policy, current_policy, policy_admin_details
@@ -803,6 +805,33 @@ class Handler(BaseHTTPRequestHandler):
             mime_type, _ = mimetypes.guess_type(str(artifact_path))
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", mime_type or "application/octet-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path.startswith("/job/") and parsed.path.endswith("/bundle"):
+            job_id = parsed.path.split("/")[2]
+            job = read_job(job_id)
+            archived = False
+            if not job:
+                job = read_job(job_id, archived=True)
+                archived = True
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            kind = parse_qs(parsed.query).get("kind", ["bundle"])[0] or "bundle"
+            bundle = bundle_job_artifacts(job_id, archived=archived, kind=kind)
+            if not bundle or not isinstance(bundle, dict):
+                self._json(HTTPStatus.NOT_FOUND, {"error": "bundle not available"})
+                return
+            bundle_path = resolve_export_bundle(job_id, kind)
+            if bundle_path is None:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "bundle not found"})
+                return
+            body = bundle_path.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="{bundle_path.name}"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

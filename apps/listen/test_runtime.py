@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -109,6 +111,31 @@ class ListenRuntimeTests(unittest.TestCase):
             self.assertTrue((archived_dir / "job-1.json").exists())
             self.assertTrue((archived_artifacts_dir / "job-1" / "output.txt").exists())
 
+    def test_bundle_job_artifacts_includes_job_json_and_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            artifacts_dir = jobs_dir / "artifacts"
+            artifacts_dir.mkdir()
+            exports_dir = jobs_dir / "exports"
+            exports_dir.mkdir()
+            (jobs_dir / "job-1.json").write_text(json.dumps({"id": "job-1", "status": "completed"}), encoding="utf-8")
+            (artifacts_dir / "job-1").mkdir()
+            (artifacts_dir / "job-1" / "output.txt").write_text("hello", encoding="utf-8")
+            with (
+                patch.object(artifacts, "JOBS_DIR", jobs_dir),
+                patch.object(artifacts, "BASE_DIR", artifacts_dir),
+                patch.object(artifacts, "EXPORT_BASE_DIR", exports_dir),
+            ):
+                bundle = artifacts.bundle_job_artifacts("job-1", kind="incident")
+                bundle_path = artifacts.resolve_export_bundle("job-1", "incident")
+            self.assertIsNotNone(bundle)
+            self.assertIsNotNone(bundle_path)
+            with zipfile.ZipFile(bundle_path) as archive:
+                names = set(archive.namelist())
+            self.assertIn("job-1.json", names)
+            self.assertIn("artifacts/output.txt", names)
+
     def test_validate_job_request_accepts_known_template_id(self) -> None:
         error = listen_server.validate_job_request(
             {
@@ -123,6 +150,11 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(inputs["url"], "http://localhost:3000/command")
         self.assertEqual(spec["steps"][0]["type"], "steer")
         self.assertEqual(spec["steps"][-1]["command"], "ocr")
+
+    def test_resolve_template_builds_operator_handoff_bundle(self) -> None:
+        spec, _ = workflow_templates.resolve_template("operator_handoff_bundle", {"url": "http://localhost:3000/command"})
+        self.assertEqual(spec["steps"][0]["type"], "steer")
+        self.assertEqual(spec["steps"][-1]["command"], "textedit")
 
     def test_save_and_resolve_custom_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -269,6 +301,27 @@ class ListenRuntimeTests(unittest.TestCase):
                 )
                 with self.assertRaisesRegex(ValueError, "Missing required template input: repo"):
                     workflow_templates.resolve_template("required_template", {})
+
+    def test_prune_archived_artifacts_uses_template_retention_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            archived_jobs_dir = jobs_dir / "archived"
+            archived_jobs_dir.mkdir()
+            archived_artifacts_dir = jobs_dir / "archived-artifacts"
+            archived_artifacts_dir.mkdir()
+            target = archived_artifacts_dir / "job-1"
+            target.mkdir()
+            (target / "output.txt").write_text("hello", encoding="utf-8")
+            (archived_jobs_dir / "job-1.json").write_text(
+                json.dumps({"id": "job-1", "templateId": "incident_capture"}),
+                encoding="utf-8",
+            )
+            old_time = max(0, int(time.time() - (40 * 24 * 60 * 60)))
+            os.utime(target, (old_time, old_time))
+            with patch.object(artifacts, "JOBS_DIR", jobs_dir), patch.object(artifacts, "ARCHIVED_BASE_DIR", archived_artifacts_dir):
+                result = artifacts.prune_archived_artifacts(30)
+            self.assertEqual(result["removedJobs"], [])
 
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

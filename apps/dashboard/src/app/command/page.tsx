@@ -1312,6 +1312,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
               <div className="space-y-1 text-xs text-text-secondary">
                 <div>Active: {artifactAdmin.active.jobCount} jobs · {artifactAdmin.active.bytes} bytes</div>
                 <div>Archived: {artifactAdmin.archived.jobCount} jobs · {artifactAdmin.archived.bytes} bytes</div>
+                {artifactAdmin.exports ? (
+                  <div>Exports: {artifactAdmin.exports.bundleCount} bundles · {artifactAdmin.exports.bytes} bytes</div>
+                ) : null}
                 <div>Retention target: {artifactAdmin.retentionDays || 30} days</div>
                 {typeof artifactAdmin.oldestArchivedAgeDays === 'number' ? (
                   <div>Oldest archived artifact set: {artifactAdmin.oldestArchivedAgeDays} days</div>
@@ -1448,6 +1451,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             ) : null}
             {selectedTemplate?.version ? (
               <div className="mt-1 text-[11px] text-text-tertiary">Version {selectedTemplate.version}</div>
+            ) : null}
+            {typeof selectedTemplate?.artifactRetentionDays === 'number' ? (
+              <div className="mt-1 text-[11px] text-text-tertiary">Artifact retention: {selectedTemplate.artifactRetentionDays} days</div>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => applyTemplate(selectedTemplateId)}>Apply Template</Button>

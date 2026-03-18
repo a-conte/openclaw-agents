@@ -140,6 +140,7 @@ export interface JobTemplateContract {
   builtIn?: boolean;
   favorite?: boolean;
   recommended?: boolean;
+  artifactRetentionDays?: number | null;
   version?: number;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -163,6 +164,10 @@ export interface ArtifactAdminSummaryContract {
     jobCount: number;
     bytes: number;
     jobs?: string[];
+  };
+  exports?: {
+    bundleCount: number;
+    bytes: number;
   };
   retentionDays?: number;
   oldestArchivedAgeDays?: number | null;

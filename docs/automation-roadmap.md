@@ -55,8 +55,8 @@ Still meaningfully open:
 - deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
 - fuller template diff UX on iPad
 - richer job lineage visualization beyond summary chains
-- artifact export bundles and per-template retention
-- broader reusable workflow library
+- archived artifact compression
+- deeper workflow-library coverage beyond the new Wave 2 starter set
 - script-based Mac bootstrap
 - full tablet-first parity on iPad
 
@@ -154,12 +154,12 @@ Goal:
 - Make artifact storage operationally manageable as usage grows.
 
 Status:
-- Started
+- Partially implemented
 
 Deliverables:
-- [ ] per-template retention rules
-- [ ] export/download-all for a single job
-- [ ] incident artifact bundles
+- [x] per-template retention rules
+- [x] export/download-all for a single job
+- [x] incident artifact bundles
 - [ ] optional compression for archived artifacts
 
 Suggested commit slices:
@@ -170,20 +170,23 @@ Suggested commit slices:
 Definition of done:
 - operators can package and retain artifacts intentionally rather than only pruning globally
 
+Remaining gap:
+- add archived artifact compression and richer artifact-admin/export UX on iPad
+
 ### 5. Workflow Library Expansion
 
 Goal:
 - Increase practical leverage through reusable high-value templates.
 
 Status:
-- Started
+- Partially implemented
 
 Deliverables:
-- [ ] repo repair loops
-- [ ] dashboard audit flows
-- [ ] browser auth/login/recovery flows
-- [ ] daemon restart and verification bundles
-- [ ] operator handoff bundles with note, screenshot, OCR, and summary
+- [x] repo repair loops
+- [x] dashboard audit flows
+- [x] browser auth/login/recovery flows
+- [x] daemon restart and verification bundles
+- [x] operator handoff bundles with note, screenshot, OCR, and summary
 
 Suggested commit slices:
 - `Add repo repair and test-fix workflow templates`
@@ -193,6 +196,9 @@ Suggested commit slices:
 
 Definition of done:
 - the system ships with a durable library of workflows operators will actually reuse
+
+Remaining gap:
+- expand the starter set into a broader day-to-day library with stronger app- and incident-specific coverage
 
 ## Wave 3
 
