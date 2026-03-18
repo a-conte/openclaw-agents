@@ -8,6 +8,7 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var jobs: [Job] = []
     @Published private(set) var tasks: [TaskItem] = []
     @Published private(set) var workflowRuns: [WorkflowRun] = []
+    @Published private(set) var archivedJobs: [Job] = []
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
@@ -128,7 +129,17 @@ final class DashboardViewModel: ObservableObject {
 
     func loadJobs() async {
         do {
-            jobs = try await client.listJobs()
+            jobs = try await client.listJobs(archived: false)
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func loadArchivedJobs() async {
+        do {
+            archivedJobs = try await client.listJobs(archived: true)
         } catch {
             if !Task.isCancelled {
                 errorMessage = error.localizedDescription
@@ -156,10 +167,29 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    func submitJob(prompt: String, agent: String) async {
+    func submitJob(request: JobRequest) async {
         do {
-            let job = try await client.submitJob(prompt: prompt, agent: agent)
+            let job = try await client.submitJob(request: request)
             jobs.insert(job, at: 0)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func stopJob(id: String) async {
+        do {
+            try await client.stopJob(id: id)
+            await loadJobs()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func clearJobs() async {
+        do {
+            try await client.clearJobs()
+            await loadJobs()
+            await loadArchivedJobs()
         } catch {
             errorMessage = error.localizedDescription
         }

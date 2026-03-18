@@ -76,12 +76,20 @@ export interface JobContract {
   id: string;
   prompt: string;
   targetAgent: string;
-  status: 'queued' | 'running' | 'completed' | 'failed';
-  priority: 'normal' | 'high' | 'urgent';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'stopped';
+  priority?: 'normal' | 'high' | 'urgent';
+  mode?: 'agent' | 'shell' | 'steer' | 'drive' | 'workflow' | 'note';
+  command?: string | null;
+  workflow?: string | null;
+  args?: string[];
+  thinking?: string | null;
+  local?: boolean;
+  updates?: Array<{ at: string; message: string }>;
+  summary?: string;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
-  result?: string;
+  result?: unknown;
   error?: string;
 }
 

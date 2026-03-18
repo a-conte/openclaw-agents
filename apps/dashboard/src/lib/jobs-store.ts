@@ -1,66 +1,57 @@
 import type { JobContract } from '@openclaw/contracts';
-import { randomUUID } from 'crypto';
-import { exec } from 'child_process';
-import { emitJobUpdated } from './mission-control-events';
+import {
+  clearListenJobs,
+  createListenJob,
+  getListenJob,
+  listListenJobs,
+  stopListenJob,
+} from './listen-client';
 
 const KNOWN_AGENTS = ['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'];
-
-const jobs = new Map<string, JobContract>();
-
-export function getAllJobs(): JobContract[] {
-  return Array.from(jobs.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-}
-
-export function getJob(id: string): JobContract | undefined {
-  return jobs.get(id);
-}
 
 export function isKnownAgent(agent: string): boolean {
   return KNOWN_AGENTS.includes(agent);
 }
 
-export function createJob(prompt: string, targetAgent: string, priority: JobContract['priority'] = 'normal'): JobContract {
-  const job: JobContract = {
-    id: `job-${randomUUID()}`,
-    prompt,
-    targetAgent,
-    status: 'queued',
-    priority,
-    createdAt: new Date().toISOString(),
-  };
-  jobs.set(job.id, job);
-  emitJobUpdated(job);
-  dispatchJob(job);
-  return job;
+export async function getAllJobs(archived = false): Promise<JobContract[]> {
+  return listListenJobs(archived);
 }
 
-function updateJob(id: string, updates: Partial<JobContract>): void {
-  const job = jobs.get(id);
-  if (!job) return;
-  const updated = { ...job, ...updates };
-  jobs.set(id, updated);
-  emitJobUpdated(updated);
+export async function getJob(id: string): Promise<JobContract | undefined> {
+  try {
+    return await getListenJob(id);
+  } catch {
+    return undefined;
+  }
 }
 
-function dispatchJob(job: JobContract): void {
-  updateJob(job.id, { status: 'running', startedAt: new Date().toISOString() });
-
-  const command = `openclaw gateway call heartbeat --agent ${job.targetAgent}`;
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      updateJob(job.id, {
-        status: 'failed',
-        completedAt: new Date().toISOString(),
-        error: stderr || error.message,
-      });
-    } else {
-      updateJob(job.id, {
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-        result: stdout.trim() || 'Job completed successfully',
-      });
-    }
+export async function createJob(input: {
+  prompt?: string;
+  targetAgent?: string;
+  priority?: JobContract['priority'];
+  mode: NonNullable<JobContract['mode']>;
+  command?: string;
+  workflow?: string;
+  args?: string[];
+  thinking?: string;
+  local?: boolean;
+}): Promise<JobContract> {
+  return createListenJob({
+    prompt: input.prompt,
+    mode: input.mode,
+    targetAgent: input.targetAgent,
+    command: input.command,
+    workflow: input.workflow,
+    args: input.args,
+    thinking: input.thinking,
+    local: input.local,
   });
+}
+
+export async function stopJob(id: string) {
+  return stopListenJob(id);
+}
+
+export async function clearJobs() {
+  return clearListenJobs();
 }

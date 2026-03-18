@@ -3,8 +3,10 @@ import Foundation
 protocol MissionControlClient {
     func loadInitialSnapshot() async throws -> DashboardSnapshot
     func eventStream(since sequence: Int?) -> AsyncThrowingStream<MissionControlEventEnvelope, Error>
-    func submitJob(prompt: String, agent: String) async throws -> Job
-    func listJobs() async throws -> [Job]
+    func submitJob(request: JobRequest) async throws -> Job
+    func listJobs(archived: Bool) async throws -> [Job]
+    func stopJob(id: String) async throws
+    func clearJobs() async throws
     func listTasks() async throws -> [TaskItem]
     func listWorkflowRuns() async throws -> [WorkflowRun]
 }
@@ -20,12 +22,18 @@ struct PreviewMissionControlClient: MissionControlClient {
         }
     }
 
-    func submitJob(prompt: String, agent: String) async throws -> Job {
+    func submitJob(request: JobRequest) async throws -> Job {
         Job.preview
     }
 
-    func listJobs() async throws -> [Job] {
+    func listJobs(archived: Bool = false) async throws -> [Job] {
         [Job.preview]
+    }
+
+    func stopJob(id: String) async throws {
+    }
+
+    func clearJobs() async throws {
     }
 
     func listTasks() async throws -> [TaskItem] {
@@ -59,11 +67,19 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
         }
     }
 
-    func submitJob(prompt: String, agent: String) async throws -> Job {
+    func submitJob(request: JobRequest) async throws -> Job {
         throw ConfigurationError.missingBaseURL
     }
 
-    func listJobs() async throws -> [Job] {
+    func listJobs(archived: Bool = false) async throws -> [Job] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func stopJob(id: String) async throws {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func clearJobs() async throws {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -131,21 +147,37 @@ struct HTTPMissionControlClient: MissionControlClient {
         }
     }
 
-    func submitJob(prompt: String, agent: String) async throws -> Job {
+    func submitJob(request payload: JobRequest) async throws -> Job {
         let url = baseURL.appending(path: "/api/jobs")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body = ["prompt": prompt, "targetAgent": agent]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONEncoder().encode(payload)
         let (data, _) = try await session.data(for: request)
         return try MissionControlJSON.makeDecoder().decode(Job.self, from: data)
     }
 
-    func listJobs() async throws -> [Job] {
-        let url = baseURL.appending(path: "/api/jobs")
+    func listJobs(archived: Bool = false) async throws -> [Job] {
+        var url = baseURL.appending(path: "/api/jobs")
+        if archived {
+            url.append(queryItems: [URLQueryItem(name: "archived", value: "true")])
+        }
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode([Job].self, from: data)
+    }
+
+    func stopJob(id: String) async throws {
+        let url = baseURL.appending(path: "/api/jobs/\(id)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        _ = try await session.data(for: request)
+    }
+
+    func clearJobs() async throws {
+        let url = baseURL.appending(path: "/api/jobs/clear")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        _ = try await session.data(for: request)
     }
 
     func listTasks() async throws -> [TaskItem] {
@@ -188,11 +220,17 @@ struct MissionControlEventPayload: Codable, Equatable {
     let prompt: String?
     let targetAgent: String?
     let priority: String?
+    let mode: String?
+    let command: String?
+    let workflow: String?
+    let args: [String]?
     let createdAt: Date?
     let startedAt: Date?
     let completedAt: Date?
-    let result: String?
+    let result: JSONValue?
     let error: String?
+    let summary: String?
+    let updates: [JobUpdate]?
 
     var agentStatus: AgentStatus? {
         status.flatMap { AgentStatus(rawValue: $0) }
@@ -206,20 +244,101 @@ struct MissionControlEventPayload: Codable, Equatable {
         priority.flatMap { JobPriority(rawValue: $0) }
     }
 
+    var jobMode: JobMode? {
+        mode.flatMap { JobMode(rawValue: $0) }
+    }
+
     func toJob() -> Job? {
-        guard let id, let prompt, let targetAgent, let jobStatus, let jobPriority, let createdAt else { return nil }
+        guard let id, let prompt, let targetAgent, let jobStatus, let createdAt else { return nil }
         return Job(
             id: id,
             prompt: prompt,
             targetAgent: targetAgent,
             status: jobStatus,
             priority: jobPriority,
+            mode: jobMode,
+            command: command,
+            workflow: workflow,
+            args: args,
             createdAt: createdAt,
             startedAt: startedAt,
             completedAt: completedAt,
-            result: result,
-            error: error
+            result: result?.displayString,
+            error: error,
+            summary: summary,
+            updates: updates ?? []
         )
+    }
+}
+
+struct JobRequest: Codable {
+    let prompt: String
+    let mode: String
+    let targetAgent: String
+    let command: String?
+    let workflow: String?
+    let args: [String]
+    let thinking: String?
+    let local: Bool
+}
+
+enum JSONValue: Codable, Equatable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case object([String: JSONValue])
+    case array([JSONValue])
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode([String: JSONValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode([JSONValue].self) {
+            self = .array(value)
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported JSON value")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .bool(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .null: try container.encodeNil()
+        }
+    }
+
+    var displayString: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .number(let value):
+            return String(value)
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .null:
+            return ""
+        case .object, .array:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            guard let data = try? encoder.encode(self), let text = String(data: data, encoding: .utf8) else {
+                return ""
+            }
+            return text
+        }
     }
 }
 

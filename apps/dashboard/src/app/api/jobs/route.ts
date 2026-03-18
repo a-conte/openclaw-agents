@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getAllJobs, createJob, isKnownAgent } from '@/lib/jobs-store';
+import { createJob, getAllJobs, isKnownAgent } from '@/lib/jobs-store';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  return NextResponse.json(getAllJobs());
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const archived = searchParams.get('archived') === 'true';
+  return NextResponse.json(await getAllJobs(archived));
 }
 
 export async function POST(request: Request) {
@@ -15,19 +17,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (typeof data.prompt !== 'string' || data.prompt.trim().length === 0) {
-    return NextResponse.json({ error: 'prompt must be a non-empty string' }, { status: 400 });
+  const mode = typeof data.mode === 'string' ? data.mode : 'agent';
+  if (!['agent', 'shell', 'steer', 'drive', 'workflow', 'note'].includes(mode)) {
+    return NextResponse.json({ error: 'mode must be one of: agent, shell, steer, drive, workflow, note' }, { status: 400 });
   }
-  if (typeof data.targetAgent !== 'string' || !isKnownAgent(data.targetAgent)) {
-    return NextResponse.json(
-      { error: 'targetAgent must be one of: main, mail, docs, research, ai-research, dev, security' },
-      { status: 400 },
-    );
+  if (mode === 'agent' || mode === 'shell' || mode === 'note') {
+    if (typeof data.prompt !== 'string' || data.prompt.trim().length === 0) {
+      return NextResponse.json({ error: 'prompt must be a non-empty string' }, { status: 400 });
+    }
   }
-  if (data.priority !== undefined && !['normal', 'high', 'urgent'].includes(data.priority)) {
-    return NextResponse.json({ error: 'priority must be one of: normal, high, urgent' }, { status: 400 });
+  if (mode === 'agent') {
+    if (typeof data.targetAgent !== 'string' || !isKnownAgent(data.targetAgent)) {
+      return NextResponse.json(
+        { error: 'targetAgent must be one of: main, mail, docs, research, ai-research, dev, security' },
+        { status: 400 },
+      );
+    }
+  }
+  if ((mode === 'steer' || mode === 'drive') && (typeof data.command !== 'string' || data.command.trim().length === 0)) {
+    return NextResponse.json({ error: 'command is required for steer and drive jobs' }, { status: 400 });
+  }
+  if (mode === 'workflow' && (typeof data.workflow !== 'string' || data.workflow.trim().length === 0)) {
+    return NextResponse.json({ error: 'workflow is required for workflow jobs' }, { status: 400 });
   }
 
-  const job = createJob(data.prompt.trim(), data.targetAgent, data.priority);
+  const job = await createJob({
+    prompt: typeof data.prompt === 'string' ? data.prompt.trim() : '',
+    targetAgent: typeof data.targetAgent === 'string' ? data.targetAgent : 'main',
+    priority: data.priority,
+    mode,
+    command: typeof data.command === 'string' ? data.command.trim() : undefined,
+    workflow: typeof data.workflow === 'string' ? data.workflow.trim() : undefined,
+    args: Array.isArray(data.args) ? data.args.map((item: unknown) => String(item)) : [],
+    thinking: typeof data.thinking === 'string' ? data.thinking : undefined,
+    local: Boolean(data.local),
+  });
   return NextResponse.json(job, { status: 201 });
 }

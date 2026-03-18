@@ -7,21 +7,53 @@
     "prompt",
     "targetAgent",
     "status",
-    "priority",
     "createdAt"
   ],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
-    "prompt": { "type": "string", "minLength": 1 },
+    "prompt": { "type": "string" },
     "targetAgent": { "type": "string", "minLength": 1 },
     "status": {
       "type": "string",
-      "enum": ["queued", "running", "completed", "failed"]
+      "enum": ["queued", "running", "completed", "failed", "stopped"]
     },
     "priority": {
       "type": "string",
       "enum": ["normal", "high", "urgent"]
     },
+    "mode": {
+      "type": "string",
+      "enum": ["agent", "shell", "steer", "drive", "workflow", "note"]
+    },
+    "command": {
+      "type": ["string", "null"]
+    },
+    "workflow": {
+      "type": ["string", "null"]
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "thinking": {
+      "type": ["string", "null"]
+    },
+    "local": {
+      "type": "boolean"
+    },
+    "updates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "message"],
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "message": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": { "type": "string" },
     "createdAt": {
       "type": "string",
       "format": "date-time"
@@ -34,7 +66,7 @@
       "type": "string",
       "format": "date-time"
     },
-    "result": { "type": "string" },
+    "result": {},
     "error": { "type": "string" }
   },
   "additionalProperties": false

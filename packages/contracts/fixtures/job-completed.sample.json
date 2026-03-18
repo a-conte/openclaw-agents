@@ -1,11 +1,23 @@
 {
   "id": "job-002",
-  "prompt": "Run security audit on all repos",
-  "targetAgent": "security",
+  "prompt": "",
+  "targetAgent": "main",
   "status": "completed",
-  "priority": "high",
+  "mode": "workflow",
+  "workflow": "safari_open_command_page",
+  "args": [],
   "createdAt": "2025-01-15T09:00:00.000Z",
   "startedAt": "2025-01-15T09:00:05.000Z",
   "completedAt": "2025-01-15T09:05:30.000Z",
-  "result": "Audit complete. No critical vulnerabilities found."
+  "updates": [
+    {
+      "at": "2025-01-15T09:00:08.000Z",
+      "message": "Opening command page in Safari"
+    }
+  ],
+  "summary": "Workflow safari_open_command_page completed",
+  "result": {
+    "ok": true,
+    "workflow": "safari_open_command_page"
+  }
 }

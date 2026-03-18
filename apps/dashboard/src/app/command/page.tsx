@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import type { JobContract } from '@openclaw/contracts';
 import {
   AlertTriangle,
   ArrowRight,
@@ -71,6 +72,7 @@ export default function CommandPage() {
     radarItems: Array<{ id: string }>;
     systemRecommendations: SystemRecommendation[];
   }>('/api/command-overview', fetcher, { refreshInterval });
+  const { data: jobs, mutate: mutateJobs } = useSWR<JobContract[]>('/api/jobs', fetcher, { refreshInterval });
 
   const health = data?.health;
   const agents = data?.agents || [];
@@ -294,6 +296,12 @@ export default function CommandPage() {
         </Panel>
       </section>
       </ErrorBoundary>
+
+      <section>
+        <ErrorBoundary name="Automation Jobs">
+          <AutomationJobsPanel jobs={jobs || []} onChanged={() => void mutateJobs()} />
+        </ErrorBoundary>
+      </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <ErrorBoundary name="Workflow Queue">
@@ -762,6 +770,235 @@ function Panel({ title, eyebrow, icon, children }: { title: string; eyebrow: str
       </div>
       {children}
     </section>
+  );
+}
+
+function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChanged: () => void }) {
+  const [mode, setMode] = useState<NonNullable<JobContract['mode']>>('agent');
+  const [targetAgent, setTargetAgent] = useState('main');
+  const [prompt, setPrompt] = useState('');
+  const [command, setCommand] = useState('');
+  const [workflow, setWorkflow] = useState('safari_open_command_page');
+  const [argsText, setArgsText] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedJobs, setArchivedJobs] = useState<JobContract[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const visibleJobs = showArchived ? archivedJobs : jobs;
+
+  async function loadArchived() {
+    const response = await fetch('/api/jobs?archived=true');
+    const payload = await response.json();
+    setArchivedJobs(payload);
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          mode,
+          targetAgent,
+          command: command || undefined,
+          workflow: workflow || undefined,
+          args: argsText.split(',').map((item) => item.trim()).filter(Boolean),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'Failed to submit job');
+        return;
+      }
+      setPrompt('');
+      setCommand('');
+      setArgsText('');
+      onChanged();
+    } catch {
+      setError('Network error while submitting automation job');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function stop(jobId: string) {
+    await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+    onChanged();
+    if (showArchived) {
+      await loadArchived();
+    }
+  }
+
+  async function clear() {
+    setClearing(true);
+    try {
+      await fetch('/api/jobs/clear', { method: 'POST' });
+      onChanged();
+      await loadArchived();
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  return (
+    <Panel title="Automation Jobs" eyebrow="Remote Control" icon={<Play size={15} className="text-accent-blue" />}>
+      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
+        <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
+          <div>
+            <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Mode</div>
+            <select
+              value={mode}
+              onChange={(event) => setMode(event.target.value as NonNullable<JobContract['mode']>)}
+              className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+            >
+              {['agent', 'shell', 'steer', 'drive', 'workflow', 'note'].map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+
+          {mode === 'agent' && (
+            <div>
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Target Agent</div>
+              <select
+                value={targetAgent}
+                onChange={(event) => setTargetAgent(event.target.value)}
+                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              >
+                {['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'].map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {(mode === 'agent' || mode === 'shell' || mode === 'note') && (
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="Prompt"
+              className="min-h-[96px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+            />
+          )}
+
+          {(mode === 'steer' || mode === 'drive') && (
+            <>
+              <input
+                value={command}
+                onChange={(event) => setCommand(event.target.value)}
+                placeholder="Command"
+                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              />
+              <input
+                value={argsText}
+                onChange={(event) => setArgsText(event.target.value)}
+                placeholder="Args (comma separated)"
+                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              />
+            </>
+          )}
+
+          {mode === 'workflow' && (
+            <>
+              <select
+                value={workflow}
+                onChange={(event) => setWorkflow(event.target.value)}
+                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              >
+                {[
+                  'safari_open_command_page',
+                  'safari_recover_localhost_command',
+                  'safari_wait_and_click_ui',
+                  'textedit_new_set_text',
+                  'notes_create',
+                ].map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <input
+                value={argsText}
+                onChange={(event) => setArgsText(event.target.value)}
+                placeholder="Args (comma separated)"
+                className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+              />
+            </>
+          )}
+
+          {error && <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{error}</div>}
+
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={submit} disabled={submitting}>
+              {submitting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+              <span className="ml-1">Submit</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                setShowArchived((current) => !current);
+                await loadArchived();
+              }}
+            >
+              {showArchived ? 'Show Live' : 'Show Archived'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clear} disabled={clearing}>
+              {clearing ? <Loader2 size={12} className="animate-spin" /> : 'Archive All'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {visibleJobs.length === 0 ? (
+            <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} />
+          ) : (
+            visibleJobs.slice(0, 12).map((job) => (
+              <div key={job.id} className="rounded-xl border border-border bg-surface-2/75 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-text-primary">
+                      {job.workflow || job.command || job.mode || job.prompt || job.id}
+                    </div>
+                    <div className="mt-1 text-xs text-text-tertiary">
+                      {(job.mode || 'job')} · {job.targetAgent} · {relativeTime(job.createdAt)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge color={job.status === 'failed' ? '#e94560' : job.status === 'completed' ? '#06d6a0' : job.status === 'running' ? '#4A9EFF' : '#ffd166'}>
+                      {job.status}
+                    </Badge>
+                    {job.status === 'running' && !showArchived && (
+                      <Button size="sm" variant="ghost" onClick={() => void stop(job.id)}>Stop</Button>
+                    )}
+                  </div>
+                </div>
+                {job.prompt ? <div className="mt-2 text-xs text-text-secondary">{job.prompt}</div> : null}
+                {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+                {Array.isArray(job.updates) && job.updates.length > 0 ? (
+                  <div className="mt-3 space-y-1 text-xs text-text-tertiary">
+                    {job.updates.slice(-3).map((update) => (
+                      <div key={`${update.at}-${update.message}`}>• {update.message}</div>
+                    ))}
+                  </div>
+                ) : null}
+                {job.error ? (
+                  <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{job.error}</div>
+                ) : null}
+                {job.result ? (
+                  <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
+                    {typeof job.result === 'string' ? job.result : JSON.stringify(job.result, null, 2)}
+                  </pre>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </Panel>
   );
 }
 
