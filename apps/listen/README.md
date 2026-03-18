@@ -27,6 +27,10 @@ Default worker behavior is local and safe:
 Built-in workflows:
 
 - `safari_reload_wait_url <url-substring>`
+- `safari_open_wait_url <url> [expected-substring]`
+- `safari_open_command_page [url]`
+- `safari_recover_localhost_command [url]`
+- `safari_open_and_wait_ui <url> <label> [role]`
 - `safari_wait_and_click_ui <label> [role]`
 - `textedit_new_set_text <text>`
 - `notes_create <title> <body>`
@@ -46,5 +50,8 @@ curl -X POST http://127.0.0.1:7600/job \
 curl -X POST http://127.0.0.1:7600/job \
   -H 'content-type: application/json' \
   -d '{"mode":"workflow","workflow":"safari_wait_and_click_ui","args":["Reload this page","button"]}'
+curl -X POST http://127.0.0.1:7600/job \
+  -H 'content-type: application/json' \
+  -d '{"mode":"workflow","workflow":"safari_open_command_page"}'
 curl http://127.0.0.1:7600/jobs
 ```

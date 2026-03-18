@@ -109,6 +109,66 @@ def execute_workflow(workflow: str, cmd_args: list[str]) -> dict[str, object]:
         )
         return {"ok": True, "workflow": workflow, "steps": steps, "final": final}
 
+    if workflow == "safari_open_wait_url":
+        url = require_arg(cmd_args, 0, "workflow safari_open_wait_url requires <url>")
+        expected = cmd_args[1].strip() if len(cmd_args) > 1 and cmd_args[1].strip() else url
+        run_step("open URL in Safari", run_steer, "open-url", "--app", "Safari", "--url", url, "--json")
+        final = run_step(
+            "wait for Safari URL",
+            run_steer,
+            "wait",
+            "url",
+            "--url",
+            expected,
+            "--contains",
+            "--timeout",
+            "12",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": final}
+
+    if workflow == "safari_open_command_page":
+        url = cmd_args[0].strip() if cmd_args and cmd_args[0].strip() else "http://localhost:3000/command"
+        run_step("open command page", run_steer, "open-url", "--app", "Safari", "--url", url, "--json")
+        final = run_step(
+            "wait for command URL",
+            run_steer,
+            "wait",
+            "url",
+            "--url",
+            "/command",
+            "--contains",
+            "--timeout",
+            "12",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": final}
+
+    if workflow == "safari_recover_localhost_command":
+        url = cmd_args[0].strip() if cmd_args and cmd_args[0].strip() else "http://localhost:3000/command"
+        run_step("open localhost command page", run_steer, "open-url", "--app", "Safari", "--url", url, "--json")
+        run_step("wait for reload button", run_steer, "wait", "ui", "--app", "Safari", "--name", "Reload this page", "--role", "button", "--timeout", "8", "--interval", "0.75", "--json")
+        run_step("click reload button", run_steer, "ui", "click", "--app", "Safari", "--name", "Reload this page", "--role", "button", "--json")
+        final = run_step(
+            "wait for command URL",
+            run_steer,
+            "wait",
+            "url",
+            "--url",
+            "/command",
+            "--contains",
+            "--timeout",
+            "12",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "final": final}
+
     if workflow == "safari_wait_and_click_ui":
         name = require_arg(cmd_args, 0, "workflow safari_wait_and_click_ui requires <label>")
         role = cmd_args[1].strip() if len(cmd_args) > 1 and cmd_args[1].strip() else "button"
@@ -144,6 +204,30 @@ def execute_workflow(workflow: str, cmd_args: list[str]) -> dict[str, object]:
             "--json",
         )
         return {"ok": True, "workflow": workflow, "steps": steps, "found": found, "clicked": clicked}
+
+    if workflow == "safari_open_and_wait_ui":
+        url = require_arg(cmd_args, 0, "workflow safari_open_and_wait_ui requires <url> <label> [role]")
+        name = require_arg(cmd_args, 1, "workflow safari_open_and_wait_ui requires <url> <label> [role]")
+        role = cmd_args[2].strip() if len(cmd_args) > 2 and cmd_args[2].strip() else "button"
+        run_step("open URL in Safari", run_steer, "open-url", "--app", "Safari", "--url", url, "--json")
+        found = run_step(
+            "wait for Safari UI",
+            run_steer,
+            "wait",
+            "ui",
+            "--app",
+            "Safari",
+            "--name",
+            name,
+            "--role",
+            role,
+            "--timeout",
+            "12",
+            "--interval",
+            "0.75",
+            "--json",
+        )
+        return {"ok": True, "workflow": workflow, "steps": steps, "found": found}
 
     if workflow == "textedit_new_set_text":
         body = require_arg(cmd_args, 0, "workflow textedit_new_set_text requires <text>")

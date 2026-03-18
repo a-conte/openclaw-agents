@@ -60,6 +60,8 @@ python3 apps/direct/direct_cli.py start --prompt "Reply with exactly OK" --mode 
 python3 apps/direct/direct_cli.py start --mode steer --command apps
 python3 apps/direct/direct_cli.py start --mode steer --command wait --arg ui --arg --app --arg Safari --arg --name --arg "Reload this page" --arg --role --arg button
 python3 apps/direct/direct_cli.py start --mode drive --command proc --arg list --arg --json
+python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_open_command_page
+python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_recover_localhost_command
 python3 apps/direct/direct_cli.py start --mode workflow --workflow safari_wait_and_click_ui --arg "Reload this page" --arg button
 python3 apps/direct/direct_cli.py start --mode workflow --workflow textedit_new_set_text --arg "OpenClaw remote note"
 python3 apps/direct/direct_cli.py list
