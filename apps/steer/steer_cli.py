@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parent
 VISION_HELPER = ROOT / "mac_vision.swift"
@@ -95,6 +96,21 @@ def run_vision_helper(args: list[str]) -> dict[str, object]:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         fail(f"Vision helper returned invalid JSON: {exc}")
+
+
+def wait_until(timeout: float, interval: float, probe: Callable[[], dict[str, object]], timeout_message: str) -> dict[str, object]:
+    deadline = time.time() + timeout
+    last_result: dict[str, object] | None = None
+    while True:
+        last_result = probe()
+        if last_result.get("matched"):
+            return last_result
+        if time.time() >= deadline:
+            payload = {"ok": False, "matched": False, "timeout": timeout, "interval": interval}
+            if last_result:
+                payload["last"] = last_result
+            fail(json.dumps({"error": timeout_message, **payload}))
+        time.sleep(interval)
 
 
 def cmd_apps() -> dict[str, object]:
@@ -250,6 +266,23 @@ def cmd_safari_go_forward() -> dict[str, object]:
     return {"ok": True, "app": "Safari", "action": "go-forward"}
 
 
+def cmd_safari_wait_url(url: str, contains: bool, timeout: float, interval: float) -> dict[str, object]:
+    def probe() -> dict[str, object]:
+        current = cmd_safari_current_url()
+        current_url = str(current["url"])
+        matched = url in current_url if contains else current_url == url
+        return {
+            "ok": True,
+            "matched": matched,
+            "app": "Safari",
+            "url": current_url,
+            "expected": url,
+            "contains": contains,
+        }
+
+    return wait_until(timeout, interval, probe, f"Timed out waiting for Safari URL: {url}")
+
+
 def cmd_ui_dump(app: str) -> dict[str, object]:
     script = f'''
     tell application "System Events"
@@ -355,12 +388,48 @@ def cmd_ui_click(app: str, name: str, contains: bool, role: str | None) -> dict[
     }
 
 
+def cmd_ui_wait(
+    app: str,
+    name: str,
+    contains: bool,
+    role: str | None,
+    timeout: float,
+    interval: float,
+) -> dict[str, object]:
+    def probe() -> dict[str, object]:
+        found = cmd_ui_find(app, name, contains, role)
+        matches = found["matches"]
+        return {
+            "ok": True,
+            "matched": bool(matches),
+            "app": app,
+            "name": name,
+            "contains": contains,
+            "role": role,
+            "matches": matches,
+        }
+
+    return wait_until(timeout, interval, probe, f"Timed out waiting for UI element: {name}")
+
+
 def text_matches(candidate: str, query: str, contains: bool) -> bool:
     lhs = candidate.casefold()
     rhs = query.casefold()
+    if contains and rhs in lhs:
+        return True
+    if not contains and lhs == rhs:
+        return True
+
+    def normalized(value: str) -> str:
+        cleaned = value.casefold().replace("’", "'").replace("“", '"').replace("”", '"')
+        cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
+        return " ".join(cleaned.split())
+
+    lhs_norm = normalized(candidate)
+    rhs_norm = normalized(query)
     if contains:
-        return rhs in lhs
-    return lhs == rhs
+        return rhs_norm in lhs_norm
+    return lhs_norm == rhs_norm
 
 
 def cmd_click(x: float, y: float, clicks: int) -> dict[str, object]:
@@ -459,6 +528,34 @@ def cmd_ocr_click(
         "match": match,
         "click": click_result,
     }
+
+
+def cmd_ocr_wait(
+    app: str | None,
+    image: str | None,
+    text: str,
+    contains: bool,
+    timeout: float,
+    interval: float,
+    *,
+    window: bool = False,
+    region: tuple[int, int, int, int] | None = None,
+) -> dict[str, object]:
+    def probe() -> dict[str, object]:
+        result = cmd_ocr(app, image, text, contains, window=window, region=region)
+        matches = result.get("matches", [])
+        return {
+            "ok": True,
+            "matched": bool(matches),
+            "app": app,
+            "text": text,
+            "contains": contains,
+            "matches": matches,
+            "image": result.get("image"),
+            "screenshot": result.get("screenshot"),
+        }
+
+    return wait_until(timeout, interval, probe, f"Timed out waiting for OCR text: {text}")
 
 
 def cmd_window_list(app: str) -> dict[str, object]:
@@ -615,6 +712,36 @@ def build_parser() -> argparse.ArgumentParser:
     ocr_click.add_argument("--region")
     ocr_click.add_argument("--json", action="store_true")
 
+    wait_cmd = sub.add_parser("wait")
+    wait_sub = wait_cmd.add_subparsers(dest="wait_command", required=True)
+
+    wait_text = wait_sub.add_parser("text")
+    wait_text.add_argument("--app")
+    wait_text.add_argument("--image")
+    wait_text.add_argument("--text", required=True)
+    wait_text.add_argument("--contains", action="store_true")
+    wait_text.add_argument("--window", action="store_true")
+    wait_text.add_argument("--region")
+    wait_text.add_argument("--timeout", type=float, default=10.0)
+    wait_text.add_argument("--interval", type=float, default=0.75)
+    wait_text.add_argument("--json", action="store_true")
+
+    wait_ui = wait_sub.add_parser("ui")
+    wait_ui.add_argument("--app", required=True)
+    wait_ui.add_argument("--name", required=True)
+    wait_ui.add_argument("--contains", action="store_true")
+    wait_ui.add_argument("--role")
+    wait_ui.add_argument("--timeout", type=float, default=10.0)
+    wait_ui.add_argument("--interval", type=float, default=0.75)
+    wait_ui.add_argument("--json", action="store_true")
+
+    wait_url = wait_sub.add_parser("url")
+    wait_url.add_argument("--url", required=True)
+    wait_url.add_argument("--contains", action="store_true")
+    wait_url.add_argument("--timeout", type=float, default=10.0)
+    wait_url.add_argument("--interval", type=float, default=0.75)
+    wait_url.add_argument("--json", action="store_true")
+
     safari = sub.add_parser("safari")
     safari_sub = safari.add_subparsers(dest="safari_command", required=True)
     safari_current_url = safari_sub.add_parser("current-url")
@@ -721,6 +848,28 @@ def main() -> None:
             args.json,
         )
         return
+    if args.command == "wait":
+        if args.wait_command == "text":
+            print_result(
+                cmd_ocr_wait(
+                    args.app,
+                    args.image,
+                    args.text,
+                    args.contains,
+                    args.timeout,
+                    args.interval,
+                    window=args.window,
+                    region=region,
+                ),
+                args.json,
+            )
+            return
+        if args.wait_command == "ui":
+            print_result(cmd_ui_wait(args.app, args.name, args.contains, args.role, args.timeout, args.interval), args.json)
+            return
+        if args.wait_command == "url":
+            print_result(cmd_safari_wait_url(args.url, args.contains, args.timeout, args.interval), args.json)
+            return
     if args.command == "safari":
         if args.safari_command == "current-url":
             print_result(cmd_safari_current_url(), args.json)

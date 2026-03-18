@@ -38,6 +38,9 @@ python3 apps/steer/steer_cli.py click --x 640 --y 480 --json
 python3 apps/steer/steer_cli.py drag --from-x 640 --from-y 480 --to-x 900 --to-y 480 --json
 python3 apps/steer/steer_cli.py ocr --app Safari --window --text Retry --json
 python3 apps/steer/steer_cli.py ocr-click --app Safari --window --text Retry --json
+python3 apps/steer/steer_cli.py wait text --image /tmp/steer-example.png --text "connect to the server" --contains --json
+python3 apps/steer/steer_cli.py wait ui --app Safari --name "Reload this page" --role button --json
+python3 apps/steer/steer_cli.py wait url --url localhost:3000 --contains --json
 python3 apps/steer/steer_cli.py safari current-url --json
 python3 apps/steer/steer_cli.py safari reload --json
 python3 apps/steer/steer_cli.py ui dump --app Safari --json
@@ -62,6 +65,7 @@ python3 apps/direct/direct_cli.py list
 - `steer type`, `steer focus`, and Notes/TextEdit automation require macOS Accessibility permissions for the calling terminal.
 - `steer ui dump|find|click` uses the macOS accessibility tree. It works best for apps and pages with stable accessible labels.
 - `steer ocr|ocr-click` uses Apple Vision on a screenshot, so the calling terminal also needs Screen Recording permission if the screenshot comes from `steer see`.
+- `steer wait text|ui|url` polls OCR, Accessibility, or Safari URL state until it matches or times out.
 - `steer ocr --app ... --window` and `steer see --app ... --window` crop to the target app's front-window bounds via Accessibility metadata.
 - `steer ocr --app ...` without `--window` still captures whatever macOS actually shows on the current screen/Space.
 - `drive run` uses a sentinel marker to detect command completion inside tmux.
@@ -75,4 +79,4 @@ python3 apps/direct/direct_cli.py list
 Still missing if you want near-parity:
 
 - richer window management and window-scoped capture
-- deeper app-specific flows and self-healing GUI waits
+- deeper app-specific flows

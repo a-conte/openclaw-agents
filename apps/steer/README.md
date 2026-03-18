@@ -13,6 +13,7 @@ Current MVP:
 - `steer click`
 - `steer drag`
 - `steer ocr|ocr-click`
+- `steer wait text|ui|url`
 - `steer safari current-url`
 - `steer safari reload|focus-location|go-back|go-forward`
 - `steer ui dump|find|click`
@@ -30,6 +31,9 @@ python3 apps/steer/steer_cli.py click --x 640 --y 480 --json
 python3 apps/steer/steer_cli.py drag --from-x 640 --from-y 480 --to-x 900 --to-y 480 --json
 python3 apps/steer/steer_cli.py ocr --app Safari --window --text Retry --json
 python3 apps/steer/steer_cli.py ocr-click --app Safari --window --text Retry --json
+python3 apps/steer/steer_cli.py wait text --image /tmp/steer-example.png --text "connect to the server" --contains --json
+python3 apps/steer/steer_cli.py wait ui --app Safari --name "Reload this page" --role button --json
+python3 apps/steer/steer_cli.py wait url --url localhost:3000 --contains --json
 python3 apps/steer/steer_cli.py safari current-url --json
 python3 apps/steer/steer_cli.py safari reload --json
 python3 apps/steer/steer_cli.py ui dump --app Safari --json
