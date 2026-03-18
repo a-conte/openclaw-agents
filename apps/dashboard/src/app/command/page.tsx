@@ -1113,7 +1113,19 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
 
         <div className="space-y-3">
           {visibleJobs.length === 0 ? <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} /> : visibleJobs.slice(0, 12).map((job) => (
-            <button key={job.id} onClick={() => setSelectedJobId(job.id)} className={`w-full rounded-xl border p-4 text-left ${selectedJob?.id === job.id ? 'border-accent bg-surface-3/90' : 'border-border bg-surface-2/75'}`}>
+            <div
+              key={job.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedJobId(job.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedJobId(job.id);
+                }
+              }}
+              className={`w-full rounded-xl border p-4 text-left ${selectedJob?.id === job.id ? 'border-accent bg-surface-3/90' : 'border-border bg-surface-2/75'}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-text-primary">{job.workflow || job.command || job.mode || job.prompt || job.id}</div>
@@ -1124,91 +1136,28 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 </Badge>
               </div>
               {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
-            </button>
+              <div className="mt-3">
+                <Link href={`/command/jobs/${job.id}`} className="text-xs text-accent hover:text-accent-hover" onClick={(event) => event.stopPropagation()}>
+                  Open detail page
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
 
-        <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
-          {selectedJob ? (
-            <>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-text-primary">{selectedJob.workflow || selectedJob.command || selectedJob.mode || selectedJob.id}</div>
-                  <div className="mt-1 text-xs text-text-tertiary">
-                    attempt {selectedJob.attempt || 1}{selectedJob.retryMode ? ` · ${selectedJob.retryMode}` : ''}{selectedJob.resumeFromStepId ? ` · from ${selectedJob.resumeFromStepId}` : ''}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {selectedJob.status === 'running' && !showArchived ? <Button size="sm" variant="ghost" onClick={() => void stop(selectedJob.id)}>Stop</Button> : null}
-                  {(selectedJob.status === 'failed' || selectedJob.status === 'stopped') ? (
-                    <>
-                      <Button size="sm" variant="secondary" onClick={() => void resume(selectedJob.id, 'resume_failed')}>Resume Failed</Button>
-                      <Button size="sm" variant="secondary" onClick={() => void resume(selectedJob.id, 'rerun_all')}>Rerun All</Button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              {selectedJob.policy && selectedJob.policy.allowed === false ? (
-                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/8 px-3 py-2 text-xs text-yellow-100">{selectedJob.policy.reason || 'Blocked by policy'}</div>
-              ) : null}
-              {selectedJob.error ? <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">{selectedJob.error}</div> : null}
-
-              <div className="rounded-lg border border-border bg-surface-3 p-3">
-                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Attempt History</div>
-                <div className="space-y-1 text-xs text-text-secondary">
-                  {Array.isArray(selectedJob.history) && selectedJob.history.length > 0 ? selectedJob.history.map((item, index) => (
-                    <div key={`${item.jobId}-${index}`}>
-                      #{item.attempt || index + 1} · {item.status || 'unknown'}{item.mode ? ` · ${item.mode}` : ''}{item.resumeFromStepId ? ` · from ${item.resumeFromStepId}` : ''}
-                    </div>
-                  )) : <div>No prior attempts recorded.</div>}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-surface-3 p-3">
-                <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Steps</div>
-                <div className="space-y-2">
-                  {Array.isArray(selectedJob.stepStatus) && selectedJob.stepStatus.length > 0 ? selectedJob.stepStatus.map((step) => (
-                    <div key={step.id} className="rounded-md border border-border bg-surface-2/75 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold text-text-primary">{step.name}</div>
-                        <div className="flex items-center gap-2">
-                          <Badge color={step.status === 'failed' ? '#e94560' : step.status === 'completed' ? '#06d6a0' : step.status === 'running' ? '#4A9EFF' : '#ffd166'}>
-                            {step.status}
-                          </Badge>
-                          {(selectedJob.status === 'failed' || selectedJob.status === 'stopped') && (
-                            <Button size="sm" variant="ghost" onClick={() => void resume(selectedJob.id, 'resume_from', step.id)}>Resume Here</Button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 text-[11px] text-text-tertiary">{step.type}{step.completedAt ? ` · ${relativeTime(step.completedAt)}` : ''}</div>
-                      {step.error ? <div className="mt-2 text-xs text-red-300">{step.error}</div> : null}
-                    </div>
-                  )) : <div className="text-xs text-text-secondary">No step details for this job.</div>}
-                </div>
-              </div>
-
-              {Array.isArray(selectedJob.updates) && selectedJob.updates.length > 0 ? (
-                <div className="rounded-lg border border-border bg-surface-3 p-3">
-                  <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Recent Updates</div>
-                  <div className="space-y-1 text-xs text-text-secondary">
-                    {selectedJob.updates.slice(-8).map((update) => (
-                      <div key={`${update.at}-${update.message}`} className={update.level === 'error' ? 'text-red-300' : undefined}>• {update.message}</div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {selectedJob.result ? (
-                <pre className="overflow-x-auto rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
-                  {typeof selectedJob.result === 'string' ? selectedJob.result : JSON.stringify(selectedJob.result, null, 2)}
-                </pre>
-              ) : null}
-            </>
-          ) : (
+        {selectedJob ? (
+          <JobDetailPanel
+            job={selectedJob}
+            archived={showArchived}
+            onStop={(jobId) => void stop(jobId)}
+            onResume={(jobId, resumeMode, stepId) => void resume(jobId, resumeMode, stepId)}
+            detailHref={`/command/jobs/${selectedJob.id}`}
+          />
+        ) : (
+          <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
             <EmptyMessage message="Select a job to inspect details." />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </Panel>
   );
