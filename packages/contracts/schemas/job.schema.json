@@ -73,7 +73,32 @@
           "startedAt": { "type": "string", "format": "date-time" },
           "completedAt": { "type": "string", "format": "date-time" },
           "result": {},
-          "error": { "type": "string" }
+          "error": { "type": "string" },
+          "artifacts": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "output": { "type": "string" },
+              "stdout": { "type": "string" },
+              "stderr": { "type": "string" },
+              "rawOutput": { "type": "string" },
+              "exitCode": { "type": "number" },
+              "session": { "type": "string" },
+              "screenshot": { "type": "string" },
+              "image": { "type": "string" },
+              "snapshotId": { "type": "string" },
+              "snapshotPath": { "type": "string" },
+              "path": { "type": "string" },
+              "match": { "type": "string" },
+              "token": { "type": "string" },
+              "clicked": { "type": "object", "additionalProperties": true },
+              "target": { "type": "object", "additionalProperties": true },
+              "matches": {
+                "type": "array",
+                "items": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
         },
         "additionalProperties": false
       }

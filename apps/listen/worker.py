@@ -57,6 +57,7 @@ def set_step_state(
     status: str,
     result: Any = None,
     error: str | None = None,
+    artifacts: dict[str, Any] | None = None,
     dangerous: bool = False,
     started_at: str | None = None,
     completed_at: str | None = None,
@@ -84,6 +85,8 @@ def set_step_state(
         payload["result"] = result
     if error:
         payload["error"] = error
+    if artifacts:
+        payload["artifacts"] = artifacts
     if existing is None:
         steps.append(payload)
     job["currentStepId"] = None if status == "completed" else step_id
@@ -143,6 +146,81 @@ def require_arg(cmd_args: list[str], index: int, message: str) -> str:
     if len(cmd_args) <= index or not cmd_args[index].strip():
         raise ValueError(message)
     return cmd_args[index].strip()
+
+
+def compact_text(value: Any, limit: int = 1200) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit].rstrip()}…"
+
+
+def extract_step_artifacts(result: Any) -> dict[str, Any]:
+    if not isinstance(result, dict):
+        return {}
+
+    artifacts: dict[str, Any] = {}
+    for key in ("output", "stdout", "stderr", "session", "screenshot", "image", "snapshotId", "snapshotPath", "path", "match"):
+        value = compact_text(result.get(key))
+        if value is not None:
+            artifacts[key] = value
+
+    exit_code = result.get("exitCode")
+    if isinstance(exit_code, int):
+        artifacts["exitCode"] = exit_code
+
+    token = compact_text(result.get("token"), 120)
+    if token is not None:
+        artifacts["token"] = token
+
+    raw_output = compact_text(result.get("rawOutput"))
+    if raw_output is not None:
+        artifacts["rawOutput"] = raw_output
+
+    clicked = result.get("clicked")
+    if isinstance(clicked, dict):
+        filtered = {key: value for key, value in clicked.items() if isinstance(value, (str, int, float, bool))}
+        if filtered:
+            artifacts["clicked"] = filtered
+
+    target = result.get("target")
+    if isinstance(target, dict):
+        filtered = {key: value for key, value in target.items() if isinstance(value, (str, int, float, bool))}
+        if filtered:
+            artifacts["target"] = filtered
+
+    matches = result.get("matches")
+    if isinstance(matches, list) and matches:
+        summarized: list[dict[str, Any]] = []
+        for match in matches[:5]:
+            if not isinstance(match, dict):
+                continue
+            entry: dict[str, Any] = {}
+            text = compact_text(match.get("text"), 160)
+            if text is not None:
+                entry["text"] = text
+            confidence = match.get("confidence")
+            if isinstance(confidence, (int, float)):
+                entry["confidence"] = float(confidence)
+            box = match.get("box")
+            if isinstance(box, dict):
+                box_summary = {}
+                for key in ("screenCenterX", "screenCenterY", "centerX", "centerY"):
+                    value = box.get(key)
+                    if isinstance(value, (int, float)):
+                        box_summary[key] = round(float(value), 2)
+                if box_summary:
+                    entry["box"] = box_summary
+            if entry:
+                summarized.append(entry)
+        if summarized:
+            artifacts["matches"] = summarized
+
+    return artifacts
 
 
 def legacy_workflow_spec(workflow: str, cmd_args: list[str]) -> dict[str, Any]:
@@ -412,17 +490,39 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
         context = {"job": {"id": job["id"], "session": job.get("session")}, "steps": completed_context}
         resolved_step = deep_resolve(step, context)
         result = execute_step(resolved_step, job, context)
+        artifacts = extract_step_artifacts(result)
         ok = bool(result.get("ok", True)) if isinstance(result, dict) else True
         if ok:
             append_update(job, f"Completed step: {step_name}", step_id=step_id)
-            set_step_state(job, step_id, name=step_name, step_type=step_type, status="completed", result=result, dangerous=bool(step.get("dangerous", False)), completed_at=now_iso())
+            set_step_state(
+                job,
+                step_id,
+                name=step_name,
+                step_type=step_type,
+                status="completed",
+                result=result,
+                artifacts=artifacts,
+                dangerous=bool(step.get("dangerous", False)),
+                completed_at=now_iso(),
+            )
             completed_context[step_id] = {"result": result}
             persist_job(job_id, job)
             continue
 
         error = str(result.get("error") or result.get("stderr") or result.get("stdout") or f"{step_name} failed")
         append_update(job, f"Failed step: {step_name}", level="error", step_id=step_id)
-        set_step_state(job, step_id, name=step_name, step_type=step_type, status="failed", result=result, error=error, dangerous=bool(step.get("dangerous", False)), completed_at=now_iso())
+        set_step_state(
+            job,
+            step_id,
+            name=step_name,
+            step_type=step_type,
+            status="failed",
+            result=result,
+            error=error,
+            artifacts=artifacts,
+            dangerous=bool(step.get("dangerous", False)),
+            completed_at=now_iso(),
+        )
         persist_job(job_id, job)
         if str(step.get("onFailure", "stop")) != "continue":
             raise RuntimeError(error)

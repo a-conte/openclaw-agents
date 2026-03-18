@@ -57,6 +57,23 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertTrue(result["timedOut"])
         self.assertIn("result", result)
 
+    def test_extract_step_artifacts_keeps_compact_structured_fields(self) -> None:
+        artifacts = worker.extract_step_artifacts(
+            {
+                "ok": True,
+                "output": "hello",
+                "stdout": "world",
+                "exitCode": 0,
+                "screenshot": "/tmp/example.png",
+                "matches": [{"text": "Reload this page", "confidence": 0.98, "box": {"screenCenterX": 123.456}}],
+            }
+        )
+        self.assertEqual(artifacts["output"], "hello")
+        self.assertEqual(artifacts["stdout"], "world")
+        self.assertEqual(artifacts["exitCode"], 0)
+        self.assertEqual(artifacts["screenshot"], "/tmp/example.png")
+        self.assertEqual(artifacts["matches"][0]["text"], "Reload this page")
+
     def test_recover_orphaned_jobs_marks_running_jobs_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             jobs_dir = Path(tmp)

@@ -30,6 +30,7 @@ import {
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { AssignWorkModal, type AssignWorkContext } from '@/components/command/AssignWorkModal';
+import { JobDetailPanel } from '@/components/command/JobDetailPanel';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InlineError } from '@/components/shared/InlineError';
@@ -39,6 +40,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useWorkflowRun } from '@/hooks/useWorkflowRuns';
 import { usePollingInterval } from '@/hooks/usePageVisibility';
 import { AGENT_EMOJIS, AGENT_ROLES, MISSION_STATEMENT, POLL_INTERVAL } from '@/lib/constants';
+import { JOB_TEMPLATES, findJobTemplate } from '@/lib/job-templates';
 import type { Agent, Briefing, RepoStatus, SystemRecommendation, Workflow, WorkflowRun, WorkflowRunStep } from '@/lib/types';
 import { formatDate, relativeTime } from '@/lib/utils';
 
@@ -784,11 +786,36 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     targetAgent: string;
   };
 
+  function specToDrafts(spec: Record<string, unknown> | undefined): WorkflowStepDraft[] {
+    const rawSteps = Array.isArray(spec?.steps) ? spec.steps : [];
+    const drafts = rawSteps
+      .map((raw, index) => {
+        if (!raw || typeof raw !== 'object') return null;
+        const step = raw as Record<string, unknown>;
+        const type = step.type;
+        if (!['steer', 'drive', 'shell', 'agent', 'note'].includes(String(type))) return null;
+        return {
+          id: typeof step.id === 'string' ? step.id : `step_${index + 1}`,
+          name: typeof step.name === 'string' ? step.name : `Step ${index + 1}`,
+          type: type as WorkflowStepDraft['type'],
+          command: typeof step.command === 'string' ? step.command : '',
+          args: Array.isArray(step.args) ? step.args.map((item) => String(item)).join(', ') : '',
+          prompt: typeof step.prompt === 'string' ? step.prompt : typeof step.message === 'string' ? step.message : '',
+          targetAgent: typeof step.targetAgent === 'string' ? step.targetAgent : 'main',
+        } satisfies WorkflowStepDraft;
+      })
+      .filter((item): item is WorkflowStepDraft => Boolean(item));
+    return drafts.length > 0 ? drafts : [
+      { id: 'step_1', name: 'Open command page', type: 'steer', command: 'open-url', args: '--app,Safari,--url,http://localhost:3000/command', prompt: '', targetAgent: 'main' },
+    ];
+  }
+
   const [mode, setMode] = useState<NonNullable<JobContract['mode']>>('agent');
   const [targetAgent, setTargetAgent] = useState('main');
   const [prompt, setPrompt] = useState('');
   const [command, setCommand] = useState('');
   const [workflow, setWorkflow] = useState('safari_open_command_page');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(JOB_TEMPLATES[0]?.id || '');
   const [argsText, setArgsText] = useState('');
   const [workflowSpecText, setWorkflowSpecText] = useState('');
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStepDraft[]>([
@@ -950,6 +977,23 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     setWorkflowSteps((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
+  function applyTemplate(templateId: string) {
+    const template = findJobTemplate(templateId);
+    if (!template) return;
+    setMode(template.mode);
+    setTargetAgent(template.targetAgent || 'main');
+    setPrompt(template.prompt || '');
+    setCommand(template.command || '');
+    setWorkflow(template.workflow || '');
+    setArgsText((template.args || []).join(', '));
+    if (template.workflowSpec) {
+      setWorkflowSteps(specToDrafts(template.workflowSpec));
+      setWorkflowSpecText(JSON.stringify(template.workflowSpec, null, 2));
+    } else {
+      setWorkflowSpecText('');
+    }
+  }
+
   useEffect(() => {
     void loadPolicy();
   }, []);
@@ -965,6 +1009,21 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
               <div className="mt-1">Use `OPENCLAW_LISTEN_ALLOW_DANGEROUS=true` to allow blocked destructive commands.</div>
             </div>
           ) : null}
+
+          <div className="rounded-lg border border-border bg-surface-3 p-3">
+            <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Workflow Templates</div>
+            <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="w-full rounded-md border border-border bg-surface-2/80 px-3 py-2 text-sm text-text-primary">
+              {JOB_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>{template.name}</option>
+              ))}
+            </select>
+            <div className="mt-2 text-xs text-text-secondary">
+              {findJobTemplate(selectedTemplateId)?.description || 'Apply a reusable starter flow to the builder.'}
+            </div>
+            <div className="mt-3">
+              <Button size="sm" variant="secondary" onClick={() => applyTemplate(selectedTemplateId)}>Apply Template</Button>
+            </div>
+          </div>
 
           <div>
             <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Mode</div>
