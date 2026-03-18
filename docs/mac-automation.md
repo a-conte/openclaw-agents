@@ -35,6 +35,10 @@ python3 apps/steer/steer_cli.py apps --json
 python3 apps/steer/steer_cli.py focus --app Safari
 python3 apps/steer/steer_cli.py open-url --app Safari --url https://news.ycombinator.com
 python3 apps/steer/steer_cli.py safari current-url --json
+python3 apps/steer/steer_cli.py safari reload --json
+python3 apps/steer/steer_cli.py ui dump --app Safari --json
+python3 apps/steer/steer_cli.py ui find --app Safari --name Retry --role button --json
+python3 apps/steer/steer_cli.py ui click --app Safari --name Retry --role button --json
 python3 apps/steer/steer_cli.py window list --app Safari --json
 python3 apps/steer/steer_cli.py see --app Safari --json
 python3 apps/steer/steer_cli.py textedit new --text "OpenClaw notes"
@@ -52,6 +56,7 @@ python3 apps/direct/direct_cli.py list
 ## Notes
 
 - `steer type`, `steer focus`, and Notes/TextEdit automation require macOS Accessibility permissions for the calling terminal.
+- `steer ui dump|find|click` uses the macOS accessibility tree. It works best for apps and pages with stable accessible labels.
 - `steer see` uses full-screen screenshot capture today. It does not yet crop to a window or perform OCR.
 - `drive run` uses a sentinel marker to detect command completion inside tmux.
 - `drive proc list` maps processes back to tmux pane PIDs where possible.
