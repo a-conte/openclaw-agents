@@ -6,9 +6,11 @@ import json
 import re
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+VISION_HELPER = ROOT / "mac_vision.swift"
 
 
 def fail(message: str, code: int = 1) -> None:
@@ -70,6 +72,20 @@ def osa_lines(script: str) -> list[str]:
     return [line for line in out.splitlines() if line.strip()]
 
 
+def run_vision_helper(args: list[str]) -> dict[str, object]:
+    if not VISION_HELPER.exists():
+        fail(f"Vision helper is missing at {VISION_HELPER}")
+    try:
+        result = run_cmd(["swift", str(VISION_HELPER), *args])
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()
+        fail(stderr or "Vision helper failed")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        fail(f"Vision helper returned invalid JSON: {exc}")
+
+
 def cmd_apps() -> dict[str, object]:
     script = 'tell application "System Events" to get name of every process whose background only is false'
     frontmost = frontmost_app()
@@ -102,7 +118,7 @@ def cmd_see(app: str | None) -> dict[str, object]:
     if app:
         cmd_focus(app)
         time.sleep(0.3)
-    path = Path(tempfile.gettempdir()) / f"steer-{int(time.time() * 1000)}.png"
+    path = Path("/tmp") / f"steer-{int(time.time() * 1000)}.png"
     run_cmd(["screencapture", "-x", str(path)])
     return {"ok": True, "app": frontmost_app(), "screenshot": str(path)}
 
@@ -266,6 +282,62 @@ def cmd_ui_click(app: str, name: str, contains: bool, role: str | None) -> dict[
     }
 
 
+def text_matches(candidate: str, query: str, contains: bool) -> bool:
+    lhs = candidate.casefold()
+    rhs = query.casefold()
+    if contains:
+        return rhs in lhs
+    return lhs == rhs
+
+
+def cmd_click(x: float, y: float, clicks: int) -> dict[str, object]:
+    return run_vision_helper(["click", "--x", str(x), "--y", str(y), "--clicks", str(clicks)])
+
+
+def cmd_ocr(app: str | None, image: str | None, text: str | None, contains: bool) -> dict[str, object]:
+    screenshot = None
+    if image:
+        target_image = image
+    else:
+        capture = cmd_see(app)
+        screenshot = capture["screenshot"]
+        target_image = str(screenshot)
+    result = run_vision_helper(["ocr", "--image", target_image])
+    matches = result.get("matches", [])
+    if text:
+        matches = [match for match in matches if text_matches(str(match.get("text", "")), text, contains)]
+    payload = {
+        "ok": True,
+        "app": app or result.get("app"),
+        "image": result.get("image"),
+        "width": result.get("width"),
+        "height": result.get("height"),
+        "matches": matches,
+    }
+    if screenshot:
+        payload["screenshot"] = screenshot
+    return payload
+
+
+def cmd_ocr_click(app: str | None, text: str, contains: bool, clicks: int) -> dict[str, object]:
+    result = cmd_ocr(app, None, text, contains)
+    matches = result.get("matches", [])
+    if not matches:
+        fail("No OCR text match found")
+    match = matches[0]
+    box = match.get("box", {})
+    x = float(box.get("centerX"))
+    y = float(box.get("centerY"))
+    click_result = cmd_click(x, y, clicks)
+    return {
+        "ok": True,
+        "app": app,
+        "image": result.get("image"),
+        "match": match,
+        "click": click_result,
+    }
+
+
 def cmd_window_list(app: str) -> dict[str, object]:
     script = f'''
     tell application "System Events"
@@ -386,6 +458,26 @@ def build_parser() -> argparse.ArgumentParser:
     open_url.add_argument("--app")
     open_url.add_argument("--json", action="store_true")
 
+    click = sub.add_parser("click")
+    click.add_argument("--x", type=float, required=True)
+    click.add_argument("--y", type=float, required=True)
+    click.add_argument("--clicks", type=int, default=1)
+    click.add_argument("--json", action="store_true")
+
+    ocr = sub.add_parser("ocr")
+    ocr.add_argument("--app")
+    ocr.add_argument("--image")
+    ocr.add_argument("--text")
+    ocr.add_argument("--contains", action="store_true")
+    ocr.add_argument("--json", action="store_true")
+
+    ocr_click = sub.add_parser("ocr-click")
+    ocr_click.add_argument("--app")
+    ocr_click.add_argument("--text", required=True)
+    ocr_click.add_argument("--contains", action="store_true")
+    ocr_click.add_argument("--clicks", type=int, default=1)
+    ocr_click.add_argument("--json", action="store_true")
+
     safari = sub.add_parser("safari")
     safari_sub = safari.add_subparsers(dest="safari_command", required=True)
     safari_current_url = safari_sub.add_parser("current-url")
@@ -470,6 +562,15 @@ def main() -> None:
         return
     if args.command == "open-url":
         print_result(cmd_open_url(args.url, args.app), args.json)
+        return
+    if args.command == "click":
+        print_result(cmd_click(args.x, args.y, args.clicks), args.json)
+        return
+    if args.command == "ocr":
+        print_result(cmd_ocr(args.app, args.image, args.text, args.contains), args.json)
+        return
+    if args.command == "ocr-click":
+        print_result(cmd_ocr_click(args.app, args.text, args.contains, args.clicks), args.json)
         return
     if args.command == "safari":
         if args.safari_command == "current-url":

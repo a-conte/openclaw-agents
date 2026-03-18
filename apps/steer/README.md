@@ -10,6 +10,8 @@ Current MVP:
 - `steer type`
 - `steer hotkey`
 - `steer open-url`
+- `steer click`
+- `steer ocr|ocr-click`
 - `steer safari current-url`
 - `steer safari reload|focus-location|go-back|go-forward`
 - `steer ui dump|find|click`
@@ -23,6 +25,9 @@ Examples:
 python3 apps/steer/steer_cli.py apps --json
 python3 apps/steer/steer_cli.py focus --app Safari
 python3 apps/steer/steer_cli.py open-url --url https://news.ycombinator.com --app Safari
+python3 apps/steer/steer_cli.py click --x 640 --y 480 --json
+python3 apps/steer/steer_cli.py ocr --app Safari --text Retry --json
+python3 apps/steer/steer_cli.py ocr-click --app Safari --text Retry --json
 python3 apps/steer/steer_cli.py safari current-url --json
 python3 apps/steer/steer_cli.py safari reload --json
 python3 apps/steer/steer_cli.py ui dump --app Safari --json
@@ -33,3 +38,7 @@ python3 apps/steer/steer_cli.py see --app Safari --json
 python3 apps/steer/steer_cli.py textedit new --text "hello"
 python3 apps/steer/steer_cli.py notes create --title "OpenClaw" --body "Mission Control note"
 ```
+
+Notes:
+
+- `ocr` and `ocr-click` operate on the currently visible screen capture. `--app` activates an app first, but macOS Spaces/window focus can still affect what is actually captured.
