@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import mimetypes
 import os
@@ -28,6 +29,7 @@ from policy import check_command_policy, check_workflow_policy, current_policy, 
 from workflow_templates import (
     clone_custom_template,
     delete_custom_template,
+    diff_template_versions,
     get_template,
     list_custom_templates,
     list_template_versions,
@@ -81,13 +83,31 @@ def _duration_ms(job: dict[str, object]) -> int | None:
     if not started_at or not completed_at:
         return None
     try:
-        started = time.mktime(time.strptime(started_at, "%Y-%m-%dT%H:%M:%SZ"))
-        completed = time.mktime(time.strptime(completed_at, "%Y-%m-%dT%H:%M:%SZ"))
+        started = calendar.timegm(time.strptime(started_at, "%Y-%m-%dT%H:%M:%SZ"))
+        completed = calendar.timegm(time.strptime(completed_at, "%Y-%m-%dT%H:%M:%SZ"))
     except ValueError:
         return None
     if completed < started:
         return None
     return int((completed - started) * 1000)
+
+
+def _percentile(values: list[int], ratio: float) -> int | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, int(round((len(ordered) - 1) * ratio))))
+    return int(ordered[index])
+
+
+def _job_root_id(job: dict[str, object]) -> str:
+    root = clean_str(job.get("retryOf"))
+    history = job.get("history")
+    if isinstance(history, list) and history:
+        first = history[0]
+        if isinstance(first, dict):
+            root = clean_str(first.get("jobId")) or root
+    return root or clean_str(job.get("id")) or "unknown"
 
 
 def collect_job_metrics() -> dict[str, object]:
@@ -99,10 +119,12 @@ def collect_job_metrics() -> dict[str, object]:
     template_counts: dict[str, int] = {}
     template_success: dict[str, dict[str, int]] = {}
     step_failures: dict[str, int] = {}
+    step_artifacts: dict[str, dict[str, int]] = {}
     policy_block_reasons: dict[str, int] = {}
     completed_durations: list[int] = []
     long_running: list[dict[str, object]] = []
     daily: dict[str, dict[str, int]] = {}
+    lineage: dict[str, dict[str, object]] = {}
 
     for job in all_jobs:
         status = clean_str(job.get("status")) or "unknown"
@@ -136,9 +158,18 @@ def collect_job_metrics() -> dict[str, object]:
             for step in step_status:
                 if not isinstance(step, dict):
                     continue
+                step_name = clean_str(step.get("name")) or clean_str(step.get("id")) or "unknown"
                 if clean_str(step.get("status")) == "failed":
-                    name = clean_str(step.get("name")) or clean_str(step.get("id")) or "unknown"
-                    step_failures[name] = step_failures.get(name, 0) + 1
+                    step_failures[step_name] = step_failures.get(step_name, 0) + 1
+                artifacts = step.get("artifacts")
+                if isinstance(artifacts, dict) and artifacts:
+                    stats = step_artifacts.setdefault(step_name, {"count": 0, "bytes": 0})
+                    for value in artifacts.values():
+                        if isinstance(value, dict):
+                            stats["count"] += 1
+                            size = value.get("size")
+                            if isinstance(size, int):
+                                stats["bytes"] += size
         policy = job.get("policy")
         if isinstance(policy, dict) and policy.get("allowed") is False:
             reason = clean_str(policy.get("reason")) or "blocked"
@@ -154,6 +185,19 @@ def collect_job_metrics() -> dict[str, object]:
                 bucket["failed"] += 1
             if isinstance(policy, dict) and policy.get("allowed") is False:
                 bucket["blocked"] += 1
+        root_id = _job_root_id(job)
+        chain = lineage.setdefault(
+            root_id,
+            {"rootJobId": root_id, "attempts": 0, "latestJobId": None, "latestStatus": None, "templateId": None, "updatedAt": "", "jobIds": []},
+        )
+        chain["attempts"] = int(chain.get("attempts", 0)) + 1
+        chain["latestJobId"] = job.get("id")
+        chain["latestStatus"] = status
+        chain["templateId"] = job.get("templateId")
+        chain["updatedAt"] = clean_str(job.get("updatedAt") or job.get("completedAt") or job.get("createdAt"))
+        job_ids = chain.get("jobIds")
+        if isinstance(job_ids, list):
+            job_ids.append(job.get("id"))
 
     avg_duration_ms = int(sum(completed_durations) / len(completed_durations)) if completed_durations else None
     return {
@@ -164,6 +208,8 @@ def collect_job_metrics() -> dict[str, object]:
             "statusCounts": status_counts,
             "modeCounts": mode_counts,
             "averageCompletedDurationMs": avg_duration_ms,
+            "medianCompletedDurationMs": _percentile(completed_durations, 0.5),
+            "p95CompletedDurationMs": _percentile(completed_durations, 0.95),
         },
         "templates": {
             "total": len(list_templates()),
@@ -191,6 +237,10 @@ def collect_job_metrics() -> dict[str, object]:
                 [{"name": name, "count": count} for name, count in step_failures.items()],
                 key=lambda item: (-int(item["count"]), str(item["name"])),
             )[:10],
+            "artifactVolume": sorted(
+                [{"name": name, "count": stats["count"], "bytes": stats["bytes"]} for name, stats in step_artifacts.items()],
+                key=lambda item: (-int(item["bytes"]), str(item["name"])),
+            )[:10],
         },
         "policy": {
             "blockedJobs": sum(policy_block_reasons.values()),
@@ -204,6 +254,12 @@ def collect_job_metrics() -> dict[str, object]:
             [{"date": day, **counts} for day, counts in daily.items()],
             key=lambda item: str(item["date"]),
         )[-14:],
+        "lineage": {
+            "recentChains": sorted(
+                list(lineage.values()),
+                key=lambda item: str(item.get("updatedAt") or ""),
+            )[-10:],
+        },
         "artifacts": artifact_summary(),
     }
 
@@ -501,6 +557,25 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(HTTPStatus.CREATED, {"job_id": job_id, "waited": False})
             return
+        if parsed.path.startswith("/agent/job/") and parsed.path.endswith("/wait"):
+            job_id = parsed.path.split("/")[3]
+            job = read_job(job_id) or read_job(job_id, archived=True)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                data = {}
+            timeout = float(data.get("timeout", 300.0))
+            poll_interval = float(data.get("pollInterval", 1.0))
+            try:
+                completed = wait_for_job(job_id, timeout=timeout, poll_interval=poll_interval)
+            except TimeoutError as exc:
+                self._json(HTTPStatus.REQUEST_TIMEOUT, {"error": str(exc), "job_id": job_id})
+                return
+            self._json(HTTPStatus.OK, {"job_id": job_id, "job": completed, "waited": True})
+            return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/retry"):
             job_id = parsed.path.split("/")[2]
             job = read_job(job_id) or read_job(job_id, archived=True)
@@ -559,6 +634,61 @@ class Handler(BaseHTTPRequestHandler):
             spawn_worker(new_job_id)
             self._json(HTTPStatus.CREATED, {"job_id": new_job_id})
             return
+        if parsed.path.startswith("/agent/job/") and parsed.path.endswith("/retry"):
+            job_id = parsed.path.split("/")[3]
+            job = read_job(job_id) or read_job(job_id, archived=True)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            try:
+                request_data = self._read_json()
+            except json.JSONDecodeError:
+                request_data = {}
+            retry_mode = clean_str(request_data.get("mode")) or "resume_failed"
+            resume_from_step_id = clean_str(request_data.get("resumeFromStepId")) or None
+            payload = {
+                "prompt": job.get("prompt", ""),
+                "mode": job.get("mode", "agent"),
+                "targetAgent": job.get("targetAgent", "main"),
+                "thinking": job.get("thinking"),
+                "local": job.get("local", False),
+                "command": job.get("command"),
+                "workflow": job.get("workflow"),
+                "workflowSpec": job.get("workflowSpec"),
+                "templateId": job.get("templateId"),
+                "templateInputs": job.get("templateInputs"),
+                "args": job.get("args", []),
+            }
+            error = validate_job_request(payload)
+            if error:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": error})
+                return
+            prior_step_status: list[object] = []
+            if retry_mode == "resume_failed":
+                prior_step_status = find_retry_step(job)
+            elif retry_mode == "resume_from":
+                prior_step_status = find_retry_step(job)
+                if not resume_from_step_id:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "resumeFromStepId is required for resume_from mode"})
+                    return
+            elif retry_mode == "rerun_all":
+                prior_step_status = []
+            else:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "mode must be one of: resume_failed, resume_from, rerun_all"})
+                return
+            new_job_id, new_job = new_job_payload(
+                payload,
+                attempt=int(job.get("attempt", 1)) + 1,
+                retry_of=str(job.get("id")),
+                prior_step_status=prior_step_status,
+                retry_mode=retry_mode,
+                resume_from_step_id=resume_from_step_id,
+                history=build_attempt_history(job, retry_mode, resume_from_step_id),
+            )
+            write_job(new_job_id, new_job)
+            spawn_worker(new_job_id)
+            self._json(HTTPStatus.CREATED, {"job_id": new_job_id, "job": new_job})
+            return
         self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_GET(self) -> None:  # noqa: N802
@@ -578,8 +708,45 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/templates":
             self._json(HTTPStatus.OK, {"templates": list_templates()})
             return
+        if parsed.path == "/agent/templates":
+            self._json(HTTPStatus.OK, {"templates": list_templates()})
+            return
         if parsed.path == "/templates/custom":
             self._json(HTTPStatus.OK, {"templates": list_custom_templates()})
+            return
+        if parsed.path.startswith("/agent/templates/") and parsed.path.endswith("/versions"):
+            template_id = parsed.path.split("/")[3]
+            versions = list_template_versions(template_id)
+            if not versions:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "template not found"})
+                return
+            self._json(HTTPStatus.OK, {"versions": versions})
+            return
+        if parsed.path.startswith("/templates/") and parsed.path.endswith("/diff"):
+            template_id = parsed.path.split("/")[2]
+            query = parse_qs(parsed.query)
+            try:
+                from_version = int(query.get("from", ["0"])[0])
+                to_raw = query.get("to", [""])[0]
+                to_version = int(to_raw) if to_raw else None
+                payload = diff_template_versions(template_id, from_version, to_version)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, payload)
+            return
+        if parsed.path.startswith("/agent/templates/") and parsed.path.endswith("/diff"):
+            template_id = parsed.path.split("/")[3]
+            query = parse_qs(parsed.query)
+            try:
+                from_version = int(query.get("from", ["0"])[0])
+                to_raw = query.get("to", [""])[0]
+                to_version = int(to_raw) if to_raw else None
+                payload = diff_template_versions(template_id, from_version, to_version)
+            except ValueError as exc:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self._json(HTTPStatus.OK, payload)
             return
         if parsed.path.startswith("/templates/") and parsed.path.endswith("/versions"):
             template_id = parsed.path.split("/")[2]
@@ -595,6 +762,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/artifacts"):
             job_id = parsed.path.split("/")[2]
+            job = read_job(job_id)
+            archived = False
+            if not job:
+                job = read_job(job_id, archived=True)
+                archived = True
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            self._json(HTTPStatus.OK, {"artifacts": list_job_artifacts(job_id, archived=archived)})
+            return
+        if parsed.path.startswith("/agent/job/") and parsed.path.endswith("/artifacts"):
+            job_id = parsed.path.split("/")[3]
             job = read_job(job_id)
             archived = False
             if not job:
@@ -627,6 +806,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+        if parsed.path.startswith("/agent/job/"):
+            job_id = parsed.path.split("/")[3]
+            job = read_job(job_id)
+            if not job:
+                job = read_job(job_id, archived=True)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            self._json(HTTPStatus.OK, job)
             return
         if parsed.path.startswith("/job/"):
             job_id = parsed.path.rsplit("/", 1)[-1]

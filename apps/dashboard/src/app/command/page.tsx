@@ -7,6 +7,7 @@ import type {
   ArtifactAdminSummaryContract,
   JobContract,
   JobMetricsContract,
+  JobTemplateDiffContract,
   JobTemplateContract,
   JobTemplateVersionContract,
   PolicyAdminContract,
@@ -845,6 +846,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [policyAdmin, setPolicyAdmin] = useState<PolicyAdminContract | null>(null);
   const [serverTemplates, setServerTemplates] = useState<AutomationTemplate[]>(JOB_TEMPLATES.map((template) => ({ ...template, builtIn: true })));
   const [templateVersions, setTemplateVersions] = useState<JobTemplateVersionContract[]>([]);
+  const [templateDiff, setTemplateDiff] = useState<JobTemplateDiffContract | null>(null);
   const [templateSearch, setTemplateSearch] = useState('');
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all');
   const [templateIdDraft, setTemplateIdDraft] = useState('');
@@ -959,6 +961,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   async function loadTemplateVersions(templateId: string) {
     if (!templateId) {
       setTemplateVersions([]);
+      setTemplateDiff(null);
       return;
     }
     const response = await fetch(`/api/jobs/templates/${templateId}/versions`);
@@ -972,6 +975,20 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       return;
     }
     setTemplateVersions([]);
+    setTemplateDiff(null);
+  }
+
+  async function loadTemplateDiff(fromVersion: number, toVersion?: number) {
+    if (!selectedTemplateId) return;
+    const query = new URLSearchParams({ from: String(fromVersion) });
+    if (typeof toVersion === 'number') query.set('to', String(toVersion));
+    const response = await fetch(`/api/jobs/templates/${selectedTemplateId}/diff?${query.toString()}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(payload.error || 'Failed to diff template versions');
+      return;
+    }
+    setTemplateDiff(payload);
   }
 
   async function submit() {
@@ -1317,6 +1334,8 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Avg done: {jobMetrics.jobs.averageCompletedDurationMs ? `${Math.round(jobMetrics.jobs.averageCompletedDurationMs / 1000)}s` : 'n/a'}</div>
                 <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Blocked: {jobMetrics.policy.blockedJobs}</div>
                 <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Custom templates: {jobMetrics.templates.custom}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">Median: {jobMetrics.jobs.medianCompletedDurationMs ? `${Math.round(jobMetrics.jobs.medianCompletedDurationMs / 1000)}s` : 'n/a'}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 px-2 py-2">P95: {jobMetrics.jobs.p95CompletedDurationMs ? `${Math.round(jobMetrics.jobs.p95CompletedDurationMs / 1000)}s` : 'n/a'}</div>
               </div>
               {jobMetrics.templates.usage.length > 0 ? (
                 <div className="mt-3">
@@ -1359,6 +1378,40 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                         </div>
                         <div className="mt-1 text-[11px] text-text-tertiary">
                           {item.completed} completed · {item.failed} failed · {item.blocked} blocked
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {jobMetrics.steps.artifactVolume.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Artifact Heavy Steps</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.steps.artifactVolume.slice(0, 3).map((item) => (
+                      <div key={item.name} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{item.name}</span>
+                          <span>{item.bytes} bytes</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">{item.count} artifacts</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {jobMetrics.lineage.recentChains.length > 0 ? (
+                <div className="mt-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent Retry Chains</div>
+                  <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                    {jobMetrics.lineage.recentChains.slice(-3).reverse().map((chain) => (
+                      <div key={chain.rootJobId} className="rounded-md border border-border bg-surface-2/70 px-2 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span>{chain.templateId || chain.rootJobId}</span>
+                          <span>{chain.attempts} attempts</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">
+                          latest {chain.latestStatus || 'unknown'} · {chain.latestJobId || chain.rootJobId}
                         </div>
                       </div>
                     ))}
@@ -1430,17 +1483,34 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                     <div key={`${version.version}-${version.updatedAt || 'builtin'}`} className="rounded-md border border-border bg-surface-2/70 px-2 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-semibold text-text-primary">v{version.version}{version.builtIn ? ' · built-in' : ''}</div>
-                        {!selectedTemplate?.builtIn && version.version !== selectedTemplate?.version ? (
-                          <Button size="sm" variant="ghost" onClick={() => restoreTemplate(version.version)} disabled={restoringTemplate === version.version}>
-                            {restoringTemplate === version.version ? <Loader2 size={12} className="animate-spin" /> : 'Restore'}
-                          </Button>
-                        ) : null}
+                        <div className="flex items-center gap-2">
+                          {version.version !== selectedTemplate?.version ? (
+                            <Button size="sm" variant="ghost" onClick={() => void loadTemplateDiff(version.version, selectedTemplate?.version ?? version.version)}>
+                              Compare
+                            </Button>
+                          ) : null}
+                          {!selectedTemplate?.builtIn && version.version !== selectedTemplate?.version ? (
+                            <Button size="sm" variant="ghost" onClick={() => restoreTemplate(version.version)} disabled={restoringTemplate === version.version}>
+                              {restoringTemplate === version.version ? <Loader2 size={12} className="animate-spin" /> : 'Restore'}
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                       <div>{version.updatedAt || 'bundled with app'}</div>
                       {version.description ? <div className="mt-1 text-text-tertiary">{version.description}</div> : null}
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : null}
+            {templateDiff ? (
+              <div className="mt-3">
+                <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">
+                  Diff v{templateDiff.fromVersion} → v{templateDiff.toVersion}
+                </div>
+                <pre className="max-h-72 overflow-auto rounded-md border border-border bg-surface-2 px-2 py-2 text-[11px] text-text-secondary">
+                  {templateDiff.diff || 'No changes.'}
+                </pre>
               </div>
             ) : null}
           </div>

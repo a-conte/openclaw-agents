@@ -228,6 +228,32 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(len(versions), 3)
         self.assertEqual(versions[-1]["version"], 3)
 
+    def test_diff_template_versions_reports_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "templates.json"
+            with patch.object(workflow_templates, "CUSTOM_TEMPLATES_PATH", custom_path):
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "diffable",
+                        "name": "Diffable",
+                        "description": "v1",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v1"}]},
+                    }
+                )
+                workflow_templates.save_custom_template(
+                    {
+                        "id": "diffable",
+                        "name": "Diffable",
+                        "description": "v2",
+                        "workflowSpec": {"steps": [{"id": "note_1", "type": "note", "message": "v2"}]},
+                    }
+                )
+                diff = workflow_templates.diff_template_versions("diffable", 1, 2)
+        self.assertEqual(diff["fromVersion"], 1)
+        self.assertEqual(diff["toVersion"], 2)
+        self.assertIn("v1", diff["diff"])
+        self.assertIn("v2", diff["diff"])
+
     def test_normalize_template_inputs_requires_required_values(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             custom_path = Path(tmp) / "templates.json"
@@ -301,10 +327,14 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(metrics["jobs"]["total"], 2)
         self.assertEqual(metrics["jobs"]["statusCounts"]["running"], 1)
         self.assertEqual(metrics["jobs"]["statusCounts"]["completed"], 1)
+        self.assertIsNotNone(metrics["jobs"]["medianCompletedDurationMs"])
+        self.assertIsNotNone(metrics["jobs"]["p95CompletedDurationMs"])
         self.assertTrue(metrics["templates"]["usage"])
         self.assertTrue(metrics["templates"]["performance"])
         self.assertTrue(metrics["trends"])
         self.assertTrue(metrics["steps"]["topFailures"])
+        self.assertIn("artifactVolume", metrics["steps"])
+        self.assertIn("recentChains", metrics["lineage"])
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import type {
   ArtifactAdminSummaryContract,
   JobContract,
   JobMetricsContract,
+  JobTemplateDiffContract,
   JobTemplateContract,
   JobTemplateVersionContract,
   PolicyAdminContract,
@@ -113,6 +114,12 @@ export async function restoreListenTemplate(templateId: string, version: number)
 export async function listListenTemplateVersions(templateId: string): Promise<JobTemplateVersionContract[]> {
   const payload = await listenFetch<{ versions: JobTemplateVersionContract[] }>(`/templates/${templateId}/versions`);
   return payload.versions;
+}
+
+export async function diffListenTemplateVersions(templateId: string, fromVersion: number, toVersion?: number): Promise<JobTemplateDiffContract> {
+  const query = new URLSearchParams({ from: String(fromVersion) });
+  if (typeof toVersion === 'number') query.set('to', String(toVersion));
+  return listenFetch<JobTemplateDiffContract>(`/templates/${templateId}/diff?${query.toString()}`);
 }
 
 export async function getListenJob(jobId: string): Promise<JobContract> {

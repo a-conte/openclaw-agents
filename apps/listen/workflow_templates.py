@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from difflib import unified_diff
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -370,6 +371,57 @@ def list_template_versions(template_id: str) -> list[dict[str, Any]]:
         }
     )
     return versions
+
+
+def diff_template_versions(template_id: str, from_version: int, to_version: int | None = None) -> dict[str, Any]:
+    versions = list_template_versions(template_id)
+    if not versions:
+        raise ValueError(f"Unknown workflow template: {template_id}")
+    left = next((item for item in versions if int(item.get("version", -1)) == int(from_version)), None)
+    if left is None:
+        raise ValueError(f"Template version not found: {from_version}")
+    if to_version is None:
+        right = versions[-1]
+    else:
+        right = next((item for item in versions if int(item.get("version", -1)) == int(to_version)), None)
+        if right is None:
+            raise ValueError(f"Template version not found: {to_version}")
+
+    left_text = json.dumps(
+        {
+            "name": left.get("name"),
+            "description": left.get("description"),
+            "workflowSpec": left.get("workflowSpec"),
+        },
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    right_text = json.dumps(
+        {
+            "name": right.get("name"),
+            "description": right.get("description"),
+            "workflowSpec": right.get("workflowSpec"),
+        },
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    diff_lines = list(
+        unified_diff(
+            left_text,
+            right_text,
+            fromfile=f"{template_id}@v{left.get('version')}",
+            tofile=f"{template_id}@v{right.get('version')}",
+            lineterm="",
+        )
+    )
+    return {
+        "templateId": template_id,
+        "fromVersion": int(left.get("version", from_version)),
+        "toVersion": int(right.get("version", to_version or left.get("version", from_version))),
+        "from": left,
+        "to": right,
+        "diff": "\n".join(diff_lines),
+    }
 
 
 def validate_custom_template(payload: dict[str, Any]) -> dict[str, Any]:

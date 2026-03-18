@@ -2,6 +2,7 @@ import type {
   ArtifactAdminSummaryContract,
   JobContract,
   JobMetricsContract,
+  JobTemplateDiffContract,
   JobTemplateContract,
   JobTemplateVersionContract,
   PolicyAdminContract,
@@ -12,6 +13,7 @@ import {
   createListenTemplate,
   createListenJob,
   deleteListenTemplate,
+  diffListenTemplateVersions,
   fetchListenArtifact,
   getListenJob,
   getListenArtifactAdmin,
@@ -118,6 +120,10 @@ export async function deleteJobTemplate(id: string) {
 
 export async function getJobTemplateVersions(id: string): Promise<JobTemplateVersionContract[]> {
   return listListenTemplateVersions(id);
+}
+
+export async function diffJobTemplateVersions(id: string, fromVersion: number, toVersion?: number): Promise<JobTemplateDiffContract> {
+  return diffListenTemplateVersions(id, fromVersion, toVersion);
 }
 
 export async function cloneJobTemplate(id: string, input?: { id?: string; name?: string }) {

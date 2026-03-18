@@ -177,6 +177,15 @@ export interface JobTemplateVersionContract {
   builtIn?: boolean;
 }
 
+export interface JobTemplateDiffContract {
+  templateId: string;
+  fromVersion: number;
+  toVersion: number;
+  from?: JobTemplateVersionContract;
+  to?: JobTemplateVersionContract;
+  diff: string;
+}
+
 export interface JobMetricsContract {
   jobs: {
     active: number;
@@ -185,6 +194,8 @@ export interface JobMetricsContract {
     statusCounts: Record<string, number>;
     modeCounts: Record<string, number>;
     averageCompletedDurationMs?: number | null;
+    medianCompletedDurationMs?: number | null;
+    p95CompletedDurationMs?: number | null;
   };
   templates: {
     total: number;
@@ -205,6 +216,11 @@ export interface JobMetricsContract {
     topFailures: Array<{
       name: string;
       count: number;
+    }>;
+    artifactVolume: Array<{
+      name: string;
+      count: number;
+      bytes: number;
     }>;
   };
   policy: {
@@ -228,6 +244,17 @@ export interface JobMetricsContract {
     failed: number;
     blocked: number;
   }>;
+  lineage: {
+    recentChains: Array<{
+      rootJobId: string;
+      attempts: number;
+      latestJobId?: string | null;
+      latestStatus?: string | null;
+      templateId?: string | null;
+      updatedAt?: string;
+      jobIds?: Array<unknown>;
+    }>;
+  };
   artifacts: ArtifactAdminSummaryContract;
 }
 

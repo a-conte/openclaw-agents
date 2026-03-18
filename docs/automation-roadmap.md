@@ -28,8 +28,12 @@ The remaining work is primarily product hardening, operator experience, and deep
 
 Completed or materially in place:
 
+- Real OpenClaw-core integration:
+  - repo-local native automation adapter endpoints under `listen`
+  - native client helpers for submit, wait, inspect, artifacts, retry, and template catalog/diff access
 - Better template management:
   - template clone
+  - template version diff
   - template restore
   - required-input validation
   - favorite / recommended metadata
@@ -37,6 +41,9 @@ Completed or materially in place:
 - Richer observability:
   - template success-rate metrics
   - recent daily trend aggregation
+  - median and p95 duration metrics
+  - per-step artifact volume metrics
+  - retry lineage summaries
   - dashboard observability cards
 - Bootstrap automation:
   - `docs/bootstrap-mac.md` is in place as the current bring-up guide
@@ -45,10 +52,9 @@ Completed or materially in place:
 
 Still meaningfully open:
 
-- true OpenClaw-core runtime integration rather than the current repo-local agent/client path
-- template version diff UX
-- median / p95 duration views
-- job lineage visualization
+- deeper external OpenClaw product/runtime integration beyond the repo-local adapter surface
+- fuller template diff UX on iPad
+- richer job lineage visualization beyond summary chains
 - artifact export bundles and per-template retention
 - broader reusable workflow library
 - script-based Mac bootstrap
@@ -63,17 +69,17 @@ Goal:
 
 Status:
 - In progress
-- Current state: repo-local agent/client execution is available via `apps/listen/client.py` and `POST /agent/execute`, but this is not yet a deeper built-in OpenClaw core-tool/runtime integration.
+- Current state: repo-local native adapter endpoints and client helpers are available via `apps/listen/client.py` and `listen`'s `/agent/*` routes, but this is not yet a deeper built-in OpenClaw core-tool/runtime integration in the external product/runtime itself.
 
 Deliverables:
-- add a native OpenClaw tool or execution adapter that can:
-  - submit jobs
-  - wait for jobs
-  - inspect job details
-  - fetch artifacts
-  - resume/retry jobs
-- standardize job payload and result shape for agent use
-- expose workflow templates as a first-class agent-facing catalog
+- [x] add a native OpenClaw tool or execution adapter that can:
+  - [x] submit jobs
+  - [x] wait for jobs
+  - [x] inspect job details
+  - [x] fetch artifacts
+  - [x] resume/retry jobs
+- [x] standardize job payload and result shape for agent use
+- [x] expose workflow templates as a first-class agent-facing catalog
 
 Suggested commit slices:
 - `Add OpenClaw automation execution adapter`
@@ -84,17 +90,20 @@ Definition of done:
 - an OpenClaw agent can execute a workflow/template without going through `direct`
 - job polling and artifacts are available from the same runtime path
 
+Remaining gap:
+- wire this adapter into the broader external OpenClaw runtime/tool registration path, not only the repo-local `listen` surface
+
 ### 2. Better Template Management
 
 Goal:
 - Turn templates from “usable config objects” into a proper operator product surface.
 
 Status:
-- Mostly implemented
+- Implemented except for deeper diff UX polish
 
 Deliverables:
 - [x] clone template
-- [ ] diff template versions
+- [x] diff template versions
 - [x] restore older version
 - [x] stronger validation for required inputs
 - [x] mark templates as recommended or favorite
@@ -109,7 +118,7 @@ Definition of done:
 - operators can manage template lifecycle without editing raw JSON unless they choose to
 
 Remaining gap:
-- add version diff / compare UX rather than only list + restore
+- extend compare UX beyond the dashboard to iPad and possibly side-by-side structured diffing
 
 ### 3. Richer Observability
 
@@ -117,14 +126,14 @@ Goal:
 - Move from basic metrics to decision-grade observability.
 
 Status:
-- Partially implemented
+- Mostly implemented
 
 Deliverables:
 - [x] time-series trend views
 - [x] template success rate over time
-- [ ] median and p95 durations
-- [ ] per-step artifact counts and sizes
-- [ ] job lineage graph for retries and resumes
+- [x] median and p95 durations
+- [x] per-step artifact counts and sizes
+- [x] job lineage graph for retries and resumes
 
 Suggested commit slices:
 - `Add time-series job metrics aggregation`
@@ -135,7 +144,7 @@ Definition of done:
 - operators can identify regressions, slow templates, and retry hotspots from the product UI
 
 Remaining gap:
-- add percentile duration metrics, artifact-volume metrics, and retry lineage graphing
+- deepen visualization quality for lineage and long-term trends
 
 ## Wave 2
 

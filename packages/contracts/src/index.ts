@@ -4,6 +4,7 @@ export type {
   EventEnvelopeContract,
   JobContract,
   JobMetricsContract,
+  JobTemplateDiffContract,
   JobTemplateContract,
   JobTemplateVersionContract,
   MissionControlAgentUpdatedContract,

@@ -37,6 +37,26 @@ class ListenClientTests(unittest.TestCase):
         request_mock.assert_called_once()
         self.assertEqual(result["job_id"], "job-3")
 
+    def test_execute_template_uses_agent_execute_path(self) -> None:
+        client = ListenClient()
+        with patch.object(client, "execute_job", return_value={"job_id": "job-4"}) as execute_mock:
+            result = client.execute_template("open_command_page", wait=True)
+        execute_mock.assert_called_once()
+        self.assertEqual(result["job_id"], "job-4")
+
+    def test_wait_for_job_native_returns_job_payload(self) -> None:
+        client = ListenClient()
+        with patch.object(client, "_request", return_value={"job_id": "job-5", "job": {"id": "job-5", "status": "completed"}}):
+            result = client.wait_for_job_native("job-5", timeout=10, poll_interval=0.5)
+        self.assertEqual(result["id"], "job-5")
+
+    def test_template_diff_requests_agent_diff_endpoint(self) -> None:
+        client = ListenClient()
+        with patch.object(client, "_request", return_value={"templateId": "open_command_page", "diff": "---"} ) as request_mock:
+            result = client.template_diff("open_command_page", 1, 2)
+        request_mock.assert_called_once_with("/agent/templates/open_command_page/diff?from=1&to=2")
+        self.assertEqual(result["templateId"], "open_command_page")
+
 
 if __name__ == "__main__":
     unittest.main()
