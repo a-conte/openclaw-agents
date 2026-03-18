@@ -13,14 +13,15 @@ What already exists:
 - workflow/runtime orchestration via [`apps/listen`](/Users/a_conte/dev/openclaw-agents/apps/listen)
 - dashboard operator surface in [`apps/dashboard`](/Users/a_conte/dev/openclaw-agents/apps/dashboard)
 - Apple Notes and TextEdit primitives through local automation workflows
+- Apple notification preferences, event history, and supplemental iPad alert plumbing
 
 What does not yet exist:
 
-- iPad push notifications
+- true APNs-backed iPad push delivery
 - iMessage as a real operator notification channel
 - Apple Mail draft/review workflows as a first-class communication surface
 - Apple Shortcuts integration for mobile control
-- unified Apple delivery preferences and notification routing
+- fully unified Apple delivery routing across all channels
 
 ## Principles
 
@@ -116,23 +117,24 @@ Goal: add safe Apple-native operator awareness.
 
 Deliverables:
 
-- iPad push notification pipeline for critical job events
+- iPad supplemental alert pipeline for critical job events
 - notification preference model by agent/template/severity
 - `operator_handoff_note` workflow hardened as an Apple Notes-first output
 - dashboard and iPad settings surface for Apple notification preferences
 
 Definition of done:
 
-- a critical failed job can raise a push notification on the iPad
+- a critical failed job can raise a supplemental iPad alert
 - tapping the notification opens the relevant job detail
 - a workflow can write a structured Apple Note with summary + artifact references
 
 Suggested slices:
 
-- `Add notification event model and APNs token registration`
-- `Add iPad push deep-link handling for jobs`
-- `Add Apple Notes handoff workflow templates`
-- `Add notification preferences UI`
+- `Done: notification event model and device registration`
+- `Done: iPad alert deep-link handling for jobs`
+- `Done: Apple Notes-first handoff templates`
+- `Done: dashboard and iPad notification preferences UI`
+- `Open: real APNs delivery once signing/entitlements are in place`
 
 ## Wave 2
 
@@ -211,7 +213,7 @@ New likely additions:
   - severity threshold
   - template allowlist
   - agent allowlist
-- APNs device registration endpoint
+- device registration endpoint, with APNs token support when available
 - notification event emission from `listen`/dashboard for important job states
 - artifact deep links safe for iPad consumption
 

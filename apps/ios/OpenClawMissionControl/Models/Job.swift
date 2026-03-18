@@ -325,6 +325,46 @@ struct JobAttempt: Codable, Equatable, Identifiable {
     let summary: String?
 }
 
+struct NotificationPreferences: Codable, Equatable {
+    let dashboardPrimary: Bool
+    let severityThreshold: String
+    let channels: NotificationChannels
+    let agentAllowlist: [String]
+    let templateAllowlist: [String]
+    let updatedAt: Date?
+}
+
+struct NotificationChannels: Codable, Equatable {
+    let push: Bool
+    let notes: Bool
+    let imessage: Bool
+    let mail_draft: Bool
+}
+
+struct NotificationDevice: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let platform: String
+    let token: String?
+    let registeredAt: Date?
+    let lastSeenAt: Date?
+}
+
+struct NotificationEvent: Codable, Equatable, Identifiable {
+    let id: String
+    let jobId: String
+    let status: String
+    let severity: String
+    let title: String
+    let body: String
+    let channels: [String]
+    let createdAt: Date
+    let targetAgent: String?
+    let templateId: String?
+    let summary: String?
+    let dashboardPrimary: Bool?
+}
+
 struct JobTemplate: Codable, Equatable, Identifiable {
     let id: String
     let name: String

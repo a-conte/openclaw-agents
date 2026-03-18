@@ -29,6 +29,13 @@ from artifacts import (
     resolve_export_bundle,
     resolve_job_artifact,
 )
+from notifications import (
+    get_notification_preferences,
+    list_notification_devices,
+    list_notification_events,
+    register_notification_device,
+    update_notification_preferences,
+)
 from policy import check_command_policy, check_workflow_policy, current_policy, policy_admin_details
 from workflow_templates import (
     clone_custom_template,
@@ -454,6 +461,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/notifications/preferences":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            self._json(HTTPStatus.OK, update_notification_preferences(data))
+            return
+        if parsed.path == "/notifications/devices":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            self._json(HTTPStatus.CREATED, register_notification_device(data))
+            return
         if parsed.path == "/jobs/clear":
             self._json(HTTPStatus.OK, {"archived": archive_jobs()})
             return
@@ -752,6 +775,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/notifications/preferences":
+            self._json(HTTPStatus.OK, get_notification_preferences())
+            return
+        if parsed.path == "/notifications/devices":
+            self._json(HTTPStatus.OK, {"devices": list_notification_devices()})
+            return
+        if parsed.path == "/notifications/events":
+            query = parse_qs(parsed.query)
+            limit_raw = query.get("limit", ["25"])[0]
+            try:
+                limit = max(1, int(limit_raw))
+            except ValueError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "limit must be an integer"})
+                return
+            self._json(HTTPStatus.OK, {"events": list_notification_events(limit=limit)})
+            return
         if parsed.path == "/artifacts/admin":
             self._json(HTTPStatus.OK, artifact_summary())
             return

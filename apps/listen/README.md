@@ -10,6 +10,11 @@ Current endpoints:
 - `GET /jobs`
 - `GET /policy`
 - `GET /policy/admin`
+- `GET /notifications/preferences`
+- `POST /notifications/preferences`
+- `GET /notifications/events`
+- `GET /notifications/devices`
+- `POST /notifications/devices`
 - `GET /templates`
 - `GET /agent/templates`
 - `GET /templates/<id>/versions`
@@ -52,6 +57,7 @@ Job records now keep:
 - archived jobs under `apps/listen/jobs/archived`
 - export bundles under `apps/listen/jobs/exports`
 - compressed archived artifact sets under `apps/listen/jobs/archived-artifacts-compressed`
+- Apple alert events and delivery preferences under `apps/listen/notification-state.json`
 
 Custom templates:
 
@@ -64,6 +70,8 @@ Custom templates:
 - older archived artifact directories can be compressed with `POST /artifacts/compress`
 - `GET /metrics` returns job/template/policy observability summaries
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
+- `GET /notifications/preferences` returns Apple delivery preferences used by the dashboard and iPad app
+- `GET /notifications/events` returns recent Apple alert events for supplemental iPad delivery and dashboard review
 
 Agent-facing client:
 
@@ -92,6 +100,7 @@ Built-in workflows:
 - `daemon_restart_verify_bundle`
 - `daemon_logs_bundle`
 - `daemon_recovery_handoff`
+- `operator_handoff_note`
 - `operator_handoff_bundle`
 
 Examples:

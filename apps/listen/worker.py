@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from artifacts import copy_file_artifact, write_json_artifact, write_text_artifact
+from notifications import emit_job_notification
 from policy import check_command_policy, check_step_policy, check_workflow_policy, current_policy
 from workflow_templates import resolve_template
 
@@ -595,6 +596,9 @@ def finalize_job(job_id: str, job: dict[str, Any], started: float) -> None:
     job["completedAt"] = completed
     job["updatedAt"] = completed
     job["durationMs"] = int((time.time() - started) * 1000)
+    notification_event = emit_job_notification(job)
+    if notification_event is not None:
+        job["notificationEventId"] = notification_event.get("id")
     write_job(job_id, job)
 
 

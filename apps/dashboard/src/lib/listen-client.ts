@@ -43,6 +43,46 @@ export type ListenArtifact = {
   sourcePath?: string;
 };
 
+export type NotificationSeverity = 'info' | 'warning' | 'error' | 'critical';
+
+export type NotificationPreferences = {
+  dashboardPrimary: boolean;
+  severityThreshold: NotificationSeverity;
+  channels: {
+    push: boolean;
+    notes: boolean;
+    imessage: boolean;
+    mail_draft: boolean;
+  };
+  agentAllowlist: string[];
+  templateAllowlist: string[];
+  updatedAt?: string;
+};
+
+export type NotificationDevice = {
+  id: string;
+  name: string;
+  platform: string;
+  token?: string | null;
+  registeredAt?: string;
+  lastSeenAt?: string;
+};
+
+export type NotificationEvent = {
+  id: string;
+  jobId: string;
+  status: string;
+  severity: NotificationSeverity;
+  title: string;
+  body: string;
+  channels: string[];
+  createdAt: string;
+  targetAgent?: string | null;
+  templateId?: string | null;
+  summary?: string | null;
+  dashboardPrimary?: boolean;
+};
+
 function buildUrl(path: string) {
   return `${DEFAULT_BASE_URL}${path}`;
 }
@@ -221,4 +261,37 @@ export async function getListenMetrics(): Promise<JobMetricsContract> {
 
 export async function getListenPolicyAdmin(): Promise<PolicyAdminContract> {
   return listenFetch<PolicyAdminContract>('/policy/admin');
+}
+
+export async function getListenNotificationPreferences(): Promise<NotificationPreferences> {
+  return listenFetch<NotificationPreferences>('/notifications/preferences');
+}
+
+export async function updateListenNotificationPreferences(input: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+  return listenFetch<NotificationPreferences>('/notifications/preferences', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listListenNotificationEvents(limit = 25): Promise<NotificationEvent[]> {
+  const payload = await listenFetch<{ events: NotificationEvent[] }>(`/notifications/events?limit=${encodeURIComponent(String(limit))}`);
+  return payload.events;
+}
+
+export async function listListenNotificationDevices(): Promise<NotificationDevice[]> {
+  const payload = await listenFetch<{ devices: NotificationDevice[] }>('/notifications/devices');
+  return payload.devices;
+}
+
+export async function registerListenNotificationDevice(input: {
+  id?: string;
+  name?: string;
+  platform?: string;
+  token?: string;
+}): Promise<NotificationDevice> {
+  return listenFetch<NotificationDevice>('/notifications/devices', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }

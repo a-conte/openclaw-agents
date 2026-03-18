@@ -1,7 +1,9 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct OpenClawMissionControlApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var viewModel = DashboardViewModel(
         client: AppBootstrap.makeClient()
     )
@@ -10,6 +12,35 @@ struct OpenClawMissionControlApp: App {
         WindowGroup {
             DashboardView(viewModel: viewModel)
         }
+    }
+}
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if let jobId = response.notification.request.content.userInfo["jobId"] as? String, !jobId.isEmpty {
+            NotificationCenter.default.post(name: .openNotificationJob, object: jobId)
+        }
+        completionHandler()
     }
 }
 

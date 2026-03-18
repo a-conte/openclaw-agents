@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import artifacts
 import listen_server
+import notifications
 import worker
 import workflow_templates
 
@@ -145,6 +146,35 @@ class ListenRuntimeTests(unittest.TestCase):
         )
         self.assertIsNone(error)
 
+    def test_notification_preferences_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                updated = notifications.update_notification_preferences(
+                    {
+                        "dashboardPrimary": True,
+                        "severityThreshold": "error",
+                        "channels": {"push": True, "notes": False, "imessage": False, "mail_draft": False},
+                        "agentAllowlist": ["main"],
+                    }
+                )
+                registered = notifications.register_notification_device({"id": "ipad-1", "name": "Primary iPad", "platform": "ios"})
+                emitted = notifications.emit_job_notification(
+                    {
+                        "id": "job-1",
+                        "status": "failed",
+                        "templateId": "operator_handoff_note",
+                        "targetAgent": "main",
+                        "summary": "Workflow failed",
+                        "error": "boom",
+                    }
+                )
+                events = notifications.list_notification_events()
+        self.assertEqual(updated["severityThreshold"], "error")
+        self.assertEqual(registered["id"], "ipad-1")
+        self.assertIsNotNone(emitted)
+        self.assertEqual(events[0]["jobId"], "job-1")
+
     def test_resolve_template_builds_browser_snapshot_review(self) -> None:
         spec, inputs = workflow_templates.resolve_template("browser_snapshot_review", {"url": "http://localhost:3000/command"})
         self.assertEqual(inputs["url"], "http://localhost:3000/command")
@@ -154,7 +184,13 @@ class ListenRuntimeTests(unittest.TestCase):
     def test_resolve_template_builds_operator_handoff_bundle(self) -> None:
         spec, _ = workflow_templates.resolve_template("operator_handoff_bundle", {"url": "http://localhost:3000/command"})
         self.assertEqual(spec["steps"][0]["type"], "steer")
-        self.assertEqual(spec["steps"][-1]["command"], "textedit")
+        self.assertEqual(spec["steps"][-1]["command"], "notes")
+
+    def test_resolve_template_builds_operator_handoff_note_in_notes(self) -> None:
+        spec, inputs = workflow_templates.resolve_template("operator_handoff_note", {"title": "Ops", "text": "hello"})
+        self.assertEqual(inputs["title"], "Ops")
+        self.assertEqual(spec["steps"][0]["command"], "notes")
+        self.assertEqual(spec["steps"][0]["args"][:3], ["create", "--title", "Ops"])
 
     def test_save_and_resolve_custom_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -342,7 +378,7 @@ class ListenRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(spec["steps"][1]["id"], "wait_browser_handoff")
         self.assertEqual(spec["steps"][1]["args"][0], "ui")
-        self.assertEqual(spec["steps"][-1]["command"], "textedit")
+        self.assertEqual(spec["steps"][-1]["command"], "notes")
 
     def test_daemon_recovery_handoff_requires_restart_inputs(self) -> None:
         with self.assertRaisesRegex(ValueError, "Missing required template input: restartCommand"):

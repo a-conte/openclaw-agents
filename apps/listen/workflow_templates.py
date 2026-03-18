@@ -95,15 +95,23 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "operator_handoff_note",
         "name": "Operator Handoff Note",
-        "description": "Create a TextEdit note for operator handoff or escalation.",
+        "description": "Create an Apple Notes handoff for operator escalation or follow-up.",
         "category": "operator",
         "builtIn": True,
+        "recommended": True,
         "artifactRetentionDays": 30,
         "inputs": [
             {
+                "key": "title",
+                "label": "Note Title",
+                "description": "Title for the Apple Note.",
+                "required": False,
+                "defaultValue": "Operator Handoff",
+            },
+            {
                 "key": "text",
                 "label": "Note Text",
-                "description": "Contents of the TextEdit note.",
+                "description": "Contents of the Apple Note.",
                 "required": False,
                 "defaultValue": "Operator handoff:\n- Context:\n- Next action:\n- Risks:",
             }
@@ -1020,6 +1028,7 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
         }, inputs
 
     if template_id == "operator_handoff_note":
+        title = inputs.get("title") or "Operator Handoff"
         text = inputs.get("text") or "Operator handoff:\n- Context:\n- Next action:\n- Risks:"
         return {
             "steps": [
@@ -1027,8 +1036,8 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "id": "handoff_note",
                     "name": "Create handoff note",
                     "type": "steer",
-                    "command": "textedit",
-                    "args": ["new", "--text", text],
+                    "command": "notes",
+                    "args": ["create", "--title", title, "--body", text],
                 }
             ]
         }, inputs
@@ -1353,8 +1362,14 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "id": "draft_handoff_bundle_note",
                     "name": "Draft handoff note",
                     "type": "steer",
-                    "command": "textedit",
-                    "args": ["new", "--text", note_text],
+                    "command": "notes",
+                    "args": [
+                        "create",
+                        "--title",
+                        "Operator Handoff Bundle",
+                        "--body",
+                        f"{note_text}\n\nEvidence:\n- Screenshot: {{{{steps.capture_handoff_context.result.screenshot}}}}\n- OCR image: {{{{steps.ocr_handoff_context.result.image}}}}",
+                    ],
                 },
             ]
         }, inputs
@@ -1627,8 +1642,14 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "id": "draft_browser_handoff",
                     "name": "Draft browser handoff note",
                     "type": "steer",
-                    "command": "textedit",
-                    "args": ["new", "--text", note_text],
+                    "command": "notes",
+                    "args": [
+                        "create",
+                        "--title",
+                        "Browser Recovery Handoff",
+                        "--body",
+                        f"{note_text}\n\nEvidence:\n- Screenshot: {{{{steps.capture_browser_handoff.result.screenshot}}}}\n- OCR image: {{{{steps.ocr_browser_handoff.result.image}}}}",
+                    ],
                 },
             ]
         }, inputs

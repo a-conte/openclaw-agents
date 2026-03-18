@@ -18,6 +18,10 @@ protocol MissionControlClient {
     func pruneArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult
     func compressArtifacts(olderThanDays: Int) async throws -> ArtifactAdminActionResult
     func jobMetrics() async throws -> JobMetrics
+    func notificationPreferences() async throws -> NotificationPreferences
+    func updateNotificationPreferences(_ preferences: NotificationPreferences) async throws -> NotificationPreferences
+    func notificationEvents(limit: Int) async throws -> [NotificationEvent]
+    func registerNotificationDevice(id: String, name: String, platform: String, token: String?) async throws -> NotificationDevice
     func stopJob(id: String) async throws
     func retryJob(id: String) async throws -> Job
     func resumeJob(id: String, mode: String, resumeFromStepId: String?) async throws -> Job
@@ -136,6 +140,29 @@ struct PreviewMissionControlClient: MissionControlClient {
         )
     }
 
+    func notificationPreferences() async throws -> NotificationPreferences {
+        NotificationPreferences(
+            dashboardPrimary: true,
+            severityThreshold: "error",
+            channels: NotificationChannels(push: true, notes: true, imessage: false, mail_draft: false),
+            agentAllowlist: [],
+            templateAllowlist: [],
+            updatedAt: Date()
+        )
+    }
+
+    func updateNotificationPreferences(_ preferences: NotificationPreferences) async throws -> NotificationPreferences {
+        preferences
+    }
+
+    func notificationEvents(limit: Int) async throws -> [NotificationEvent] {
+        []
+    }
+
+    func registerNotificationDevice(id: String, name: String, platform: String, token: String?) async throws -> NotificationDevice {
+        NotificationDevice(id: id, name: name, platform: platform, token: token, registeredAt: Date(), lastSeenAt: Date())
+    }
+
     func stopJob(id: String) async throws {
     }
 
@@ -242,6 +269,22 @@ struct UnconfiguredMissionControlClient: MissionControlClient {
     }
 
     func jobMetrics() async throws -> JobMetrics {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func notificationPreferences() async throws -> NotificationPreferences {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func updateNotificationPreferences(_ preferences: NotificationPreferences) async throws -> NotificationPreferences {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func notificationEvents(limit: Int) async throws -> [NotificationEvent] {
+        throw ConfigurationError.missingBaseURL
+    }
+
+    func registerNotificationDevice(id: String, name: String, platform: String, token: String?) async throws -> NotificationDevice {
         throw ConfigurationError.missingBaseURL
     }
 
@@ -450,6 +493,39 @@ struct HTTPMissionControlClient: MissionControlClient {
         let url = baseURL.appending(path: "/api/jobs/metrics")
         let (data, _) = try await session.data(from: url)
         return try MissionControlJSON.makeDecoder().decode(JobMetrics.self, from: data)
+    }
+
+    func notificationPreferences() async throws -> NotificationPreferences {
+        let url = baseURL.appending(path: "/api/jobs/notifications/preferences")
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode(NotificationPreferences.self, from: data)
+    }
+
+    func updateNotificationPreferences(_ preferences: NotificationPreferences) async throws -> NotificationPreferences {
+        let url = baseURL.appending(path: "/api/jobs/notifications/preferences")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(preferences)
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(NotificationPreferences.self, from: data)
+    }
+
+    func notificationEvents(limit: Int) async throws -> [NotificationEvent] {
+        var url = baseURL.appending(path: "/api/jobs/notifications/events")
+        url.append(queryItems: [URLQueryItem(name: "limit", value: String(limit))])
+        let (data, _) = try await session.data(from: url)
+        return try MissionControlJSON.makeDecoder().decode([NotificationEvent].self, from: data)
+    }
+
+    func registerNotificationDevice(id: String, name: String, platform: String, token: String?) async throws -> NotificationDevice {
+        let url = baseURL.appending(path: "/api/jobs/notifications/devices")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["id": id, "name": name, "platform": platform, "token": token ?? ""])
+        let (data, _) = try await session.data(for: request)
+        return try MissionControlJSON.makeDecoder().decode(NotificationDevice.self, from: data)
     }
 
     func stopJob(id: String) async throws {

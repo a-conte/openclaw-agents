@@ -20,17 +20,22 @@ import {
   getListenJob,
   getListenArtifactAdmin,
   getListenMetrics,
+  getListenNotificationPreferences,
   getListenPolicy,
   getListenPolicyAdmin,
   listListenTemplates,
   listListenTemplateVersions,
   listListenArtifacts,
+  listListenNotificationDevices,
+  listListenNotificationEvents,
   listListenJobs,
   pruneListenArtifacts,
+  registerListenNotificationDevice,
   resumeListenJob,
   restoreListenTemplate,
   retryListenJob,
   stopListenJob,
+  updateListenNotificationPreferences,
   updateListenTemplate,
 } from './listen-client';
 
@@ -154,6 +159,26 @@ export async function getJobMetrics(): Promise<JobMetricsContract> {
 
 export async function getJobsPolicyAdmin(): Promise<PolicyAdminContract> {
   return getListenPolicyAdmin();
+}
+
+export async function getNotificationPreferences() {
+  return getListenNotificationPreferences();
+}
+
+export async function updateNotificationPreferences(input: Parameters<typeof updateListenNotificationPreferences>[0]) {
+  return updateListenNotificationPreferences(input);
+}
+
+export async function getNotificationEvents(limit?: number) {
+  return listListenNotificationEvents(limit);
+}
+
+export async function getNotificationDevices() {
+  return listListenNotificationDevices();
+}
+
+export async function registerNotificationDevice(input: Parameters<typeof registerListenNotificationDevice>[0]) {
+  return registerListenNotificationDevice(input);
 }
 
 export async function getJobArtifacts(id: string) {

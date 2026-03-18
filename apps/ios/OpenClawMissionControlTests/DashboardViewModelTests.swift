@@ -127,6 +127,29 @@ private struct EmptyStreamClient: MissionControlClient {
         )
     }
 
+    func notificationPreferences() async throws -> NotificationPreferences {
+        NotificationPreferences(
+            dashboardPrimary: true,
+            severityThreshold: "error",
+            channels: NotificationChannels(push: true, notes: true, imessage: false, mail_draft: false),
+            agentAllowlist: [],
+            templateAllowlist: [],
+            updatedAt: Date()
+        )
+    }
+
+    func updateNotificationPreferences(_ preferences: NotificationPreferences) async throws -> NotificationPreferences {
+        preferences
+    }
+
+    func notificationEvents(limit: Int) async throws -> [NotificationEvent] {
+        []
+    }
+
+    func registerNotificationDevice(id: String, name: String, platform: String, token: String?) async throws -> NotificationDevice {
+        NotificationDevice(id: id, name: name, platform: platform, token: token, registeredAt: Date(), lastSeenAt: Date())
+    }
+
     func stopJob(id: String) async throws {
     }
 

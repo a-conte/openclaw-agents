@@ -1,4 +1,9 @@
 import Foundation
+import UserNotifications
+
+extension Notification.Name {
+    static let openNotificationJob = Notification.Name("OpenNotificationJob")
+}
 
 @MainActor
 final class DashboardViewModel: ObservableObject {
@@ -16,9 +21,19 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var selectedTemplateDiff: JobTemplateDiff?
     @Published private(set) var artifactAdmin: ArtifactAdminSummary?
     @Published private(set) var jobMetrics: JobMetrics?
+    @Published private(set) var notificationPreferences: NotificationPreferences?
+    @Published private(set) var notificationEvents: [NotificationEvent] = []
+    @Published var notificationTargetJobId: String?
 
     private let client: MissionControlClient
     private var eventsTask: Task<Void, Never>?
+    private var notificationTask: Task<Void, Never>?
+    private var seenNotificationEventIds = Set<String>()
+    private let notificationDeviceId = UserDefaults.standard.string(forKey: "mission_control_notification_device_id") ?? {
+        let value = UUID().uuidString
+        UserDefaults.standard.set(value, forKey: "mission_control_notification_device_id")
+        return value
+    }()
 
     init(client: MissionControlClient) {
         self.client = client
@@ -26,6 +41,7 @@ final class DashboardViewModel: ObservableObject {
 
     deinit {
         eventsTask?.cancel()
+        notificationTask?.cancel()
     }
 
     func start() async {
@@ -77,6 +93,22 @@ final class DashboardViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func startNotificationPolling() {
+        notificationTask?.cancel()
+        notificationTask = Task {
+            while !Task.isCancelled {
+                await refreshNotificationData(notify: true)
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+    }
+
+    func startNotificationCenter() async {
+        await refreshNotificationData(notify: false)
+        await registerNotificationDevice()
+        startNotificationPolling()
     }
 
     private func apply(_ event: MissionControlEventEnvelope) {
@@ -140,6 +172,9 @@ final class DashboardViewModel: ObservableObject {
             await refreshAdminDataIfNeeded()
             if jobTemplates.isEmpty {
                 jobTemplates = (try? await client.listJobTemplates()) ?? []
+            }
+            if let highlightedJobId = notificationTargetJobId, jobs.contains(where: { $0.id == highlightedJobId }) == false, !highlightedJobId.isEmpty {
+                notificationTargetJobId = nil
             }
         } catch {
             if !Task.isCancelled {
@@ -311,8 +346,79 @@ final class DashboardViewModel: ObservableObject {
         client.artifactURL(jobId: jobId, relativePath: relativePath)
     }
 
+    func openJobFromNotification(jobId: String) {
+        notificationTargetJobId = jobId
+    }
+
+    func saveNotificationPreferences(_ preferences: NotificationPreferences) async {
+        do {
+            notificationPreferences = try await client.updateNotificationPreferences(preferences)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshNotificationData(notify: Bool) async {
+        do {
+            notificationPreferences = try await client.notificationPreferences()
+            let events = try await client.notificationEvents(limit: 20)
+            notificationEvents = events
+            guard notify else {
+                seenNotificationEventIds.formUnion(events.map(\.id))
+                return
+            }
+            let newEvents = events.filter { !seenNotificationEventIds.contains($0.id) && $0.channels.contains("push") }
+            for event in newEvents {
+                seenNotificationEventIds.insert(event.id)
+                await scheduleLocalNotification(for: event)
+            }
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func registerNotificationDevice() async {
+        do {
+            _ = try await client.registerNotificationDevice(
+                id: notificationDeviceId,
+                name: "Mission Control iPad",
+                platform: "ios",
+                token: nil
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func requestNotificationAuthorizationIfNeeded() async {
+        do {
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            if settings.authorizationStatus == .notDetermined {
+                let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
+                if !granted {
+                    errorMessage = "iPad notifications are disabled for Mission Control."
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func scheduleLocalNotification(for event: NotificationEvent) async {
+        let content = UNMutableNotificationContent()
+        content.title = event.title
+        content.body = event.body
+        content.sound = .default
+        content.userInfo = ["jobId": event.jobId]
+        let request = UNNotificationRequest(identifier: event.id, content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
     private func refreshAdminDataIfNeeded() async {
-        if jobPolicy == nil || policyAdmin == nil || artifactAdmin == nil || jobMetrics == nil {
+        if jobPolicy == nil || policyAdmin == nil || artifactAdmin == nil || jobMetrics == nil || notificationPreferences == nil {
             await refreshAdminData(force: false)
         }
     }
@@ -329,6 +435,9 @@ final class DashboardViewModel: ObservableObject {
         }
         if force || jobMetrics == nil {
             jobMetrics = try? await client.jobMetrics()
+        }
+        if force || notificationPreferences == nil {
+            notificationPreferences = try? await client.notificationPreferences()
         }
     }
 }

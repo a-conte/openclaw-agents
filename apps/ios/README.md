@@ -14,9 +14,15 @@ This initial scaffold focuses on:
 It does **not** yet include:
 
 - authenticated networking
-- full API coverage
-- push notifications
+- full App Store-ready API coverage
+- true APNs-backed push notifications
 - iPhone-specific layouts
+
+What it now does include:
+
+- template and job administration that supplements the dashboard
+- local iPad alert plumbing backed by `listen` notification events
+- Apple Notes-aware workflow visibility and handoff support
 
 ## Layout
 

@@ -33,6 +33,11 @@ struct DashboardView: View {
                 await viewModel.start()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openNotificationJob)) { output in
+            guard let jobId = output.object as? String else { return }
+            selectedSection = .jobs
+            viewModel.openJobFromNotification(jobId: jobId)
+        }
     }
 
     private var sidebar: some View {

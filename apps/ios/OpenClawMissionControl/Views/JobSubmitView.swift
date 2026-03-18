@@ -24,6 +24,10 @@ struct JobSubmitView: View {
     @State private var showPolicyAdminDetail = false
     @State private var showArtifactAdminDetail = false
     @State private var showTemplateVersionsDetail = false
+    @State private var notificationSeverityThreshold = "error"
+    @State private var notificationsPushEnabled = true
+    @State private var notificationsNotesEnabled = true
+    @State private var isSavingNotificationPreferences = false
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -46,15 +50,34 @@ struct JobSubmitView: View {
         .task {
             await viewModel.loadJobs()
             await viewModel.loadArchivedJobs()
+            await viewModel.startNotificationCenter()
+            await viewModel.requestNotificationAuthorizationIfNeeded()
             initializeSelectedTemplateIfNeeded()
+            syncNotificationPreferencesFromViewModel()
         }
         .onChange(of: viewModel.jobTemplates) { _, _ in
             initializeSelectedTemplateIfNeeded()
+        }
+        .onChange(of: viewModel.notificationPreferences) { _, _ in
+            syncNotificationPreferencesFromViewModel()
         }
         .onChange(of: selectedTemplateId) { _, _ in
             if let template = selectedTemplate {
                 seedTemplateInputs(for: template)
                 Task { await viewModel.loadTemplateVersions(id: template.id) }
+            }
+        }
+        .onChange(of: viewModel.notificationTargetJobId) { _, jobId in
+            guard let jobId, !jobId.isEmpty else { return }
+            if let job = currentJob(for: jobId) {
+                showArchived = false
+                selectedJob = job
+                return
+            }
+            Task {
+                await viewModel.loadJobs()
+                showArchived = false
+                selectedJob = currentJob(for: jobId)
             }
         }
         .sheet(item: $selectedJob) { job in
@@ -162,6 +185,83 @@ struct JobSubmitView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Submit Job")
                 .font(.title2.bold())
+
+            if let notificationPreferences = viewModel.notificationPreferences {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Apple delivery")
+                        .font(.caption.weight(.semibold))
+                    Text(notificationPreferences.dashboardPrimary ? "Dashboard remains the primary Mission Control; iPad alerts are supplemental." : "Apple channels are elevated above the dashboard.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Severity threshold", selection: $notificationSeverityThreshold) {
+                        Text("Info").tag("info")
+                        Text("Warning").tag("warning")
+                        Text("Error").tag("error")
+                        Text("Critical").tag("critical")
+                    }
+                    .pickerStyle(.segmented)
+                    Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
+                    Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
+                    Button {
+                        Task {
+                            isSavingNotificationPreferences = true
+                            defer { isSavingNotificationPreferences = false }
+                            let updated = NotificationPreferences(
+                                dashboardPrimary: true,
+                                severityThreshold: notificationSeverityThreshold,
+                                channels: NotificationChannels(
+                                    push: notificationsPushEnabled,
+                                    notes: notificationsNotesEnabled,
+                                    imessage: notificationPreferences.channels.imessage,
+                                    mail_draft: notificationPreferences.channels.mail_draft
+                                ),
+                                agentAllowlist: notificationPreferences.agentAllowlist,
+                                templateAllowlist: notificationPreferences.templateAllowlist,
+                                updatedAt: notificationPreferences.updatedAt
+                            )
+                            await viewModel.saveNotificationPreferences(updated)
+                        }
+                    } label: {
+                        if isSavingNotificationPreferences {
+                            ProgressView()
+                        } else {
+                            Text("Save Apple delivery settings")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            if !viewModel.notificationEvents.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recent Apple alerts")
+                        .font(.caption.weight(.semibold))
+                    ForEach(viewModel.notificationEvents.prefix(3)) { event in
+                        Button {
+                            showArchived = false
+                            selectedJob = currentJob(for: event.jobId)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(event.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text(event.body)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(event.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
 
             if let policy = viewModel.jobPolicy {
                 VStack(alignment: .leading, spacing: 6) {
@@ -583,6 +683,13 @@ struct JobSubmitView: View {
             thinking: nil,
             local: false
         )
+    }
+
+    private func syncNotificationPreferencesFromViewModel() {
+        guard let preferences = viewModel.notificationPreferences else { return }
+        notificationSeverityThreshold = preferences.severityThreshold
+        notificationsPushEnabled = preferences.channels.push
+        notificationsNotesEnabled = preferences.channels.notes
     }
 }
 

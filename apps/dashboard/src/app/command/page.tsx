@@ -76,6 +76,33 @@ type AutomationTemplate = JobTemplateContract & {
   args?: string[];
 };
 
+type AppleNotificationPreferences = {
+  dashboardPrimary: boolean;
+  severityThreshold: 'info' | 'warning' | 'error' | 'critical';
+  channels: {
+    push: boolean;
+    notes: boolean;
+    imessage: boolean;
+    mail_draft: boolean;
+  };
+  agentAllowlist: string[];
+  templateAllowlist: string[];
+  updatedAt?: string;
+};
+
+type AppleNotificationEvent = {
+  id: string;
+  jobId: string;
+  status: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  title: string;
+  body: string;
+  channels: string[];
+  createdAt: string;
+  targetAgent?: string | null;
+  templateId?: string | null;
+};
+
 export default function CommandPage() {
   const { filters } = useDashboardFilters();
   const { createTask } = useTasks();
@@ -844,6 +871,8 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [artifactAdmin, setArtifactAdmin] = useState<ArtifactAdminSummaryContract | null>(null);
   const [jobMetrics, setJobMetrics] = useState<JobMetricsContract | null>(null);
   const [policyAdmin, setPolicyAdmin] = useState<PolicyAdminContract | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<AppleNotificationPreferences | null>(null);
+  const [notificationEvents, setNotificationEvents] = useState<AppleNotificationEvent[]>([]);
   const [serverTemplates, setServerTemplates] = useState<AutomationTemplate[]>(JOB_TEMPLATES.map((template) => ({ ...template, builtIn: true })));
   const [templateVersions, setTemplateVersions] = useState<JobTemplateVersionContract[]>([]);
   const [templateDiff, setTemplateDiff] = useState<JobTemplateDiffContract | null>(null);
@@ -862,6 +891,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [restoringTemplate, setRestoringTemplate] = useState<number | null>(null);
   const [pruningArtifacts, setPruningArtifacts] = useState(false);
   const [compressingArtifacts, setCompressingArtifacts] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const [compressDays, setCompressDays] = useState('7');
   const [pruneDays, setPruneDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
@@ -948,6 +978,18 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     const response = await fetch('/api/jobs/policy/admin');
     const payload = await response.json();
     setPolicyAdmin(payload);
+  }
+
+  async function loadNotificationPreferences() {
+    const response = await fetch('/api/jobs/notifications/preferences');
+    const payload = await response.json();
+    setNotificationPreferences(payload);
+  }
+
+  async function loadNotificationEvents() {
+    const response = await fetch('/api/jobs/notifications/events?limit=8');
+    const payload = await response.json();
+    setNotificationEvents(Array.isArray(payload) ? payload : []);
   }
 
   async function loadTemplates() {
@@ -1040,6 +1082,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       await loadPolicyAdmin();
       await loadArtifactAdmin();
       await loadMetrics();
+      await loadNotificationEvents();
     } catch {
       setError('Network error while submitting automation job');
     } finally {
@@ -1076,6 +1119,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       await loadArchived();
       await loadArtifactAdmin();
       await loadMetrics();
+      await loadNotificationEvents();
     } finally {
       setClearing(false);
     }
@@ -1290,8 +1334,30 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     void loadPolicyAdmin();
     void loadArtifactAdmin();
     void loadMetrics();
+    void loadNotificationPreferences();
+    void loadNotificationEvents();
     void loadTemplates();
   }, []);
+
+  async function saveNotificationPreferences(next: AppleNotificationPreferences) {
+    setSavingNotifications(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/jobs/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'Failed to save Apple notification preferences');
+        return;
+      }
+      setNotificationPreferences(payload);
+    } finally {
+      setSavingNotifications(false);
+    }
+  }
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -1324,6 +1390,82 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                     <div className="mt-1 text-text-tertiary">{entry.description}</div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ) : null}
+
+          {notificationPreferences ? (
+            <div className="rounded-lg border border-border bg-surface-3 p-3">
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Apple Delivery</div>
+              <div className="space-y-2 text-xs text-text-secondary">
+                <div>Dashboard primary: {notificationPreferences.dashboardPrimary ? 'yes' : 'no'}</div>
+                <div>Severity threshold: {notificationPreferences.severityThreshold}</div>
+                <label className="flex items-center justify-between gap-2">
+                  <span>iPad alerts</span>
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences.channels.push}
+                    onChange={(event) => void saveNotificationPreferences({
+                      ...notificationPreferences,
+                      dashboardPrimary: true,
+                      channels: { ...notificationPreferences.channels, push: event.target.checked },
+                    })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span>Apple Notes handoff</span>
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences.channels.notes}
+                    onChange={(event) => void saveNotificationPreferences({
+                      ...notificationPreferences,
+                      dashboardPrimary: true,
+                      channels: { ...notificationPreferences.channels, notes: event.target.checked },
+                    })}
+                  />
+                </label>
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Supplemental device policy</div>
+                  <div>The dashboard remains the primary Mission Control. Apple delivery only mirrors high-signal alerts and Notes handoffs.</div>
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent alerts</div>
+                  <div className="space-y-1">
+                    {notificationEvents.length > 0 ? notificationEvents.slice(0, 3).map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => {
+                          setShowArchived(false);
+                          setSelectedJobId(event.jobId);
+                        }}
+                        className="w-full rounded-md border border-border bg-surface-2/70 px-2 py-2 text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-text-primary">{event.title}</span>
+                          <span className="text-[11px] uppercase text-text-tertiary">{event.severity}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-secondary">{event.body}</div>
+                      </button>
+                    )) : <div className="text-[11px] text-text-tertiary">No Apple alert events recorded yet.</div>}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <select
+                  value={notificationPreferences.severityThreshold}
+                  onChange={(event) => void saveNotificationPreferences({
+                    ...notificationPreferences,
+                    dashboardPrimary: true,
+                    severityThreshold: event.target.value as AppleNotificationPreferences['severityThreshold'],
+                  })}
+                  className="w-full rounded-md border border-border bg-surface-2/80 px-2 py-1 text-xs text-text-primary"
+                >
+                  {['info', 'warning', 'error', 'critical'].map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+                <Button size="sm" variant="ghost" onClick={() => void loadNotificationEvents()} disabled={savingNotifications}>
+                  {savingNotifications ? <Loader2 size={12} className="animate-spin" /> : 'Refresh'}
+                </Button>
               </div>
             </div>
           ) : null}
