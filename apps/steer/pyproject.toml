@@ -1,0 +1,8 @@
+[project]
+name = "openclaw-steer"
+version = "0.1.0"
+description = "macOS automation CLI for OpenClaw agents"
+requires-python = ">=3.11"
+
+[project.scripts]
+steer = "steer_cli:main"

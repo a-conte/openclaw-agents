@@ -55,3 +55,10 @@ thoughts/searchable/
 apps/dashboard/.env.local
 # Next build output
 apps/dashboard/.next/
+
+# Python cache artifacts for local automation CLIs
+apps/drive/__pycache__/
+apps/steer/__pycache__/
+
+# Local job state for listen/direct verification
+apps/listen/jobs/

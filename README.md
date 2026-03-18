@@ -19,7 +19,9 @@ Current layout:
 ```
 openclaw-agents/
 ├── apps/
-│   └── dashboard/     # Desktop Mission Control web app
+│   ├── dashboard/     # Desktop Mission Control web app
+│   ├── drive/         # tmux + process control CLI for agents
+│   └── steer/         # macOS app automation CLI for agents
 ├── main/              # General assistant, daily tasks, smart home
 │   ├── SOUL.md
 │   ├── IDENTITY.md
@@ -51,6 +53,8 @@ Incoming Mission Control layout:
 openclaw-agents/
 ├── apps/
 │   ├── dashboard/     # Desktop Mission Control web app
+│   ├── drive/         # tmux + process control CLI
+│   ├── steer/         # macOS automation CLI
 │   └── ios/           # Native SwiftUI iPad / iPhone clients
 ├── packages/
 │   └── contracts/     # Shared client-facing schemas and types
