@@ -84,7 +84,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
             return
         prompt = str(data.get("prompt", "")).strip()
-        mode = str(data.get("mode", "note")).strip() or "note"
+        mode = str(data.get("mode", "agent")).strip() or "agent"
+        target_agent = str(data.get("targetAgent", "main")).strip() or "main"
+        thinking_raw = data.get("thinking")
+        thinking = ""
+        if isinstance(thinking_raw, str):
+            thinking = thinking_raw.strip()
+        local = bool(data.get("local", False))
         if not prompt:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "prompt is required"})
             return
@@ -93,6 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             "id": job_id,
             "prompt": prompt,
             "mode": mode,
+            "targetAgent": target_agent,
             "status": "running",
             "createdAt": now_iso(),
             "startedAt": now_iso(),
@@ -100,6 +107,8 @@ class Handler(BaseHTTPRequestHandler):
             "result": None,
             "error": None,
             "session": f"listen-{job_id}",
+            "thinking": thinking or None,
+            "local": local,
         }
         write_job(job_id, job)
         spawn_worker(job_id)

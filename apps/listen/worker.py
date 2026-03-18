@@ -31,19 +31,37 @@ def run_drive(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def run_openclaw_agent(target_agent: str, prompt: str, thinking: str | None, local: bool) -> subprocess.CompletedProcess[str]:
+    args = ["openclaw", "agent", "--agent", target_agent, "--message", prompt, "--json"]
+    if thinking:
+        args.extend(["--thinking", thinking])
+    if local:
+        args.append("--local")
+    return subprocess.run(
+        args,
+        text=True,
+        capture_output=True,
+        cwd=str(REPO_ROOT),
+        check=False,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--job-id", required=True)
     args = parser.parse_args()
     job = read_job(args.job_id)
     prompt = str(job.get("prompt", ""))
-    mode = str(job.get("mode", "note"))
+    mode = str(job.get("mode", "agent"))
     session = str(job.get("session", f"listen-{args.job_id}"))
+    target_agent = str(job.get("targetAgent", "main"))
+    thinking_raw = job.get("thinking")
+    thinking = thinking_raw.strip() if isinstance(thinking_raw, str) and thinking_raw.strip() else None
+    local = bool(job.get("local", False))
     started = time.time()
 
-    run_drive("session", "create", "--name", session, "--json")
-
     if mode == "shell":
+        run_drive("session", "create", "--name", session, "--json")
         result = run_drive("run", "--session", session, "--json", prompt)
         try:
             payload = json.loads(result.stdout)
@@ -52,6 +70,16 @@ def main() -> None:
         job["status"] = "completed" if payload.get("ok") else "failed"
         job["result"] = payload.get("output")
         job["error"] = None if payload.get("ok") else payload.get("output")
+    elif mode == "agent":
+        result = run_openclaw_agent(target_agent, prompt, thinking, local)
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            payload = None
+        ok = result.returncode == 0 and payload is not None
+        job["status"] = "completed" if ok else "failed"
+        job["result"] = payload if ok else result.stdout.strip() or result.stderr.strip()
+        job["error"] = None if ok else result.stderr.strip() or "OpenClaw agent run failed"
     else:
         job["status"] = "completed"
         job["result"] = f"Recorded prompt: {prompt}"
