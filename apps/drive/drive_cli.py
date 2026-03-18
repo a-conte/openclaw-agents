@@ -101,12 +101,25 @@ def list_sessions() -> list[dict[str, object]]:
     return sessions
 
 
-def make_sentinel(command: str) -> tuple[str, str, str]:
+def make_sentinel(command: str) -> tuple[str, str, str, str, str, str]:
     token = uuid.uuid4().hex[:10]
     start_token = f"__START_{token}"
+    stdout_start = f"__STDOUT_START_{token}"
+    stdout_end = f"__STDOUT_END_{token}"
+    stderr_start = f"__STDERR_START_{token}"
+    stderr_end = f"__STDERR_END_{token}"
     done_token = f"__DONE_{token}"
-    wrapped = f"printf '\\n{start_token}\\n'; {command}; drive_exit_code=$?; printf '\\n{done_token}:%s\\n' \"$drive_exit_code\""
-    return start_token, done_token, wrapped
+    wrapped = (
+        f"printf '\\n{start_token}\\n'; "
+        f"drive_stdout_file=$(mktemp); drive_stderr_file=$(mktemp); "
+        f"{{ {command}; }} >\"$drive_stdout_file\" 2>\"$drive_stderr_file\"; "
+        f"drive_exit_code=$?; "
+        f"printf '{stdout_start}\\n'; cat \"$drive_stdout_file\"; printf '\\n{stdout_end}\\n'; "
+        f"printf '{stderr_start}\\n'; cat \"$drive_stderr_file\"; printf '\\n{stderr_end}\\n'; "
+        f"rm -f \"$drive_stdout_file\" \"$drive_stderr_file\"; "
+        f"printf '{done_token}:%s\\n' \"$drive_exit_code\""
+    )
+    return start_token, stdout_start, stdout_end, stderr_start, stderr_end, done_token, wrapped
 
 
 def extract_command_output(output: str, start_token: str, done_token: str) -> str:
@@ -125,6 +138,22 @@ def extract_command_output(output: str, start_token: str, done_token: str) -> st
     return "\n".join(collected).strip("\n")
 
 
+def extract_section(output: str, start_token: str, end_token: str) -> str:
+    lines = output.splitlines()
+    started = False
+    collected: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not started:
+            if stripped == start_token:
+                started = True
+            continue
+        if stripped == end_token:
+            break
+        collected.append(line)
+    return "\n".join(collected).strip("\n")
+
+
 def capture_pane(session: str, lines: int = 200) -> str:
     ensure_session(session)
     return tmux(["capture-pane", "-p", "-t", session, "-S", f"-{max(lines, 1)}"]).stdout
@@ -132,7 +161,7 @@ def capture_pane(session: str, lines: int = 200) -> str:
 
 def cmd_run(session: str, command: str, timeout: float, poll_interval: float) -> dict[str, object]:
     ensure_session(session)
-    start_token, done_token, wrapped = make_sentinel(command)
+    start_token, stdout_start, stdout_end, stderr_start, stderr_end, done_token, wrapped = make_sentinel(command)
     tmux(["send-keys", "-t", session, wrapped, "C-m"])
     deadline = time.time() + timeout
     output = ""
@@ -147,10 +176,29 @@ def cmd_run(session: str, command: str, timeout: float, poll_interval: float) ->
                 exit_code = None
             break
         time.sleep(poll_interval)
+    stdout = extract_section(output, stdout_start, stdout_end)
+    stderr = extract_section(output, stderr_start, stderr_end)
     if exit_code is None:
-        return {"ok": False, "session": session, "timedOut": True, "token": done_token, "output": extract_command_output(output, start_token, done_token), "rawOutput": output}
-    cleaned = extract_command_output(output, start_token, done_token)
-    return {"ok": exit_code == 0, "session": session, "exitCode": exit_code, "timedOut": False, "output": cleaned, "rawOutput": output}
+        return {
+            "ok": False,
+            "session": session,
+            "timedOut": True,
+            "token": done_token,
+            "output": stdout or extract_command_output(output, start_token, done_token),
+            "stdout": stdout,
+            "stderr": stderr,
+            "rawOutput": output,
+        }
+    return {
+        "ok": exit_code == 0,
+        "session": session,
+        "exitCode": exit_code,
+        "timedOut": False,
+        "output": stdout,
+        "stdout": stdout,
+        "stderr": stderr,
+        "rawOutput": output,
+    }
 
 
 def cmd_send(session: str, text: str, enter: bool) -> dict[str, object]:

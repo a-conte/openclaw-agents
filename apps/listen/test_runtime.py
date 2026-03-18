@@ -85,6 +85,31 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertEqual(extracted["matches"]["kind"], "json")
         self.assertIn("Reload this page", extracted["matches"]["preview"])
 
+    def test_archive_jobs_moves_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            archived_dir = jobs_dir / "archived"
+            archived_dir.mkdir()
+            artifacts_dir = jobs_dir / "artifacts"
+            artifacts_dir.mkdir()
+            archived_artifacts_dir = jobs_dir / "archived-artifacts"
+            archived_artifacts_dir.mkdir()
+            (jobs_dir / "job-1.json").write_text(json.dumps({"id": "job-1", "status": "completed"}), encoding="utf-8")
+            (artifacts_dir / "job-1").mkdir()
+            (artifacts_dir / "job-1" / "output.txt").write_text("hello", encoding="utf-8")
+            with (
+                patch.object(listen_server, "JOBS_DIR", jobs_dir),
+                patch.object(listen_server, "ARCHIVED_DIR", archived_dir),
+                patch.object(artifacts, "JOBS_DIR", jobs_dir),
+                patch.object(artifacts, "BASE_DIR", artifacts_dir),
+                patch.object(artifacts, "ARCHIVED_BASE_DIR", archived_artifacts_dir),
+            ):
+                archived = listen_server.archive_jobs()
+            self.assertEqual(archived, 1)
+            self.assertTrue((archived_dir / "job-1.json").exists())
+            self.assertTrue((archived_artifacts_dir / "job-1" / "output.txt").exists())
+
     def test_validate_job_request_accepts_known_template_id(self) -> None:
         error = listen_server.validate_job_request(
             {

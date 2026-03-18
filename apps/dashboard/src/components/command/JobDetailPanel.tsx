@@ -47,13 +47,27 @@ function isArtifactReference(value: unknown): value is ArtifactReference {
   return typeof value === 'object' && value !== null && 'relativePath' in value;
 }
 
+function isImageArtifact(value: ArtifactReference) {
+  const name = value.name?.toLowerCase() || value.relativePath?.toLowerCase() || '';
+  return /\.(png|jpe?g|gif|webp)$/i.test(name);
+}
+
+function previewBlock(text: string) {
+  return (
+    <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface-2 px-2 py-2 text-[11px] text-text-secondary">
+      {text}
+    </pre>
+  );
+}
+
 function renderArtifactValue(jobId: string, value: unknown) {
   if (isArtifactReference(value) && typeof value.relativePath === 'string' && value.relativePath) {
     const label = value.preview || value.name || value.relativePath;
+    const href = `/api/jobs/${jobId}/artifact?path=${encodeURIComponent(value.relativePath)}`;
     return (
       <div className="space-y-1">
         <Link
-          href={`/api/jobs/${jobId}/artifact?path=${encodeURIComponent(value.relativePath)}`}
+          href={href}
           target="_blank"
           className="text-accent hover:text-accent-hover"
         >
@@ -64,11 +78,19 @@ function renderArtifactValue(jobId: string, value: unknown) {
           {typeof value.size === 'number' ? ` · ${value.size} bytes` : ''}
           {value.sourcePath ? ` · source ${value.sourcePath}` : ''}
         </div>
+        {value.preview ? previewBlock(value.preview) : null}
+        {isImageArtifact(value) ? (
+          <img
+            src={href}
+            alt={value.name || 'artifact preview'}
+            className="mt-2 max-h-56 rounded-md border border-border object-contain"
+          />
+        ) : null}
       </div>
     );
   }
   if (typeof value === 'string') return value;
-  return JSON.stringify(value, null, 2);
+  return previewBlock(JSON.stringify(value, null, 2));
 }
 
 function StepArtifacts({ jobId, artifacts }: { jobId: string; artifacts: Record<string, unknown> | undefined }) {

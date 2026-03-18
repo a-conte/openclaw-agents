@@ -485,6 +485,13 @@ private struct JobDetailSheet: View {
                                                     Text(artifactSummary(step.artifacts[key]))
                                                         .font(.caption2)
                                                         .foregroundStyle(.secondary)
+                                                    if let preview = artifactPreview(step.artifacts[key]), !preview.isEmpty {
+                                                        Text(preview)
+                                                            .font(.caption2.monospaced())
+                                                            .foregroundStyle(.secondary)
+                                                            .lineLimit(6)
+                                                            .padding(.top, 2)
+                                                    }
                                                 }
                                             }
                                         }
@@ -564,13 +571,22 @@ private struct JobDetailSheet: View {
         guard let value else { return "" }
         if case .object(let object) = value,
            case .string(let relativePath)? = object["relativePath"] {
-            let preview = object["preview"]?.displayString
             let kind = object["kind"]?.displayString ?? "artifact"
-            return [preview, relativePath, kind].compactMap { item in
+            let size = object["size"]?.displayString
+            return [relativePath, kind, size.map { "\($0) bytes" }].compactMap { item in
                 guard let item, !item.isEmpty else { return nil }
                 return item
             }.joined(separator: " · ")
         }
         return value.displayString
+    }
+
+    private func artifactPreview(_ value: JSONValue?) -> String? {
+        guard let value else { return nil }
+        if case .object(let object) = value {
+            let preview = object["preview"]?.displayString
+            return preview?.isEmpty == false ? preview : nil
+        }
+        return nil
     }
 }

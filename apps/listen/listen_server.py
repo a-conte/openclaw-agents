@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from artifacts import list_job_artifacts, resolve_job_artifact
+from artifacts import archive_all_active_artifacts, archive_job_artifacts, list_job_artifacts, resolve_job_artifact
 from policy import check_command_policy, check_workflow_policy, current_policy
 from workflow_templates import get_template, list_templates
 
@@ -63,7 +63,9 @@ def archive_jobs() -> int:
     count = 0
     for path in JOBS_DIR.glob("*.json"):
         shutil.move(str(path), str(ARCHIVED_DIR / path.name))
+        archive_job_artifacts(path.stem)
         count += 1
+    archive_all_active_artifacts()
     return count
 
 
@@ -322,20 +324,28 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/artifacts"):
             job_id = parsed.path.split("/")[2]
-            job = read_job(job_id) or read_job(job_id, archived=True)
+            job = read_job(job_id)
+            archived = False
+            if not job:
+                job = read_job(job_id, archived=True)
+                archived = True
             if not job:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
                 return
-            self._json(HTTPStatus.OK, {"artifacts": list_job_artifacts(job_id)})
+            self._json(HTTPStatus.OK, {"artifacts": list_job_artifacts(job_id, archived=archived)})
             return
         if parsed.path.startswith("/job/") and parsed.path.endswith("/artifact"):
             job_id = parsed.path.split("/")[2]
-            job = read_job(job_id) or read_job(job_id, archived=True)
+            job = read_job(job_id)
+            archived = False
+            if not job:
+                job = read_job(job_id, archived=True)
+                archived = True
             if not job:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
                 return
             relative_path = parse_qs(parsed.query).get("path", [""])[0]
-            artifact_path = resolve_job_artifact(job_id, relative_path)
+            artifact_path = resolve_job_artifact(job_id, relative_path, archived=archived)
             if artifact_path is None:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "artifact not found"})
                 return
