@@ -232,3 +232,4 @@
 {"timestamp": "2026-03-15T22:46:00Z", "type": "heartbeat", "agent": "main", "inbox_processed": 0, "duration_ms": 0}
 {"timestamp": "2026-03-16T23:12:15Z", "type": "heartbeat", "agent": "main", "inbox_processed": 2, "duration_ms": 0}
 {"timestamp": "2026-03-18T01:00:10Z", "type": "heartbeat", "agent": "main", "inbox_processed": 0, "duration_ms": 13378, "details": {"steps_ok": ["state_management", "state_cleanup", "weather", "inbox_check"], "steps_failed": ["email_triage_unconfigured", "calendar_unconfigured", "git_dirty"]}}
+{"timestamp": "2026-03-18T01:30:19Z", "type": "heartbeat", "agent": "main", "inbox_processed": 0, "duration_ms": 19782, "details": {"steps_ok": ["state_management", "state_cleanup", "inbox_check", "git_status"], "steps_failed": ["email_triage_unconfigured", "calendar_unconfigured"]}}
