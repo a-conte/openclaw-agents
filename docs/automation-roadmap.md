@@ -2,6 +2,8 @@
 
 This is the next-stage roadmap for the OpenClaw automation stack after the current `steer` / `drive` / `listen` / `direct` / dashboard / iPad foundation.
 
+For the current post-roadmap cleanup/polish queue, see [`docs/remaining-work.md`](/Users/a_conte/dev/openclaw-agents/docs/remaining-work.md).
+
 ## Current State
 
 The core architecture is already in place:
