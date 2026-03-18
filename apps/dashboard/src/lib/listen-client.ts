@@ -25,6 +25,15 @@ export type ListenPolicy = {
 };
 
 export type ListenTemplate = JobTemplateContract;
+export type ListenArtifact = {
+  kind?: string;
+  relativePath: string;
+  path?: string;
+  name?: string;
+  size?: number;
+  preview?: string | null;
+  sourcePath?: string;
+};
 
 function buildUrl(path: string) {
   return `${DEFAULT_BASE_URL}${path}`;
@@ -64,6 +73,22 @@ export async function listListenTemplates(): Promise<ListenTemplate[]> {
 
 export async function getListenJob(jobId: string): Promise<JobContract> {
   return listenFetch<JobContract>(`/job/${jobId}`);
+}
+
+export async function listListenArtifacts(jobId: string): Promise<ListenArtifact[]> {
+  const payload = await listenFetch<{ artifacts: ListenArtifact[] }>(`/job/${jobId}/artifacts`);
+  return payload.artifacts;
+}
+
+export async function fetchListenArtifact(jobId: string, relativePath: string): Promise<Response> {
+  const response = await fetch(buildUrl(`/job/${jobId}/artifact?path=${encodeURIComponent(relativePath)}`), {
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Listen artifact request failed with ${response.status}`);
+  }
+  return response;
 }
 
 export async function createListenJob(input: CreateAutomationJobInput): Promise<JobContract> {

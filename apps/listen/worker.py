@@ -11,6 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from artifacts import copy_file_artifact, write_json_artifact, write_text_artifact
 from policy import check_command_policy, check_step_policy, check_workflow_policy, current_policy
 from workflow_templates import resolve_template
 
@@ -62,6 +63,7 @@ def set_step_state(
     dangerous: bool = False,
     started_at: str | None = None,
     completed_at: str | None = None,
+    duration_ms: int | None = None,
 ) -> None:
     steps = job.setdefault("stepStatus", [])
     if not isinstance(steps, list):
@@ -82,6 +84,8 @@ def set_step_state(
         payload["startedAt"] = started_at
     if completed_at:
         payload["completedAt"] = completed_at
+    if duration_ms is not None:
+        payload["durationMs"] = duration_ms
     if result is not None:
         payload["result"] = result
     if error:
@@ -90,7 +94,7 @@ def set_step_state(
         payload["artifacts"] = artifacts
     if existing is None:
         steps.append(payload)
-    job["currentStepId"] = None if status == "completed" else step_id
+    job["currentStepId"] = None if status in {"completed", "failed", "skipped"} else step_id
 
 
 def run_drive(*args: str) -> subprocess.CompletedProcess[str]:
@@ -160,12 +164,23 @@ def compact_text(value: Any, limit: int = 1200) -> str | None:
     return f"{text[:limit].rstrip()}…"
 
 
-def extract_step_artifacts(result: Any) -> dict[str, Any]:
+def extract_step_artifacts(job_id: str, step_id: str, result: Any) -> dict[str, Any]:
     if not isinstance(result, dict):
         return {}
 
     artifacts: dict[str, Any] = {}
-    for key in ("output", "stdout", "stderr", "session", "screenshot", "image", "snapshotId", "snapshotPath", "path", "match"):
+    for key in ("output", "stdout", "stderr", "rawOutput"):
+        value = result.get(key)
+        if isinstance(value, str) and value.strip():
+            artifacts[key] = write_text_artifact(
+                job_id,
+                step_id,
+                f"{key}.txt",
+                value,
+                preview=compact_text(value),
+            )
+
+    for key in ("session", "snapshotId", "match"):
         value = compact_text(result.get(key))
         if value is not None:
             artifacts[key] = value
@@ -178,21 +193,36 @@ def extract_step_artifacts(result: Any) -> dict[str, Any]:
     if token is not None:
         artifacts["token"] = token
 
-    raw_output = compact_text(result.get("rawOutput"))
-    if raw_output is not None:
-        artifacts["rawOutput"] = raw_output
+    for key in ("screenshot", "image", "snapshotPath", "path"):
+        source = result.get(key)
+        preview = compact_text(source, 240)
+        if isinstance(source, str) and source.strip():
+            copied = copy_file_artifact(job_id, step_id, source, preview=preview)
+            artifacts[key] = copied or {"kind": "missing-file", "sourcePath": source, "preview": preview}
 
     clicked = result.get("clicked")
     if isinstance(clicked, dict):
         filtered = {key: value for key, value in clicked.items() if isinstance(value, (str, int, float, bool))}
         if filtered:
-            artifacts["clicked"] = filtered
+            artifacts["clicked"] = write_json_artifact(
+                job_id,
+                step_id,
+                "clicked.json",
+                filtered,
+                preview=compact_text(json.dumps(filtered, sort_keys=True), 240),
+            )
 
     target = result.get("target")
     if isinstance(target, dict):
         filtered = {key: value for key, value in target.items() if isinstance(value, (str, int, float, bool))}
         if filtered:
-            artifacts["target"] = filtered
+            artifacts["target"] = write_json_artifact(
+                job_id,
+                step_id,
+                "target.json",
+                filtered,
+                preview=compact_text(json.dumps(filtered, sort_keys=True), 240),
+            )
 
     matches = result.get("matches")
     if isinstance(matches, list) and matches:
@@ -219,7 +249,20 @@ def extract_step_artifacts(result: Any) -> dict[str, Any]:
             if entry:
                 summarized.append(entry)
         if summarized:
-            artifacts["matches"] = summarized
+            preview = ", ".join(item.get("text", "") for item in summarized[:3] if isinstance(item.get("text"), str)).strip() or None
+            artifacts["matches"] = write_json_artifact(job_id, step_id, "matches.json", matches, preview=compact_text(preview, 240))
+
+    window = result.get("window")
+    if isinstance(window, dict):
+        filtered = {key: value for key, value in window.items() if isinstance(value, (str, int, float, bool))}
+        if filtered:
+            artifacts["window"] = write_json_artifact(
+                job_id,
+                step_id,
+                "window.json",
+                filtered,
+                preview=compact_text(json.dumps(filtered, sort_keys=True), 240),
+            )
 
     return artifacts
 
@@ -490,8 +533,10 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
 
         context = {"job": {"id": job["id"], "session": job.get("session")}, "steps": completed_context}
         resolved_step = deep_resolve(step, context)
+        step_started = time.time()
         result = execute_step(resolved_step, job, context)
-        artifacts = extract_step_artifacts(result)
+        step_duration_ms = int((time.time() - step_started) * 1000)
+        artifacts = extract_step_artifacts(job_id, step_id, result)
         ok = bool(result.get("ok", True)) if isinstance(result, dict) else True
         if ok:
             append_update(job, f"Completed step: {step_name}", step_id=step_id)
@@ -505,6 +550,7 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
                 artifacts=artifacts,
                 dangerous=bool(step.get("dangerous", False)),
                 completed_at=now_iso(),
+                duration_ms=step_duration_ms,
             )
             completed_context[step_id] = {"result": result}
             persist_job(job_id, job)
@@ -523,6 +569,7 @@ def execute_workflow_spec(spec: dict[str, Any], job: dict[str, Any], job_id: str
             artifacts=artifacts,
             dangerous=bool(step.get("dangerous", False)),
             completed_at=now_iso(),
+            duration_ms=step_duration_ms,
         )
         persist_job(job_id, job)
         if str(step.get("onFailure", "stop")) != "continue":

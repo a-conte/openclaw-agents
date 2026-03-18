@@ -97,26 +97,10 @@ export interface JobContract {
     dangerous?: boolean;
     startedAt?: string;
     completedAt?: string;
+    durationMs?: number;
     result?: unknown;
     error?: string;
-    artifacts?: {
-      output?: string;
-      stdout?: string;
-      stderr?: string;
-      rawOutput?: string;
-      exitCode?: number;
-      session?: string;
-      screenshot?: string;
-      image?: string;
-      snapshotId?: string;
-      snapshotPath?: string;
-      path?: string;
-      match?: string;
-      token?: string;
-      clicked?: Record<string, unknown>;
-      target?: Record<string, unknown>;
-      matches?: Array<Record<string, unknown>>;
-    };
+    artifacts?: Record<string, unknown>;
   }>;
   currentStepId?: string | null;
   timedOut?: boolean;

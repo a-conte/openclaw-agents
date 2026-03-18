@@ -2,9 +2,11 @@ import type { JobContract } from '@openclaw/contracts';
 import {
   clearListenJobs,
   createListenJob,
+  fetchListenArtifact,
   getListenJob,
   getListenPolicy,
   listListenTemplates,
+  listListenArtifacts,
   listListenJobs,
   resumeListenJob,
   retryListenJob,
@@ -83,4 +85,12 @@ export async function getJobsPolicy() {
 
 export async function getJobTemplates() {
   return listListenTemplates();
+}
+
+export async function getJobArtifacts(id: string) {
+  return listListenArtifacts(id);
+}
+
+export async function getJobArtifact(id: string, relativePath: string) {
+  return fetchListenArtifact(id, relativePath);
 }

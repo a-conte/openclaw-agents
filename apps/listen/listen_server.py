@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import os
 import shutil
 import signal
@@ -15,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from artifacts import list_job_artifacts, resolve_job_artifact
 from policy import check_command_policy, check_workflow_policy, current_policy
 from workflow_templates import get_template, list_templates
 
@@ -317,6 +319,33 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/jobs":
             archived = parse_qs(parsed.query).get("archived", ["false"])[0] == "true"
             self._json(HTTPStatus.OK, {"jobs": list_jobs_in(ARCHIVED_DIR if archived else JOBS_DIR)})
+            return
+        if parsed.path.startswith("/job/") and parsed.path.endswith("/artifacts"):
+            job_id = parsed.path.split("/")[2]
+            job = read_job(job_id) or read_job(job_id, archived=True)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            self._json(HTTPStatus.OK, {"artifacts": list_job_artifacts(job_id)})
+            return
+        if parsed.path.startswith("/job/") and parsed.path.endswith("/artifact"):
+            job_id = parsed.path.split("/")[2]
+            job = read_job(job_id) or read_job(job_id, archived=True)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            relative_path = parse_qs(parsed.query).get("path", [""])[0]
+            artifact_path = resolve_job_artifact(job_id, relative_path)
+            if artifact_path is None:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "artifact not found"})
+                return
+            body = artifact_path.read_bytes()
+            mime_type, _ = mimetypes.guess_type(str(artifact_path))
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", mime_type or "application/octet-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if parsed.path.startswith("/job/"):
             job_id = parsed.path.rsplit("/", 1)[-1]
