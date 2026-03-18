@@ -259,6 +259,42 @@ export async function getListenMetrics(): Promise<JobMetricsContract> {
   return listenFetch<JobMetricsContract>('/metrics');
 }
 
+export async function getListenShortcutsSummary(): Promise<Record<string, unknown>> {
+  return listenFetch<Record<string, unknown>>('/shortcuts/summary');
+}
+
+export async function getListenShortcutsLatestFailed(): Promise<Record<string, unknown>> {
+  return listenFetch<Record<string, unknown>>('/shortcuts/latest-failed');
+}
+
+export async function listListenShortcutsTemplates(): Promise<Record<string, unknown>> {
+  return listenFetch<Record<string, unknown>>('/shortcuts/templates');
+}
+
+export async function runListenShortcutTemplate(input: {
+  templateId: string;
+  templateInputs?: Record<string, string>;
+  targetAgent?: string;
+  wait?: boolean;
+  timeout?: number;
+  pollInterval?: number;
+}): Promise<Record<string, unknown>> {
+  return listenFetch<Record<string, unknown>>('/shortcuts/run-template', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function retryListenShortcutLatestFailed(input?: {
+  mode?: 'resume_failed' | 'resume_from' | 'rerun_all';
+  resumeFromStepId?: string;
+}): Promise<Record<string, unknown>> {
+  return listenFetch<Record<string, unknown>>('/shortcuts/retry-latest-failed', {
+    method: 'POST',
+    body: JSON.stringify(input || {}),
+  });
+}
+
 export async function getListenPolicyAdmin(): Promise<PolicyAdminContract> {
   return listenFetch<PolicyAdminContract>('/policy/admin');
 }

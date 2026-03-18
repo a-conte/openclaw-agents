@@ -23,17 +23,22 @@ import {
   getListenNotificationPreferences,
   getListenPolicy,
   getListenPolicyAdmin,
+  getListenShortcutsLatestFailed,
+  getListenShortcutsSummary,
   listListenTemplates,
   listListenTemplateVersions,
   listListenArtifacts,
   listListenNotificationDevices,
   listListenNotificationEvents,
   listListenJobs,
+  listListenShortcutsTemplates,
   pruneListenArtifacts,
   registerListenNotificationDevice,
+  retryListenShortcutLatestFailed,
   resumeListenJob,
   restoreListenTemplate,
   retryListenJob,
+  runListenShortcutTemplate,
   stopListenJob,
   updateListenNotificationPreferences,
   updateListenTemplate,
@@ -191,4 +196,24 @@ export async function getJobArtifact(id: string, relativePath: string) {
 
 export async function getJobArtifactBundle(id: string, kind = 'bundle') {
   return fetchListenArtifactBundle(id, kind);
+}
+
+export async function getShortcutsSummary() {
+  return getListenShortcutsSummary();
+}
+
+export async function getShortcutsLatestFailed() {
+  return getListenShortcutsLatestFailed();
+}
+
+export async function getShortcutsTemplates() {
+  return listListenShortcutsTemplates();
+}
+
+export async function runShortcutTemplate(input: Parameters<typeof runListenShortcutTemplate>[0]) {
+  return runListenShortcutTemplate(input);
+}
+
+export async function retryShortcutLatestFailed(input?: Parameters<typeof retryListenShortcutLatestFailed>[0]) {
+  return retryListenShortcutLatestFailed(input);
 }

@@ -211,3 +211,59 @@ class ListenClient:
 
     def policy_admin(self) -> dict[str, Any]:
         return self._request("/policy/admin")
+
+    def shortcuts_summary(self) -> dict[str, Any]:
+        return self._request("/shortcuts/summary")
+
+    def latest_failed_job(self) -> dict[str, Any]:
+        payload = self._request("/shortcuts/latest-failed")
+        job = payload.get("job") if isinstance(payload, dict) else None
+        if not isinstance(job, dict):
+            raise RuntimeError("listen shortcuts latest-failed did not return a job")
+        return job
+
+    def shortcuts_templates(self) -> list[dict[str, Any]]:
+        payload = self._request("/shortcuts/templates")
+        return payload.get("templates", []) if isinstance(payload, dict) else []
+
+    def run_template_shortcut(
+        self,
+        template_id: str,
+        *,
+        template_inputs: dict[str, str] | None = None,
+        target_agent: str = "main",
+        wait: bool = True,
+        timeout: float = 300.0,
+        poll_interval: float = 1.0,
+    ) -> dict[str, Any]:
+        payload = self._request(
+            "/shortcuts/run-template",
+            method="POST",
+            payload={
+                "templateId": template_id,
+                "templateInputs": template_inputs or {},
+                "targetAgent": target_agent,
+                "wait": wait,
+                "timeout": timeout,
+                "pollInterval": poll_interval,
+            },
+        )
+        job = payload.get("job") if isinstance(payload, dict) else None
+        if not isinstance(job, dict):
+            raise RuntimeError("listen shortcuts run-template did not return a job")
+        return job
+
+    def retry_latest_failed_shortcut(
+        self,
+        *,
+        mode: str = "resume_failed",
+        resume_from_step_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"mode": mode}
+        if resume_from_step_id:
+            payload["resumeFromStepId"] = resume_from_step_id
+        result = self._request("/shortcuts/retry-latest-failed", method="POST", payload=payload)
+        job = result.get("job") if isinstance(result, dict) else None
+        if not isinstance(job, dict):
+            raise RuntimeError("listen shortcuts retry-latest-failed did not return a job")
+        return job

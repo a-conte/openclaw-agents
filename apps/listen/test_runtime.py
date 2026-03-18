@@ -502,6 +502,70 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertIn("artifactVolume", metrics["steps"])
         self.assertIn("recentChains", metrics["lineage"])
 
+    def test_latest_failed_job_prefers_most_recent_failed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            archived_dir = jobs_dir / "archived"
+            archived_dir.mkdir()
+            (jobs_dir / "job-a.json").write_text(
+                json.dumps(
+                    {
+                        "id": "job-a",
+                        "status": "failed",
+                        "summary": "older failure",
+                        "createdAt": "2026-03-18T00:00:00Z",
+                        "updatedAt": "2026-03-18T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            time.sleep(0.01)
+            (archived_dir / "job-b.json").write_text(
+                json.dumps(
+                    {
+                        "id": "job-b",
+                        "status": "stopped",
+                        "summary": "newer failure",
+                        "createdAt": "2026-03-18T00:01:00Z",
+                        "updatedAt": "2026-03-18T00:01:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(listen_server, "JOBS_DIR", jobs_dir), patch.object(listen_server, "ARCHIVED_DIR", archived_dir):
+                latest = listen_server.latest_failed_job()
+        self.assertEqual(latest["id"], "job-b")
+
+    def test_shortcuts_summary_payload_includes_compact_latest_failed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs_dir = Path(tmp) / "jobs"
+            jobs_dir.mkdir()
+            archived_dir = jobs_dir / "archived"
+            archived_dir.mkdir()
+            (archived_dir / "job-failed.json").write_text(
+                json.dumps(
+                    {
+                        "id": "job-failed",
+                        "mode": "workflow",
+                        "status": "failed",
+                        "templateId": "open_command_page",
+                        "summary": "failed summary",
+                        "error": "boom",
+                        "createdAt": "2026-03-18T00:00:00Z",
+                        "startedAt": "2026-03-18T00:00:00Z",
+                        "completedAt": "2026-03-18T00:00:05Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(listen_server, "JOBS_DIR", jobs_dir), patch.object(listen_server, "ARCHIVED_DIR", archived_dir):
+                payload = listen_server.shortcuts_summary_payload()
+        latest = payload["latestFailedJob"]
+        self.assertEqual(latest["id"], "job-failed")
+        self.assertEqual(latest["summary"], "failed summary")
+        self.assertIn("jobs", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

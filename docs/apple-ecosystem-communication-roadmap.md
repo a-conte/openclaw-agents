@@ -19,7 +19,6 @@ What does not yet exist:
 
 - true APNs-backed iPad push delivery
 - Apple-native delivery execution from notification events themselves
-- Apple Shortcuts integration for mobile control
 - fully unified Apple delivery routing across all channels
 
 ## Principles
@@ -176,9 +175,10 @@ Definition of done:
 
 Suggested slices:
 
-- `Add Shortcuts-friendly HTTP actions`
-- `Add retry/latest-failure Shortcut flows`
-- `Add compact mobile summary payloads`
+- `Done: Shortcuts-friendly HTTP actions`
+- `Done: retry/latest-failure Shortcut flows`
+- `Done: compact mobile summary payloads`
+- `Open: iOS Shortcuts app export/import assets and human-facing Shortcut recipes`
 
 ## Security Model
 

@@ -298,6 +298,75 @@ def archive_jobs() -> int:
     return count
 
 
+def compact_job_payload(job: dict[str, object] | None) -> dict[str, object] | None:
+    if not isinstance(job, dict):
+        return None
+    return {
+        "id": job.get("id"),
+        "status": job.get("status"),
+        "mode": job.get("mode"),
+        "templateId": job.get("templateId"),
+        "workflow": job.get("workflow"),
+        "targetAgent": job.get("targetAgent"),
+        "summary": job.get("summary"),
+        "error": job.get("error"),
+        "createdAt": job.get("createdAt"),
+        "startedAt": job.get("startedAt"),
+        "completedAt": job.get("completedAt"),
+        "timedOut": bool(job.get("timedOut", False)),
+        "attempt": int(job.get("attempt", 1)),
+    }
+
+
+def latest_failed_job() -> dict[str, object] | None:
+    candidates = [
+        job
+        for job in [*list_jobs_in(JOBS_DIR), *list_jobs_in(ARCHIVED_DIR)]
+        if clean_str(job.get("status")) in {"failed", "stopped"}
+    ]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda job: (
+            clean_str(job.get("updatedAt") or job.get("completedAt") or job.get("createdAt")),
+            clean_str(job.get("id")),
+        ),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def shortcuts_summary_payload() -> dict[str, object]:
+    metrics = collect_job_metrics()
+    latest_failed = latest_failed_job()
+    latest_failed_compact = compact_job_payload(latest_failed)
+    template_usage = metrics.get("templates", {}).get("usage", []) if isinstance(metrics.get("templates"), dict) else []
+    top_failures = metrics.get("steps", {}).get("topFailures", []) if isinstance(metrics.get("steps"), dict) else []
+    top_block_reasons = metrics.get("policy", {}).get("topBlockReasons", []) if isinstance(metrics.get("policy"), dict) else []
+    recent_chain = None
+    lineage = metrics.get("lineage")
+    if isinstance(lineage, dict):
+        chains = lineage.get("recentChains")
+        if isinstance(chains, list) and chains:
+            recent_chain = chains[-1]
+    jobs = metrics.get("jobs", {}) if isinstance(metrics.get("jobs"), dict) else {}
+    return {
+        "generatedAt": now_iso(),
+        "jobs": {
+            "active": jobs.get("active", 0),
+            "total": jobs.get("total", 0),
+            "blocked": metrics.get("policy", {}).get("blockedJobs", 0) if isinstance(metrics.get("policy"), dict) else 0,
+            "medianCompletedDurationMs": jobs.get("medianCompletedDurationMs"),
+            "p95CompletedDurationMs": jobs.get("p95CompletedDurationMs"),
+        },
+        "latestFailedJob": latest_failed_compact,
+        "topTemplates": template_usage[:3] if isinstance(template_usage, list) else [],
+        "topStepFailures": top_failures[:3] if isinstance(top_failures, list) else [],
+        "topPolicyBlocks": top_block_reasons[:3] if isinstance(top_block_reasons, list) else [],
+        "recentRetryChain": recent_chain,
+    }
+
+
 def worker_command(job_id: str) -> list[str]:
     return [sys.executable, str(Path(__file__).resolve().parent / "worker.py"), "--job-id", job_id]
 
@@ -639,6 +708,97 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(HTTPStatus.CREATED, {"job_id": job_id, "waited": False})
             return
+        if parsed.path == "/shortcuts/run-template":
+            try:
+                data = self._read_json()
+            except json.JSONDecodeError:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
+                return
+            template_id = clean_str(data.get("templateId"))
+            template_inputs = data.get("templateInputs") if isinstance(data.get("templateInputs"), dict) else {}
+            wait = bool(data.get("wait", True))
+            timeout = float(data.get("timeout", 300.0))
+            poll_interval = float(data.get("pollInterval", 1.0))
+            payload = {
+                "mode": "workflow",
+                "templateId": template_id,
+                "templateInputs": template_inputs,
+                "targetAgent": clean_str(data.get("targetAgent")) or "main",
+            }
+            error = validate_job_request(payload)
+            if error:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": error})
+                return
+            job_id, job = new_job_payload(payload)
+            write_job(job_id, job)
+            spawn_worker(job_id)
+            if wait:
+                try:
+                    completed = wait_for_job(job_id, timeout=timeout, poll_interval=poll_interval)
+                except TimeoutError as exc:
+                    self._json(HTTPStatus.REQUEST_TIMEOUT, {"error": str(exc), "job_id": job_id})
+                    return
+                self._json(HTTPStatus.OK, {"job": compact_job_payload(completed), "waited": True})
+                return
+            self._json(HTTPStatus.CREATED, {"job": compact_job_payload(job), "waited": False})
+            return
+        if parsed.path == "/shortcuts/retry-latest-failed":
+            latest = latest_failed_job()
+            if not latest:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "no failed jobs found"})
+                return
+            if latest.get("status") not in {"failed", "stopped"}:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "latest failed job is not retryable"})
+                return
+            try:
+                request_data = self._read_json()
+            except json.JSONDecodeError:
+                request_data = {}
+            retry_mode = clean_str(request_data.get("mode")) or "resume_failed"
+            resume_from_step_id = clean_str(request_data.get("resumeFromStepId")) or None
+            payload = {
+                "prompt": latest.get("prompt", ""),
+                "mode": latest.get("mode", "agent"),
+                "targetAgent": latest.get("targetAgent", "main"),
+                "thinking": latest.get("thinking"),
+                "local": latest.get("local", False),
+                "command": latest.get("command"),
+                "workflow": latest.get("workflow"),
+                "workflowSpec": latest.get("workflowSpec"),
+                "templateId": latest.get("templateId"),
+                "templateInputs": latest.get("templateInputs"),
+                "args": latest.get("args", []),
+            }
+            error = validate_job_request(payload)
+            if error:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": error})
+                return
+            prior_step_status: list[object] = []
+            if retry_mode == "resume_failed":
+                prior_step_status = find_retry_step(latest)
+            elif retry_mode == "resume_from":
+                prior_step_status = find_retry_step(latest)
+                if not resume_from_step_id:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "resumeFromStepId is required for resume_from mode"})
+                    return
+            elif retry_mode == "rerun_all":
+                prior_step_status = []
+            else:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "mode must be one of: resume_failed, resume_from, rerun_all"})
+                return
+            new_job_id, new_job = new_job_payload(
+                payload,
+                attempt=int(latest.get("attempt", 1)) + 1,
+                retry_of=str(latest.get("id")),
+                prior_step_status=prior_step_status,
+                retry_mode=retry_mode,
+                resume_from_step_id=resume_from_step_id,
+                history=build_attempt_history(latest, retry_mode, resume_from_step_id),
+            )
+            write_job(new_job_id, new_job)
+            spawn_worker(new_job_id)
+            self._json(HTTPStatus.CREATED, {"retriedJob": compact_job_payload(latest), "job": compact_job_payload(new_job)})
+            return
         if parsed.path.startswith("/agent/job/") and parsed.path.endswith("/wait"):
             job_id = parsed.path.split("/")[3]
             job = read_job(job_id) or read_job(job_id, archived=True)
@@ -777,6 +937,32 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/notifications/preferences":
             self._json(HTTPStatus.OK, get_notification_preferences())
+            return
+        if parsed.path == "/shortcuts/summary":
+            self._json(HTTPStatus.OK, shortcuts_summary_payload())
+            return
+        if parsed.path == "/shortcuts/latest-failed":
+            latest = latest_failed_job()
+            if not latest:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "no failed jobs found"})
+                return
+            self._json(HTTPStatus.OK, {"job": compact_job_payload(latest)})
+            return
+        if parsed.path == "/shortcuts/templates":
+            templates = list_templates()
+            compact = [
+                {
+                    "id": template.get("id"),
+                    "name": template.get("name"),
+                    "description": template.get("description"),
+                    "category": template.get("category"),
+                    "recommended": bool(template.get("recommended", False)),
+                    "favorite": bool(template.get("favorite", False)),
+                    "inputs": template.get("inputs", []),
+                }
+                for template in templates
+            ]
+            self._json(HTTPStatus.OK, {"templates": compact})
             return
         if parsed.path == "/notifications/devices":
             self._json(HTTPStatus.OK, {"devices": list_notification_devices()})

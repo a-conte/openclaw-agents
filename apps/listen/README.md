@@ -30,6 +30,11 @@ Current endpoints:
 - `POST /artifacts/prune`
 - `POST /artifacts/compress`
 - `GET /metrics`
+- `GET /shortcuts/summary`
+- `GET /shortcuts/latest-failed`
+- `GET /shortcuts/templates`
+- `POST /shortcuts/run-template`
+- `POST /shortcuts/retry-latest-failed`
 - `POST /agent/execute`
 - `POST /jobs/clear`
 - `DELETE /job/<id>`
@@ -72,6 +77,7 @@ Custom templates:
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
 - `GET /notifications/preferences` returns Apple delivery preferences used by the dashboard and iPad app
 - `GET /notifications/events` returns recent Apple alert events for supplemental iPad delivery and dashboard review
+- the `/shortcuts/*` endpoints provide compact mobile-friendly payloads for Apple Shortcuts and similar automation clients
 - notification preferences may include per-template routing for `push`, `notes`, `imessage`, and `mail_draft`
 
 Agent-facing client:
@@ -130,6 +136,15 @@ curl -X POST http://127.0.0.1:7600/templates \
 curl http://127.0.0.1:7600/artifacts/admin
 curl http://127.0.0.1:7600/policy/admin
 curl http://127.0.0.1:7600/metrics
+curl http://127.0.0.1:7600/shortcuts/summary
+curl http://127.0.0.1:7600/shortcuts/latest-failed
+curl http://127.0.0.1:7600/shortcuts/templates
+curl -X POST http://127.0.0.1:7600/shortcuts/run-template \
+  -H 'content-type: application/json' \
+  -d '{"templateId":"open_command_page","wait":true}'
+curl -X POST http://127.0.0.1:7600/shortcuts/retry-latest-failed \
+  -H 'content-type: application/json' \
+  -d '{"mode":"resume_failed"}'
 curl http://127.0.0.1:7600/job/<job-id>/bundle
 curl http://127.0.0.1:7600/job/<job-id>/bundle?kind=incident
 curl -X POST http://127.0.0.1:7600/artifacts/compress \
