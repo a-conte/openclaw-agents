@@ -223,6 +223,17 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertIn("imessage", events[0]["channels"])
         self.assertEqual(events[0]["deliveries"], [])
 
+    def test_default_notification_preferences_include_operator_template_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                preferences = notifications.get_notification_preferences()
+        route = preferences["templateRouting"]["operator_handoff_note"]
+        self.assertTrue(route["channels"]["push"])
+        self.assertTrue(route["channels"]["notes"])
+        self.assertFalse(route["channels"]["imessage"])
+        self.assertFalse(route["channels"]["mail_draft"])
+
     def test_dispatch_notification_event_blocks_imessage_when_policy_disallows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "notification-state.json"

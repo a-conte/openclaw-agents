@@ -42,6 +42,7 @@ struct JobSubmitView: View {
     @State private var isPruningArtifacts = false
     @State private var restoringTemplateVersion: Int?
     @State private var showMetricsDetail = false
+    @State private var showAppleDeliveryDetail = false
     @State private var showPolicyAdminDetail = false
     @State private var showArtifactAdminDetail = false
     @State private var showTemplateVersionsDetail = false
@@ -179,6 +180,20 @@ struct JobSubmitView: View {
         }
         .sheet(isPresented: $showMetricsDetail) {
             MetricsDetailSheet(metrics: viewModel.jobMetrics)
+        }
+        .sheet(isPresented: $showAppleDeliveryDetail) {
+            AppleDeliveryDetailSheet(
+                notificationPreferences: viewModel.notificationPreferences,
+                notificationSeverityThreshold: $notificationSeverityThreshold,
+                notificationsPushEnabled: $notificationsPushEnabled,
+                notificationsNotesEnabled: $notificationsNotesEnabled,
+                notificationsImessageEnabled: $notificationsImessageEnabled,
+                notificationsMailDraftEnabled: $notificationsMailDraftEnabled,
+                isSavingNotificationPreferences: $isSavingNotificationPreferences,
+                onSave: {
+                    await saveNotificationPreferences()
+                }
+            )
         }
         .sheet(isPresented: $showPolicyAdminDetail) {
             PolicyAdminDetailSheet(policyAdmin: viewModel.policyAdmin)
@@ -378,43 +393,22 @@ struct JobSubmitView: View {
     private var appleDeliveryPanel: some View {
         panelCard(title: "Apple Delivery", subtitle: "Dashboard remains primary. iPad alerts and Apple channels are supplemental.") {
             if let notificationPreferences = viewModel.notificationPreferences {
-                Picker("Severity threshold", selection: $notificationSeverityThreshold) {
-                    Text("Info").tag("info")
-                    Text("Warning").tag("warning")
-                    Text("Error").tag("error")
-                    Text("Critical").tag("critical")
+                Text("Threshold: \(notificationSeverityThreshold.capitalized)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Push \(notificationsPushEnabled ? "on" : "off") · Notes \(notificationsNotesEnabled ? "on" : "off") · iMessage \(notificationsImessageEnabled ? "on" : "off") · Mail \(notificationsMailDraftEnabled ? "on" : "off")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let templateRouting = notificationPreferences.templateRouting, !templateRouting.isEmpty {
+                    let activeRoutes = templateRouting.filter { _, route in
+                        route.channels.push || route.channels.notes || route.channels.imessage || route.channels.mail_draft
+                    }
+                    Text("\(activeRoutes.count) template routing defaults configured")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .pickerStyle(.segmented)
-                Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
-                Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
-                Toggle("Enable iMessage delivery routes", isOn: $notificationsImessageEnabled)
-                Toggle("Enable Mail draft delivery routes", isOn: $notificationsMailDraftEnabled)
-                Button {
-                    Task {
-                        isSavingNotificationPreferences = true
-                        defer { isSavingNotificationPreferences = false }
-                        let updated = NotificationPreferences(
-                            dashboardPrimary: true,
-                            severityThreshold: notificationSeverityThreshold,
-                            channels: NotificationChannels(
-                                push: notificationsPushEnabled,
-                                notes: notificationsNotesEnabled,
-                                imessage: notificationsImessageEnabled,
-                                mail_draft: notificationsMailDraftEnabled
-                            ),
-                            agentAllowlist: notificationPreferences.agentAllowlist,
-                            templateAllowlist: notificationPreferences.templateAllowlist,
-                            templateRouting: notificationPreferences.templateRouting,
-                            updatedAt: notificationPreferences.updatedAt
-                        )
-                        await viewModel.saveNotificationPreferences(updated)
-                    }
-                } label: {
-                    if isSavingNotificationPreferences {
-                        ProgressView()
-                    } else {
-                        Text("Save Apple delivery settings")
-                    }
+                Button("Open Apple delivery settings") {
+                    showAppleDeliveryDetail = true
                 }
                 .buttonStyle(.bordered)
             } else {
@@ -847,6 +841,27 @@ struct JobSubmitView: View {
         notificationsNotesEnabled = preferences.channels.notes
         notificationsImessageEnabled = preferences.channels.imessage
         notificationsMailDraftEnabled = preferences.channels.mail_draft
+    }
+
+    private func saveNotificationPreferences() async {
+        guard let notificationPreferences = viewModel.notificationPreferences else { return }
+        isSavingNotificationPreferences = true
+        defer { isSavingNotificationPreferences = false }
+        let updated = NotificationPreferences(
+            dashboardPrimary: true,
+            severityThreshold: notificationSeverityThreshold,
+            channels: NotificationChannels(
+                push: notificationsPushEnabled,
+                notes: notificationsNotesEnabled,
+                imessage: notificationsImessageEnabled,
+                mail_draft: notificationsMailDraftEnabled
+            ),
+            agentAllowlist: notificationPreferences.agentAllowlist,
+            templateAllowlist: notificationPreferences.templateAllowlist,
+            templateRouting: notificationPreferences.templateRouting,
+            updatedAt: notificationPreferences.updatedAt
+        )
+        await viewModel.saveNotificationPreferences(updated)
     }
 }
 
@@ -1392,6 +1407,120 @@ private struct MetricsDetailSheet: View {
         }
         .frame(height: 8)
         .clipShape(Capsule())
+    }
+}
+
+private struct AppleDeliveryDetailSheet: View {
+    let notificationPreferences: NotificationPreferences?
+    @Binding var notificationSeverityThreshold: String
+    @Binding var notificationsPushEnabled: Bool
+    @Binding var notificationsNotesEnabled: Bool
+    @Binding var notificationsImessageEnabled: Bool
+    @Binding var notificationsMailDraftEnabled: Bool
+    @Binding var isSavingNotificationPreferences: Bool
+    let onSave: () async -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let notificationPreferences {
+                        detailSection("Channel Defaults") {
+                            Picker("Severity threshold", selection: $notificationSeverityThreshold) {
+                                Text("Info").tag("info")
+                                Text("Warning").tag("warning")
+                                Text("Error").tag("error")
+                                Text("Critical").tag("critical")
+                            }
+                            .pickerStyle(.segmented)
+                            Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
+                            Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
+                            Toggle("Enable iMessage delivery routes", isOn: $notificationsImessageEnabled)
+                            Toggle("Enable Mail draft delivery routes", isOn: $notificationsMailDraftEnabled)
+                        }
+
+                        if let templateRouting = notificationPreferences.templateRouting, !templateRouting.isEmpty {
+                            detailSection("Template Routing Defaults") {
+                                ForEach(templateRouting.keys.sorted(), id: \.self) { templateId in
+                                    if let route = templateRouting[templateId] {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(templateId)
+                                                .font(.caption.weight(.semibold))
+                                            Text(routeSummary(route))
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if !notificationPreferences.agentAllowlist.isEmpty || !notificationPreferences.templateAllowlist.isEmpty {
+                            detailSection("Allowlists") {
+                                if !notificationPreferences.agentAllowlist.isEmpty {
+                                    Text("Agents: \(notificationPreferences.agentAllowlist.joined(separator: ", "))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if !notificationPreferences.templateAllowlist.isEmpty {
+                                    Text("Templates: \(notificationPreferences.templateAllowlist.joined(separator: ", "))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        Button {
+                            Task {
+                                await onSave()
+                            }
+                        } label: {
+                            if isSavingNotificationPreferences {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Save Apple delivery settings")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isSavingNotificationPreferences)
+                    } else {
+                        ContentUnavailableView("No delivery settings", systemImage: "bell.badge", description: Text("Notification preferences are not loaded yet."))
+                    }
+                }
+                .padding(24)
+            }
+            .navigationTitle("Apple Delivery")
+            .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+
+    @ViewBuilder
+    private func detailSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            content()
+        }
+        .padding(18)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func routeSummary(_ route: NotificationTemplateRoute) -> String {
+        var channels: [String] = []
+        if route.channels.push { channels.append("push") }
+        if route.channels.notes { channels.append("notes") }
+        if route.channels.imessage { channels.append("imessage") }
+        if route.channels.mail_draft { channels.append("mail") }
+        var parts = [channels.isEmpty ? "no channels" : channels.joined(separator: ", ")]
+        if let recipient = route.recipient, !recipient.isEmpty {
+            parts.append("recipient \(recipient)")
+        }
+        if let mailTo = route.mailTo, !mailTo.isEmpty {
+            parts.append("mail \(mailTo)")
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

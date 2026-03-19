@@ -10,6 +10,15 @@ from typing import Any
 STATE_PATH = Path(__file__).resolve().parent / "notification-state.json"
 _SEVERITY_RANK = {"info": 0, "warning": 1, "error": 2, "critical": 3}
 _DEFAULT_CHANNELS = {"push": True, "notes": True, "imessage": False, "mail_draft": False}
+_DEFAULT_TEMPLATE_ROUTING = {
+    "operator_handoff_note": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "operator_handoff_bundle": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "browser_recovery_handoff": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "daemon_recovery_handoff": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "repo_validation_handoff": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "incident_capture": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+    "incident_mail_handoff": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
+}
 
 
 def now_iso() -> str:
@@ -23,7 +32,7 @@ def _default_preferences() -> dict[str, Any]:
         "channels": dict(_DEFAULT_CHANNELS),
         "agentAllowlist": [],
         "templateAllowlist": [],
-        "templateRouting": {},
+        "templateRouting": {key: dict(value) for key, value in _DEFAULT_TEMPLATE_ROUTING.items()},
         "updatedAt": now_iso(),
     }
 
@@ -56,15 +65,50 @@ def _save_state(state: dict[str, Any]) -> None:
     STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
+def _normalize_route(route: dict[str, Any] | None) -> dict[str, Any]:
+    route = route if isinstance(route, dict) else {}
+    route_channels = dict(_DEFAULT_CHANNELS)
+    raw_channels = route.get("channels")
+    if isinstance(raw_channels, dict):
+        for name in route_channels:
+            if name in raw_channels:
+                route_channels[name] = bool(raw_channels[name])
+    return {
+        "channels": route_channels,
+        "recipient": str(route.get("recipient") or "").strip() or None,
+        "mailTo": str(route.get("mailTo") or "").strip() or None,
+        "mailSubjectPrefix": str(route.get("mailSubjectPrefix") or "").strip() or None,
+    }
+
+
 def get_notification_preferences() -> dict[str, Any]:
-    return _load_state()["preferences"]
+    current = _load_state()["preferences"]
+    if not isinstance(current, dict):
+        return _default_preferences()
+    normalized = dict(_default_preferences())
+    normalized.update(current)
+    channels = current.get("channels")
+    if isinstance(channels, dict):
+        merged_channels = dict(_DEFAULT_CHANNELS)
+        for name in merged_channels:
+            if name in channels:
+                merged_channels[name] = bool(channels[name])
+        normalized["channels"] = merged_channels
+    raw_routing = current.get("templateRouting")
+    merged_routing = {key: _normalize_route(value) for key, value in _DEFAULT_TEMPLATE_ROUTING.items()}
+    if isinstance(raw_routing, dict):
+        for template_id, route in raw_routing.items():
+            template_key = str(template_id).strip()
+            if not template_key:
+                continue
+            merged_routing[template_key] = _normalize_route(route if isinstance(route, dict) else None)
+    normalized["templateRouting"] = merged_routing
+    return normalized
 
 
 def update_notification_preferences(data: dict[str, Any]) -> dict[str, Any]:
     state = _load_state()
-    current = state["preferences"]
-    if not isinstance(current, dict):
-        current = _default_preferences()
+    current = get_notification_preferences()
 
     threshold = data.get("severityThreshold")
     if isinstance(threshold, str) and threshold in _SEVERITY_RANK:
@@ -85,23 +129,14 @@ def update_notification_preferences(data: dict[str, Any]) -> dict[str, Any]:
 
     raw_routing = data.get("templateRouting")
     if isinstance(raw_routing, dict):
-        normalized_routing: dict[str, Any] = {}
+        normalized_routing: dict[str, Any] = {
+            key: _normalize_route(value) for key, value in _DEFAULT_TEMPLATE_ROUTING.items()
+        }
         for template_id, route in raw_routing.items():
             template_key = str(template_id).strip()
             if not template_key or not isinstance(route, dict):
                 continue
-            route_channels = dict(_DEFAULT_CHANNELS)
-            raw_channels = route.get("channels")
-            if isinstance(raw_channels, dict):
-                for name in route_channels:
-                    if name in raw_channels:
-                        route_channels[name] = bool(raw_channels[name])
-            normalized_routing[template_key] = {
-                "channels": route_channels,
-                "recipient": str(route.get("recipient") or "").strip() or None,
-                "mailTo": str(route.get("mailTo") or "").strip() or None,
-                "mailSubjectPrefix": str(route.get("mailSubjectPrefix") or "").strip() or None,
-            }
+            normalized_routing[template_key] = _normalize_route(route)
         current["templateRouting"] = normalized_routing
 
     if "dashboardPrimary" in data:

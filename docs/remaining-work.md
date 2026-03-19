@@ -31,7 +31,7 @@ Status:
 Remaining tasks:
 - [x] package real Apple Shortcuts recipes instead of exposing only HTTP endpoints
 - [x] add event-driven iMessage and Mail dispatch from notification events, not only manual/template invocation
-- deepen delivery routing controls per template and per agent
+- partially deepen delivery routing controls per template and per agent
 - review notification noise and add tighter severity/routing defaults if needed
 
 Primary reference:
