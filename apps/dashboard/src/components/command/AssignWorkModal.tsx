@@ -74,7 +74,7 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
       pushToast({
         title: action === 'run' ? 'Agent dispatched' : 'Task created',
         description: action === 'run'
-          ? `${AGENT_EMOJIS[agentId] || ''} ${agentId} is working on: ${title.trim()}`
+          ? `${AGENT_EMOJIS[agentId] || ''} ${agentId} is working on: ${title.trim()}${data?.jobId ? ` · job ${data.jobId} is now visible in Automation Jobs` : ''}`
           : `Task queued for ${agentId}`,
         tone: 'success',
       });

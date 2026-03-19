@@ -1,28 +1,9 @@
 import { NextResponse } from 'next/server';
 import { updateTask, createTask } from '@/lib/tasks-store';
-import { runOpenClaw } from '@/lib/openclaw-cli';
+import { createJob } from '@/lib/jobs-store';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('recommendations-action');
-
-function runAgent(agentId: string, message: string, taskId?: string) {
-  // Fire and forget — don't block the response
-  runOpenClaw(
-    [
-      'agent', '--agent', agentId, '--message', message, '--json',
-      '--deliver', '--reply-channel', 'telegram', '--reply-account', 'main', '--reply-to', '1858496116',
-    ],
-    {
-      timeout: 600_000,
-      cwd: process.env.HOME || '/Users/a_conte',
-    }
-  ).then(async () => {
-    if (taskId) await updateTask(taskId, { status: 'done' });
-  }).catch(async (err) => {
-    log.error('Agent run failed', { agentId, err: err.stderr || err.message });
-    if (taskId) await updateTask(taskId, { status: 'todo', labels: ['agent-failed'] });
-  });
-}
 
 export async function POST(
   request: Request,
@@ -64,12 +45,33 @@ export async function POST(
       message = `${title}\n${description || ''}${prInstruction}`;
     }
 
-    runAgent(agentId, message, runTaskId);
-
-    return NextResponse.json({
-      ok: true,
-      message: `Agent ${agentId} is now working on: ${title}`,
-    }, { status: 202 });
+    try {
+      const job = await createJob({
+        prompt: message,
+        targetAgent: agentId,
+        mode: 'agent',
+        priority: 'normal',
+      });
+      log.info('Created structured agent job from assignment', { agentId, jobId: job.id, taskId: runTaskId });
+      return NextResponse.json({
+        ok: true,
+        jobId: job.id,
+        taskId: runTaskId,
+        message: `Agent ${agentId} is now working on: ${title}`,
+      }, { status: 202 });
+    } catch (error) {
+      log.error('Failed to create structured agent job', {
+        agentId,
+        err: error instanceof Error ? error.message : String(error),
+      });
+      if (runTaskId) {
+        await updateTask(runTaskId, { status: 'todo', labels: ['agent-failed'] });
+      }
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to dispatch agent job' },
+        { status: 500 },
+      );
+    }
   }
 
   // Legacy: "assign" — just assign without running
