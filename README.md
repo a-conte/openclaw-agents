@@ -95,6 +95,12 @@ Start the dashboard and automation runtime together:
 
 The stable operator flow is documented in [docs/local-startup.md](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
 
+For a quick machine-wide snapshot:
+
+```bash
+./scripts/status-everything.sh
+```
+
 ## Setup
 
 See [SETUP.md](SETUP.md) for full details on skills, plugins, and infrastructure.

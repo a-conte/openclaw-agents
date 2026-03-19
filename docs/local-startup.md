@@ -29,6 +29,13 @@ Check service status:
 ./scripts/local-stack.sh status
 ```
 
+For a fuller machine snapshot, including both repos, active OpenClaw CLI version,
+git identity, and a compact `listen` summary:
+
+```bash
+./scripts/status-everything.sh
+```
+
 Read recent service output:
 
 ```bash

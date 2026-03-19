@@ -7,12 +7,13 @@ The goal is to keep the remaining scope small, explicit, and easy to chip away o
 ## 1. External OpenClaw Integration
 
 Status:
-- Open inside this repo
-- Active code/work already exists in the separate fork at [`/Users/a_conte/dev/openclaw`](/Users/a_conte/dev/openclaw)
+- Partially completed
+- Active code/work exists in the separate fork at [`/Users/a_conte/dev/openclaw`](/Users/a_conte/dev/openclaw)
+- The forked CLI is now built, globally linked, and smoke-tested locally against the `automation_jobs` tool
 
 Remaining tasks:
 - wire the `automation_jobs` path into the broader OpenClaw runtime/tool surface as a normal installed capability
-- install and validate the forked OpenClaw build locally so real agent sessions use the plugin by default
+- [x] install and validate the forked OpenClaw build locally so real agent sessions use the plugin by default
 - document the fork-based local install/update workflow
 - decide whether the plugin remains fork-only or becomes part of a longer-lived private/internal branch strategy
 
@@ -65,17 +66,18 @@ Primary reference:
 ## 5. General Hygiene
 
 Status:
-- Mostly polish
+- In progress
 - Worth doing to keep the machine stable and less surprising
 
 Remaining tasks:
-- set explicit global git `user.name` and `user.email`
-- add a top-level “status of everything” view or script snapshot
+- [x] set explicit global git `user.name` and `user.email`
+- [x] add a top-level “status of everything” view or script snapshot
 - decide whether to keep expanding tmux-based local ops or move some services to `launchd`
 - continue tightening local bring-up and maintenance docs as habits stabilize
 
 Primary references:
 - [`scripts/local-stack.sh`](/Users/a_conte/dev/openclaw-agents/scripts/local-stack.sh)
+- [`scripts/status-everything.sh`](/Users/a_conte/dev/openclaw-agents/scripts/status-everything.sh)
 - [`docs/local-startup.md`](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md)
 - [`docs/bootstrap-mac.md`](/Users/a_conte/dev/openclaw-agents/docs/bootstrap-mac.md)
 
