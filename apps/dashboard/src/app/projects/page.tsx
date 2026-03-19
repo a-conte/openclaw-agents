@@ -94,6 +94,11 @@ function ProjectsContent() {
     await mutate();
   }
 
+  function buildProjectSessionName(project: Project) {
+    const suffix = `${project.id.slice(0, 8)}-${Date.now().toString(36)}`;
+    return `codex-${suffix}`;
+  }
+
   async function startProjectWithCodex(project: Project) {
     const selectedAgent = projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev';
     const projectTasks = tasksByProject.get(project.id) || [];
@@ -125,6 +130,7 @@ function ProjectsContent() {
           targetAgent: selectedAgent,
           templateId: 'codex_repo_task',
           templateInputs: {
+            sessionName: buildProjectSessionName(project),
             prompt,
           },
         }),

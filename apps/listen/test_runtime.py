@@ -221,6 +221,10 @@ class ListenRuntimeTests(unittest.TestCase):
         claude_prompt = claude_spec["steps"][1]["prompt"]
         self.assertIn("codex exec", codex_prompt)
         self.assertIn("workspace-write", codex_prompt)
+        self.assertIn("--full-auto", codex_prompt)
+        self.assertIn("python3 -c", codex_prompt)
+        self.assertIn("base64.b64decode", codex_prompt)
+        self.assertIn("| codex exec", codex_prompt)
         self.assertIn("claude -p", claude_prompt)
         self.assertIn("acceptEdits", claude_prompt)
 

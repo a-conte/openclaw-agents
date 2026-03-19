@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
 import shlex
@@ -16,6 +17,16 @@ CUSTOM_TEMPLATES_PATH = Path(__file__).resolve().parent / "templates.json"
 
 def shell_quote(value: str) -> str:
     return shlex.quote(value)
+
+
+def codex_exec_stdin_command(repo_path: str, prompt: str) -> str:
+    encoded_prompt = base64.b64encode(prompt.encode("utf-8")).decode("ascii")
+    return (
+        f"cd {shell_quote(repo_path)} && "
+        "python3 -c "
+        f"{shell_quote(f'import base64,sys;sys.stdout.write(base64.b64decode({encoded_prompt!r}).decode())')} "
+        "| codex exec --full-auto --sandbox workspace-write --color never -"
+    )
 
 
 BUILTIN_TEMPLATES: list[dict[str, Any]] = [
@@ -2280,8 +2291,9 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
         repo_path = inputs.get("repoPath") or str(REPO_ROOT)
         session_name = inputs.get("sessionName") or "codex-task"
         prompt = inputs.get("prompt") or ""
-        codex_exec = f"cd {shell_quote(repo_path)} && codex exec --sandbox workspace-write -a never {shell_quote(prompt)}"
+        codex_exec = codex_exec_stdin_command(repo_path, prompt)
         return {
+            "timeoutSeconds": 1800,
             "steps": [
                 {
                     "id": "codex_task_session_create",
@@ -2295,6 +2307,7 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "name": "Run Codex task",
                     "type": "shell",
                     "session": session_name,
+                    "timeoutSeconds": 1800,
                     "prompt": codex_exec,
                 },
             ]
@@ -2306,6 +2319,7 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
         prompt = inputs.get("prompt") or ""
         claude_exec = f"cd {shell_quote(repo_path)} && claude -p --permission-mode acceptEdits {shell_quote(prompt)}"
         return {
+            "timeoutSeconds": 1800,
             "steps": [
                 {
                     "id": "claude_task_session_create",
@@ -2319,6 +2333,7 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "name": "Run Claude Code task",
                     "type": "shell",
                     "session": session_name,
+                    "timeoutSeconds": 1800,
                     "prompt": claude_exec,
                 },
             ]
