@@ -949,6 +949,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [templateDescriptionDraft, setTemplateDescriptionDraft] = useState('');
   const [templateCategoryDraft, setTemplateCategoryDraft] = useState('custom');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [quickDispatchMode, setQuickDispatchMode] = useState<'agent' | 'workflow'>('agent');
+  const [quickPrompt, setQuickPrompt] = useState('');
+  const [quickTemplateId, setQuickTemplateId] = useState(JOB_TEMPLATES[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -1017,6 +1020,12 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       setSelectedJobId(visibleJobs[0].id);
     }
   }, [selectedJobId, visibleJobs]);
+
+  useEffect(() => {
+    if (!quickTemplateId && serverTemplates[0]?.id) {
+      setQuickTemplateId(serverTemplates[0].id);
+    }
+  }, [quickTemplateId, serverTemplates]);
 
   async function loadArchived() {
     const response = await fetch('/api/jobs?archived=true');
@@ -1168,6 +1177,68 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
       await loadNotificationEvents();
     } catch {
       setError('Network error while submitting automation job');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitQuickDispatch() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const requestBody: Record<string, unknown> = quickDispatchMode === 'agent'
+        ? {
+            mode: 'agent',
+            targetAgent,
+            prompt: quickPrompt,
+          }
+        : {
+            mode: 'workflow',
+            targetAgent,
+            templateId: quickTemplateId,
+          };
+      if (quickDispatchMode === 'agent' && !quickPrompt.trim()) {
+        setError('Type a request before starting an agent job.');
+        return;
+      }
+      if (quickDispatchMode === 'workflow' && !quickTemplateId) {
+        setError('Select a workflow template before dispatching.');
+        return;
+      }
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || 'Failed to dispatch work');
+        return;
+      }
+      if (typeof payload.id === 'string') {
+        setSelectedJobId(payload.id);
+      }
+      onChanged();
+      await loadPolicy();
+      await loadPolicyAdmin();
+      await loadArtifactAdmin();
+      await loadMetrics();
+      await loadNotificationEvents();
+      if (quickDispatchMode === 'agent') {
+        openChat(targetAgent, {
+          source: 'agent-job',
+          title: `Started ${targetAgent} job`,
+          detail: typeof payload.id === 'string'
+            ? `Job ${payload.id} is now live. Use this chat for follow-up while the structured run continues below.`
+            : 'A structured agent job is now live. Use this chat for follow-up while the structured run continues below.',
+          jobId: typeof payload.id === 'string' ? payload.id : undefined,
+          prompt: quickPrompt.trim() || undefined,
+          createdAt: new Date().toISOString(),
+        });
+        setQuickPrompt('');
+      }
+    } catch {
+      setError('Network error while dispatching work');
     } finally {
       setSubmitting(false);
     }
@@ -1466,6 +1537,57 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             <Badge color={liveJobs > 0 ? '#4A9EFF' : '#555555'}>{liveJobs} live jobs</Badge>
             <Badge color={showArchived ? '#ffd166' : '#06d6a0'}>{showArchived ? 'archived view' : 'current view'}</Badge>
             <Badge color="#8338ec">{notificationEvents.length} recent operator alerts</Badge>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-surface-2/85 p-4">
+          <div className="flex flex-col gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.16em] text-text-tertiary">Quick Dispatch</div>
+              <div className="mt-1 text-sm text-text-secondary">Type a request for an agent or assign a saved workflow without dropping into the lower builder.</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={quickDispatchMode === 'agent' ? 'primary' : 'secondary'} onClick={() => setQuickDispatchMode('agent')}>
+                Ask Agent
+              </Button>
+              <Button size="sm" variant={quickDispatchMode === 'workflow' ? 'primary' : 'secondary'} onClick={() => setQuickDispatchMode('workflow')}>
+                Assign Workflow
+              </Button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_auto]">
+              <select value={targetAgent} onChange={(event) => setTargetAgent(event.target.value)} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary">
+                {['main', 'mail', 'docs', 'research', 'ai-research', 'dev', 'security'].map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              {quickDispatchMode === 'agent' ? (
+                <textarea
+                  value={quickPrompt}
+                  onChange={(event) => setQuickPrompt(event.target.value)}
+                  placeholder="Tell the agent what to do. This will start a structured job and open chat immediately."
+                  className="min-h-[84px] w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary"
+                />
+              ) : (
+                <div className="grid gap-2">
+                  <select value={quickTemplateId} onChange={(event) => setQuickTemplateId(event.target.value)} className="w-full rounded-md border border-border bg-surface-3 px-3 py-2 text-sm text-text-primary">
+                    {serverTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-xs text-text-secondary">
+                    {serverTemplates.find((template) => template.id === quickTemplateId)?.description || 'Run the selected saved workflow against the target agent context.'}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-start">
+                <Button size="sm" variant="primary" onClick={() => void submitQuickDispatch()} disabled={submitting}>
+                  {submitting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                  <span className="ml-1.5">{quickDispatchMode === 'agent' ? 'Start Agent' : 'Run Workflow'}</span>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
