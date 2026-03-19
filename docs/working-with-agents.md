@@ -72,8 +72,21 @@ These are good bounded starting points:
 - `repo_status_check`
 - `repo_branch_hygiene`
 - `repo_validation_handoff`
+- `developer_workstation_bootstrap`
+- `codex_repo_task`
+- `claude_code_repo_task`
+- `github_repo_triage`
 - `dashboard_health_check`
 - `browser_recovery_handoff`
+
+If you want the agents to operate more like the `mac-mini-agent` drive/steer "skills" model, use
+the developer workstation templates first:
+
+- `developer_workstation_bootstrap` for tmux + Ghostty + VS Code
+- `codex_ghostty_session` or `claude_code_ghostty_session` for visible terminal-supervised work
+- `codex_repo_task` or `claude_code_repo_task` for bounded autonomous repo work
+- `github_repo_triage` before repo changes
+- `github_branch_commit_push_pr` only when you explicitly want branch/push/PR automation
 
 ## Trust Level
 

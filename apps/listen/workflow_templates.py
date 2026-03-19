@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import time
 from difflib import unified_diff
 from copy import deepcopy
@@ -11,6 +12,10 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CUSTOM_TEMPLATES_PATH = Path(__file__).resolve().parent / "templates.json"
+
+
+def shell_quote(value: str) -> str:
+    return shlex.quote(value)
 
 
 BUILTIN_TEMPLATES: list[dict[str, Any]] = [
@@ -627,6 +632,268 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
                 "description": "Apple Note title used for the handoff.",
                 "required": False,
                 "defaultValue": "Repo Validation Handoff",
+            },
+        ],
+    },
+    {
+        "id": "developer_workstation_bootstrap",
+        "name": "Developer Workstation Bootstrap",
+        "description": "Create a tmux workspace, surface it in Ghostty, and open the repo in VS Code.",
+        "category": "developer",
+        "builtIn": True,
+        "recommended": True,
+        "favorite": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to open for development.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session used as the workspace substrate.",
+                "required": False,
+                "defaultValue": "dev-main",
+            },
+            {
+                "key": "bootstrapCommand",
+                "label": "Bootstrap Command",
+                "description": "Optional initial shell command run inside the tmux workspace.",
+                "required": False,
+                "defaultValue": "pwd && git status --short && git branch --show-current",
+            },
+        ],
+    },
+    {
+        "id": "ghostty_tmux_workspace",
+        "name": "Ghostty tmux Workspace",
+        "description": "Create or reuse a tmux session and open Ghostty attached to it.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Working directory for the tmux session.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session to create or attach.",
+                "required": False,
+                "defaultValue": "dev-main",
+            },
+        ],
+    },
+    {
+        "id": "vscode_repo_workspace",
+        "name": "VS Code Repo Workspace",
+        "description": "Open a repo in Visual Studio Code and bring the editor to the foreground.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to open in VS Code.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+        ],
+    },
+    {
+        "id": "codex_ghostty_session",
+        "name": "Codex Ghostty Session",
+        "description": "Seed a tmux workspace with Codex and surface it in Ghostty for visible operator supervision.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path passed to Codex.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session that will host Codex.",
+                "required": False,
+                "defaultValue": "codex-dev",
+            },
+            {
+                "key": "prompt",
+                "label": "Prompt",
+                "description": "Optional initial Codex prompt.",
+                "required": False,
+                "defaultValue": "Inspect this repo and outline the next concrete engineering step.",
+            },
+        ],
+    },
+    {
+        "id": "claude_code_ghostty_session",
+        "name": "Claude Code Ghostty Session",
+        "description": "Seed a tmux workspace with Claude Code and surface it in Ghostty for visible operator supervision.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 14,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path passed to Claude Code.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session that will host Claude Code.",
+                "required": False,
+                "defaultValue": "claude-dev",
+            },
+            {
+                "key": "prompt",
+                "label": "Prompt",
+                "description": "Optional initial Claude Code prompt.",
+                "required": False,
+                "defaultValue": "Inspect this repo and outline the next concrete engineering step.",
+            },
+        ],
+    },
+    {
+        "id": "codex_repo_task",
+        "name": "Codex Repo Task",
+        "description": "Run a bounded Codex task inside a managed tmux session and capture the result as artifacts.",
+        "category": "developer",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path for the Codex task.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session used for the Codex run.",
+                "required": False,
+                "defaultValue": "codex-task",
+            },
+            {
+                "key": "prompt",
+                "label": "Prompt",
+                "description": "Task prompt sent to Codex.",
+                "required": True,
+                "defaultValue": "",
+            },
+        ],
+    },
+    {
+        "id": "claude_code_repo_task",
+        "name": "Claude Code Repo Task",
+        "description": "Run a bounded Claude Code task inside a managed tmux session and capture the result as artifacts.",
+        "category": "developer",
+        "builtIn": True,
+        "recommended": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path for the Claude Code task.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "sessionName",
+                "label": "Session Name",
+                "description": "tmux session used for the Claude Code run.",
+                "required": False,
+                "defaultValue": "claude-task",
+            },
+            {
+                "key": "prompt",
+                "label": "Prompt",
+                "description": "Task prompt sent to Claude Code.",
+                "required": True,
+                "defaultValue": "",
+            },
+        ],
+    },
+    {
+        "id": "github_repo_triage",
+        "name": "GitHub Repo Triage",
+        "description": "Inspect git and GitHub state for a repo before making changes or opening a PR.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to inspect.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+        ],
+    },
+    {
+        "id": "github_branch_commit_push_pr",
+        "name": "GitHub Branch Commit Push PR",
+        "description": "Create a branch, commit current changes, push to origin, and open a draft PR through gh.",
+        "category": "developer",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to operate on.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "branchName",
+                "label": "Branch Name",
+                "description": "Branch name to create or reuse.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "commitMessage",
+                "label": "Commit Message",
+                "description": "Commit message used for the staged changes.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "prTitle",
+                "label": "PR Title",
+                "description": "Title used when creating the draft pull request.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "prBody",
+                "label": "PR Body",
+                "description": "Body used when creating the draft pull request.",
+                "required": False,
+                "defaultValue": "## Summary\n- \n\n## Validation\n- ",
             },
         ],
     },
@@ -1820,6 +2087,300 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                     "type": "agent",
                     "targetAgent": "dev",
                     "prompt": f"Review branch hygiene for {repo_path} after `git branch -vv`, `git status --short`, and `git remote -v`. Call out drift, stash risk, and next actions.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "developer_workstation_bootstrap":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "dev-main"
+        bootstrap_command = inputs.get("bootstrapCommand") or "pwd && git status --short && git branch --show-current"
+        attach_command = f"tmux new-session -A -s {session_name}"
+        return {
+            "steps": [
+                {
+                    "id": "workstation_session_create",
+                    "name": "Create tmux workspace",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "workstation_bootstrap",
+                    "name": "Run bootstrap command",
+                    "type": "shell",
+                    "session": session_name,
+                    "prompt": f"cd {shell_quote(repo_path)} && {bootstrap_command}",
+                },
+                {
+                    "id": "workstation_open_ghostty",
+                    "name": "Open Ghostty on workspace",
+                    "type": "shell",
+                    "prompt": f"open -na Ghostty.app --args -e zsh -lc {shell_quote(attach_command)}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "workstation_focus_ghostty",
+                    "name": "Focus Ghostty",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Ghostty"],
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "workstation_open_vscode",
+                    "name": "Open VS Code workspace",
+                    "type": "shell",
+                    "prompt": f"open -na 'Visual Studio Code' {shell_quote(repo_path)}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "workstation_focus_vscode",
+                    "name": "Focus VS Code",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Code"],
+                    "onFailure": "continue",
+                },
+            ]
+        }, inputs
+
+    if template_id == "ghostty_tmux_workspace":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "dev-main"
+        attach_command = f"tmux new-session -A -s {session_name}"
+        return {
+            "steps": [
+                {
+                    "id": "ghostty_session_create",
+                    "name": "Create tmux session",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "ghostty_open_workspace",
+                    "name": "Open Ghostty attached to tmux",
+                    "type": "shell",
+                    "prompt": f"open -na Ghostty.app --args -e zsh -lc {shell_quote(attach_command)}",
+                },
+                {
+                    "id": "ghostty_focus_workspace",
+                    "name": "Focus Ghostty",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Ghostty"],
+                    "onFailure": "continue",
+                },
+            ]
+        }, inputs
+
+    if template_id == "vscode_repo_workspace":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        return {
+            "steps": [
+                {
+                    "id": "vscode_open_workspace",
+                    "name": "Open repo in VS Code",
+                    "type": "shell",
+                    "prompt": f"open -na 'Visual Studio Code' {shell_quote(repo_path)}",
+                },
+                {
+                    "id": "vscode_focus_workspace",
+                    "name": "Focus VS Code",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Code"],
+                    "onFailure": "continue",
+                },
+            ]
+        }, inputs
+
+    if template_id == "codex_ghostty_session":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "codex-dev"
+        prompt = inputs.get("prompt") or "Inspect this repo and outline the next concrete engineering step."
+        attach_command = f"tmux new-session -A -s {session_name}"
+        codex_command = f"cd {shell_quote(repo_path)} && codex {shell_quote(prompt)}"
+        return {
+            "steps": [
+                {
+                    "id": "codex_session_create",
+                    "name": "Create Codex tmux session",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "codex_seed_prompt",
+                    "name": "Seed Codex in tmux",
+                    "type": "drive",
+                    "command": "send",
+                    "args": ["--session", session_name, "--json", codex_command],
+                },
+                {
+                    "id": "codex_open_ghostty",
+                    "name": "Open Ghostty on Codex session",
+                    "type": "shell",
+                    "prompt": f"open -na Ghostty.app --args -e zsh -lc {shell_quote(attach_command)}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "codex_focus_ghostty",
+                    "name": "Focus Ghostty",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Ghostty"],
+                    "onFailure": "continue",
+                },
+            ]
+        }, inputs
+
+    if template_id == "claude_code_ghostty_session":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "claude-dev"
+        prompt = inputs.get("prompt") or "Inspect this repo and outline the next concrete engineering step."
+        attach_command = f"tmux new-session -A -s {session_name}"
+        claude_command = f"cd {shell_quote(repo_path)} && claude --permission-mode acceptEdits {shell_quote(prompt)}"
+        return {
+            "steps": [
+                {
+                    "id": "claude_session_create",
+                    "name": "Create Claude Code tmux session",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "claude_seed_prompt",
+                    "name": "Seed Claude Code in tmux",
+                    "type": "drive",
+                    "command": "send",
+                    "args": ["--session", session_name, "--json", claude_command],
+                },
+                {
+                    "id": "claude_open_ghostty",
+                    "name": "Open Ghostty on Claude session",
+                    "type": "shell",
+                    "prompt": f"open -na Ghostty.app --args -e zsh -lc {shell_quote(attach_command)}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "claude_focus_ghostty",
+                    "name": "Focus Ghostty",
+                    "type": "steer",
+                    "command": "focus",
+                    "args": ["--app", "Ghostty"],
+                    "onFailure": "continue",
+                },
+            ]
+        }, inputs
+
+    if template_id == "codex_repo_task":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "codex-task"
+        prompt = inputs.get("prompt") or ""
+        codex_exec = f"cd {shell_quote(repo_path)} && codex exec --sandbox workspace-write -a never {shell_quote(prompt)}"
+        return {
+            "steps": [
+                {
+                    "id": "codex_task_session_create",
+                    "name": "Create Codex task session",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "codex_task_run",
+                    "name": "Run Codex task",
+                    "type": "shell",
+                    "session": session_name,
+                    "prompt": codex_exec,
+                },
+            ]
+        }, inputs
+
+    if template_id == "claude_code_repo_task":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        session_name = inputs.get("sessionName") or "claude-task"
+        prompt = inputs.get("prompt") or ""
+        claude_exec = f"cd {shell_quote(repo_path)} && claude -p --permission-mode acceptEdits {shell_quote(prompt)}"
+        return {
+            "steps": [
+                {
+                    "id": "claude_task_session_create",
+                    "name": "Create Claude Code task session",
+                    "type": "drive",
+                    "command": "session",
+                    "args": ["create", "--name", session_name, "--cwd", repo_path, "--json"],
+                },
+                {
+                    "id": "claude_task_run",
+                    "name": "Run Claude Code task",
+                    "type": "shell",
+                    "session": session_name,
+                    "prompt": claude_exec,
+                },
+            ]
+        }, inputs
+
+    if template_id == "github_repo_triage":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        return {
+            "steps": [
+                {
+                    "id": "github_triage_git_state",
+                    "name": "Capture git state",
+                    "type": "shell",
+                    "prompt": f"cd {shell_quote(repo_path)} && git status --short && git branch -vv && git remote -v",
+                },
+                {
+                    "id": "github_triage_gh_state",
+                    "name": "Capture GitHub CLI state",
+                    "type": "shell",
+                    "prompt": f"cd {shell_quote(repo_path)} && gh auth status && gh repo view --json nameWithOwner,defaultBranchRef,isPrivate && gh pr status",
+                },
+            ]
+        }, inputs
+
+    if template_id == "github_branch_commit_push_pr":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        branch_name = inputs.get("branchName") or ""
+        commit_message = inputs.get("commitMessage") or ""
+        pr_title = inputs.get("prTitle") or ""
+        pr_body = inputs.get("prBody") or "## Summary\n- \n\n## Validation\n- "
+        return {
+            "steps": [
+                {
+                    "id": "github_branch_prepare",
+                    "name": "Create or switch branch",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": f"cd {shell_quote(repo_path)} && git checkout -B {shell_quote(branch_name)}",
+                },
+                {
+                    "id": "github_commit_changes",
+                    "name": "Commit current changes",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": f"cd {shell_quote(repo_path)} && git add -A && git commit -m {shell_quote(commit_message)}",
+                },
+                {
+                    "id": "github_push_branch",
+                    "name": "Push branch to origin",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": f"cd {shell_quote(repo_path)} && git push -u origin {shell_quote(branch_name)}",
+                },
+                {
+                    "id": "github_create_pr",
+                    "name": "Create draft pull request",
+                    "type": "shell",
+                    "dangerous": True,
+                    "prompt": (
+                        f"cd {shell_quote(repo_path)} && "
+                        f"gh pr create --draft --title {shell_quote(pr_title)} --body {shell_quote(pr_body)}"
+                    ),
                 },
             ]
         }, inputs

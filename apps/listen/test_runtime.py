@@ -163,6 +163,15 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertIn("repo_validation_handoff", template_ids)
         self.assertIn("browser_ui_audit", template_ids)
         self.assertIn("incident_mail_handoff", template_ids)
+        self.assertIn("developer_workstation_bootstrap", template_ids)
+        self.assertIn("ghostty_tmux_workspace", template_ids)
+        self.assertIn("vscode_repo_workspace", template_ids)
+        self.assertIn("codex_ghostty_session", template_ids)
+        self.assertIn("claude_code_ghostty_session", template_ids)
+        self.assertIn("codex_repo_task", template_ids)
+        self.assertIn("claude_code_repo_task", template_ids)
+        self.assertIn("github_repo_triage", template_ids)
+        self.assertIn("github_branch_commit_push_pr", template_ids)
 
     def test_repo_validation_handoff_resolves_note_placeholders(self) -> None:
         workflow_spec, inputs = workflow_templates.resolve_template(
@@ -180,6 +189,61 @@ class ListenRuntimeTests(unittest.TestCase):
         note_body = steps[-1]["args"][-1]
         self.assertIn("{{steps.repo_validation_test.result.output}}", note_body)
         self.assertIn("{{steps.repo_validation_build.result.output}}", note_body)
+
+    def test_developer_workstation_bootstrap_resolves_tmux_ghostty_vscode_steps(self) -> None:
+        workflow_spec, inputs = workflow_templates.resolve_template(
+            "developer_workstation_bootstrap",
+            {
+                "repoPath": "/tmp/example-repo",
+                "sessionName": "dev-sandbox",
+                "bootstrapCommand": "pwd && git status --short",
+            },
+        )
+        self.assertEqual(inputs["sessionName"], "dev-sandbox")
+        steps = workflow_spec["steps"]
+        self.assertEqual(steps[0]["type"], "drive")
+        self.assertEqual(steps[0]["command"], "session")
+        self.assertIn("--cwd", steps[0]["args"])
+        self.assertIn("/tmp/example-repo", steps[0]["args"])
+        self.assertIn("Ghostty.app", steps[2]["prompt"])
+        self.assertIn("Visual Studio Code", steps[4]["prompt"])
+
+    def test_codex_and_claude_repo_tasks_resolve_expected_commands(self) -> None:
+        codex_spec, _ = workflow_templates.resolve_template(
+            "codex_repo_task",
+            {"repoPath": "/tmp/example-repo", "sessionName": "codex-job", "prompt": "Fix the failing tests."},
+        )
+        claude_spec, _ = workflow_templates.resolve_template(
+            "claude_code_repo_task",
+            {"repoPath": "/tmp/example-repo", "sessionName": "claude-job", "prompt": "Fix the failing tests."},
+        )
+        codex_prompt = codex_spec["steps"][1]["prompt"]
+        claude_prompt = claude_spec["steps"][1]["prompt"]
+        self.assertIn("codex exec", codex_prompt)
+        self.assertIn("workspace-write", codex_prompt)
+        self.assertIn("claude -p", claude_prompt)
+        self.assertIn("acceptEdits", claude_prompt)
+
+    def test_github_branch_commit_push_pr_requires_branch_inputs(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Missing required template input: branchName"):
+            workflow_templates.resolve_template(
+                "github_branch_commit_push_pr",
+                {"repoPath": "/tmp/example-repo", "commitMessage": "msg", "prTitle": "title"},
+            )
+
+    def test_github_branch_commit_push_pr_marks_shell_steps_dangerous(self) -> None:
+        workflow_spec, _ = workflow_templates.resolve_template(
+            "github_branch_commit_push_pr",
+            {
+                "repoPath": "/tmp/example-repo",
+                "branchName": "feature/example",
+                "commitMessage": "Ship example flow",
+                "prTitle": "Ship example flow",
+            },
+        )
+        steps = workflow_spec["steps"]
+        self.assertTrue(all(step.get("dangerous") for step in steps))
+        self.assertIn("gh pr create", steps[-1]["prompt"])
 
     def test_incident_mail_handoff_requires_mail_to_input(self) -> None:
         with self.assertRaisesRegex(ValueError, "Missing required template input: mailTo"):

@@ -56,6 +56,7 @@ Remaining tasks:
 Status:
 - Strong starter library is already in place
 - Library now covers repo hygiene, validation handoffs, browser UI audit, and incident mail handoff flows in addition to the earlier repair/recovery templates
+- Developer workstation templates now cover tmux, Ghostty, VS Code, Codex, Claude Code, and GitHub triage/PR flows
 - Remaining work depends on real daily usage patterns
 
 Remaining tasks:
@@ -63,6 +64,7 @@ Remaining tasks:
 - partially add more incident and recovery bundles
 - partially add more browser and app-specific flows
 - partially add more operator handoff variants
+- validate which developer workstation templates become the default agent operating paths in daily use
 - prune or merge low-value templates once usage patterns are clear
 
 Primary reference:

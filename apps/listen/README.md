@@ -101,6 +101,15 @@ Built-in workflows:
 - `repo_change_review`
 - `repo_branch_hygiene`
 - `repo_validation_handoff`
+- `developer_workstation_bootstrap`
+- `ghostty_tmux_workspace`
+- `vscode_repo_workspace`
+- `codex_ghostty_session`
+- `claude_code_ghostty_session`
+- `codex_repo_task`
+- `claude_code_repo_task`
+- `github_repo_triage`
+- `github_branch_commit_push_pr`
 - `dashboard_audit`
 - `dashboard_jobs_triage`
 - `dashboard_policy_audit`
@@ -116,6 +125,11 @@ Built-in workflows:
 - `operator_handoff_bundle`
 - `imessage_status_ping`
 - `mail_draft_incident_summary`
+
+The developer workstation templates are the practical replacement for the looser `drive`/`steer`
+"skills" described in `mac-mini-agent`: they give agents a structured path to create tmux
+workspaces, surface them in Ghostty, open repos in VS Code, run Codex or Claude Code against a
+repo, and inspect or publish GitHub state through `gh`.
 
 Examples:
 
