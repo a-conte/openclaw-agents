@@ -24,10 +24,21 @@ interface TaskBoardProps {
   onCreate: (task: Partial<Task>) => Promise<Task | null | void> | Task | null | void;
   onUpdateAndRun?: (id: string, updates: Partial<Task>) => Promise<void> | void;
   onCreateAndRun?: (task: Partial<Task>) => Promise<void> | void;
+  onRunTask?: (task: Task) => Promise<void> | void;
+  onAdvanceTask?: (task: Task) => Promise<void> | void;
   onDelete: (id: string) => void;
 }
 
-export function TaskBoard({ tasks, onUpdate, onCreate, onUpdateAndRun, onCreateAndRun, onDelete }: TaskBoardProps) {
+export function TaskBoard({
+  tasks,
+  onUpdate,
+  onCreate,
+  onUpdateAndRun,
+  onCreateAndRun,
+  onRunTask,
+  onAdvanceTask,
+  onDelete,
+}: TaskBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,6 +97,8 @@ export function TaskBoard({ tasks, onUpdate, onCreate, onUpdateAndRun, onCreateA
               status={status}
               tasks={tasksByStatus[status]}
               onTaskClick={handleTaskClick}
+              onRunTask={onRunTask}
+              onAdvanceTask={onAdvanceTask}
             />
           ))}
         </div>
