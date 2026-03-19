@@ -1,0 +1,6 @@
+{
+  "templateId": "open_command_page",
+  "templateInputs": {},
+  "targetAgent": "main",
+  "wait": true
+}

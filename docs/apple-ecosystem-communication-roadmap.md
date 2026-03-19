@@ -18,8 +18,9 @@ What already exists:
 What does not yet exist:
 
 - true APNs-backed iPad push delivery
-- Apple-native delivery execution from notification events themselves
+- fully polished Apple-native delivery execution from notification events themselves
 - fully unified Apple delivery routing across all channels
+- polished importable `.shortcut` bundles generated directly from this repo
 
 ## Principles
 
@@ -178,7 +179,7 @@ Suggested slices:
 - `Done: Shortcuts-friendly HTTP actions`
 - `Done: retry/latest-failure Shortcut flows`
 - `Done: compact mobile summary payloads`
-- `Open: iOS Shortcuts app export/import assets and human-facing Shortcut recipes`
+- `Done: human-facing Shortcut recipes and sample payload assets`
 
 ## Security Model
 

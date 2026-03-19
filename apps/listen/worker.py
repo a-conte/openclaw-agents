@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from artifacts import copy_file_artifact, write_json_artifact, write_text_artifact
-from notifications import emit_job_notification
+from notifications import emit_job_notification, record_notification_delivery
 from policy import check_command_policy, check_step_policy, check_workflow_policy, current_policy
 from workflow_templates import resolve_template
 
@@ -418,6 +418,114 @@ def run_shell_prompt(session: str, prompt: str) -> dict[str, Any]:
     return structured_process_failure(result, "shell command failed")
 
 
+def _notification_subject(event: dict[str, Any]) -> str:
+    routing = event.get("routing")
+    prefix = ""
+    if isinstance(routing, dict):
+        prefix = str(routing.get("mailSubjectPrefix") or "").strip()
+    title = str(event.get("title") or "OpenClaw update").strip() or "OpenClaw update"
+    return f"{prefix}: {title}" if prefix else title
+
+
+def _notification_body(job: dict[str, Any], event: dict[str, Any]) -> str:
+    lines = [
+        str(event.get("title") or "OpenClaw update").strip() or "OpenClaw update",
+        "",
+        f"Job ID: {job.get('id')}",
+        f"Status: {job.get('status')}",
+    ]
+    target_agent = str(job.get("targetAgent") or "").strip()
+    if target_agent:
+        lines.append(f"Target agent: {target_agent}")
+    template_id = str(job.get("templateId") or "").strip()
+    if template_id:
+        lines.append(f"Template: {template_id}")
+    workflow = str(job.get("workflow") or "").strip()
+    if workflow:
+        lines.append(f"Workflow: {workflow}")
+    summary = compact_text(job.get("summary"), 800)
+    if summary:
+        lines.extend(["", "Summary:", summary])
+    error = compact_text(job.get("error"), 800)
+    if error:
+        lines.extend(["", "Error:", error])
+    return "\n".join(lines).strip()
+
+
+def dispatch_notification_event(job: dict[str, Any], event: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(event, dict):
+        return []
+    event_id = str(event.get("id") or "").strip()
+    channels = event.get("channels")
+    if not event_id or not isinstance(channels, list):
+        return []
+    routing = event.get("routing")
+    route = routing if isinstance(routing, dict) else {}
+    body = _notification_body(job, event)
+    deliveries: list[dict[str, Any]] = []
+
+    for channel in channels:
+        if channel == "push":
+            recorded = record_notification_delivery(event_id, "push", "recorded")
+            if isinstance(recorded, dict):
+                deliveries.append(recorded)
+            continue
+        if channel == "notes":
+            recorded = record_notification_delivery(event_id, "notes", "recorded")
+            if isinstance(recorded, dict):
+                deliveries.append(recorded)
+            continue
+        if channel == "imessage":
+            recipient = str(route.get("recipient") or "").strip()
+            if not recipient:
+                recorded = record_notification_delivery(event_id, "imessage", "skipped", detail="missing recipient")
+                if isinstance(recorded, dict):
+                    deliveries.append(recorded)
+                continue
+            args = ["send", "--recipient", recipient, "--text", body]
+            allowed, reason = check_command_policy("steer", "messages", args)
+            if not allowed:
+                recorded = record_notification_delivery(event_id, "imessage", "blocked", detail=reason, target=recipient)
+                if isinstance(recorded, dict):
+                    deliveries.append(recorded)
+                continue
+            result = run_steer("messages", *args, "--json")
+            ok, payload = parse_json_result(result)
+            final = payload if ok and isinstance(payload, dict) else structured_process_failure(result, "messages send failed")
+            status = "sent" if final.get("ok") else "failed"
+            detail = None if final.get("ok") else str(final.get("error") or "messages send failed")
+            recorded = record_notification_delivery(event_id, "imessage", status, detail=detail, target=recipient)
+            if isinstance(recorded, dict):
+                deliveries.append(recorded)
+            continue
+        if channel == "mail_draft":
+            mail_to = str(route.get("mailTo") or "").strip()
+            if not mail_to:
+                recorded = record_notification_delivery(event_id, "mail_draft", "skipped", detail="missing mailTo")
+                if isinstance(recorded, dict):
+                    deliveries.append(recorded)
+                continue
+            subject = _notification_subject(event)
+            args = ["draft", "--to", mail_to, "--subject", subject, "--body", body]
+            allowed, reason = check_command_policy("steer", "mail", args)
+            if not allowed:
+                recorded = record_notification_delivery(event_id, "mail_draft", "blocked", detail=reason, target=mail_to)
+                if isinstance(recorded, dict):
+                    deliveries.append(recorded)
+                continue
+            result = run_steer("mail", *args, "--json")
+            ok, payload = parse_json_result(result)
+            final = payload if ok and isinstance(payload, dict) else structured_process_failure(result, "mail draft failed")
+            status = "drafted" if final.get("ok") else "failed"
+            detail = None if final.get("ok") else str(final.get("error") or "mail draft failed")
+            recorded = record_notification_delivery(event_id, "mail_draft", status, detail=detail, target=mail_to)
+            if isinstance(recorded, dict):
+                deliveries.append(recorded)
+            continue
+
+    return deliveries
+
+
 def execute_step(step: dict[str, Any], job: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     step_type = str(step.get("type", "")).strip()
     if not step_type:
@@ -599,6 +707,7 @@ def finalize_job(job_id: str, job: dict[str, Any], started: float) -> None:
     notification_event = emit_job_notification(job)
     if notification_event is not None:
         job["notificationEventId"] = notification_event.get("id")
+        job["notificationDeliveries"] = dispatch_notification_event(job, notification_event)
     write_job(job_id, job)
 
 

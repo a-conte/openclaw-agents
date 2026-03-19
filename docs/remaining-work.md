@@ -24,16 +24,19 @@ Primary reference:
 
 Status:
 - Apple communication roadmap Waves 1-3 are materially implemented
-- Remaining work is polish and operator convenience
+- Remaining work is mostly polish and operator convenience
+- Event-driven iMessage/Mail dispatch from notification events is now implemented behind existing `listen` policy checks
+- Human-facing Apple Shortcuts recipes and sample payload assets are now documented in `docs/apple-shortcuts-recipes.md`
 
 Remaining tasks:
-- package real Apple Shortcuts recipes instead of exposing only HTTP endpoints
-- add event-driven iMessage and Mail dispatch from notification events, not only manual/template invocation
+- [x] package real Apple Shortcuts recipes instead of exposing only HTTP endpoints
+- [x] add event-driven iMessage and Mail dispatch from notification events, not only manual/template invocation
 - deepen delivery routing controls per template and per agent
 - review notification noise and add tighter severity/routing defaults if needed
 
 Primary reference:
 - [`docs/apple-ecosystem-communication-roadmap.md`](/Users/a_conte/dev/openclaw-agents/docs/apple-ecosystem-communication-roadmap.md)
+- [`docs/apple-shortcuts-recipes.md`](/Users/a_conte/dev/openclaw-agents/docs/apple-shortcuts-recipes.md)
 
 ## 3. iPad Product Polish
 

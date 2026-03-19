@@ -77,6 +77,7 @@ Custom templates:
 - `GET /policy/admin` returns current env-backed policy settings plus suggested host env values
 - `GET /notifications/preferences` returns Apple delivery preferences used by the dashboard and iPad app
 - `GET /notifications/events` returns recent Apple alert events for supplemental iPad delivery and dashboard review
+- qualifying notification events can automatically create templated iMessage and Mail draft deliveries when routing is configured and policy allows those channels
 - the `/shortcuts/*` endpoints provide compact mobile-friendly payloads for Apple Shortcuts and similar automation clients
 - notification preferences may include per-template routing for `push`, `notes`, `imessage`, and `mail_draft`
 

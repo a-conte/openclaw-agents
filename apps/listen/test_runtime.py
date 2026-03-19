@@ -193,6 +193,80 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertIsNotNone(emitted)
         self.assertEqual(events[0]["jobId"], "job-1")
         self.assertIn("imessage", events[0]["channels"])
+        self.assertEqual(events[0]["deliveries"], [])
+
+    def test_dispatch_notification_event_blocks_imessage_when_policy_disallows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                notifications.update_notification_preferences(
+                    {
+                        "severityThreshold": "error",
+                        "channels": {"push": False, "notes": False, "imessage": True, "mail_draft": False},
+                        "templateRouting": {
+                            "operator_handoff_note": {
+                                "channels": {"push": False, "notes": False, "imessage": True, "mail_draft": False},
+                                "recipient": "+15551234567",
+                            }
+                        },
+                    }
+                )
+                event = notifications.emit_job_notification(
+                    {
+                        "id": "job-1",
+                        "status": "failed",
+                        "templateId": "operator_handoff_note",
+                        "targetAgent": "main",
+                        "summary": "Workflow failed",
+                    }
+                )
+                with patch.dict(os.environ, {"OPENCLAW_LISTEN_ALLOW_DANGEROUS": "false"}, clear=False):
+                    deliveries = worker.dispatch_notification_event(
+                        {"id": "job-1", "status": "failed", "templateId": "operator_handoff_note", "summary": "Workflow failed"},
+                        event,
+                    )
+                events = notifications.list_notification_events()
+        self.assertEqual(deliveries[0]["status"], "blocked")
+        self.assertEqual(events[0]["deliveries"][0]["channel"], "imessage")
+
+    def test_dispatch_notification_event_sends_mail_draft_when_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                notifications.update_notification_preferences(
+                    {
+                        "severityThreshold": "error",
+                        "channels": {"push": False, "notes": False, "imessage": False, "mail_draft": True},
+                        "templateRouting": {
+                            "operator_handoff_note": {
+                                "channels": {"push": False, "notes": False, "imessage": False, "mail_draft": True},
+                                "mailTo": "ops@example.com",
+                                "mailSubjectPrefix": "Incident",
+                            }
+                        },
+                    }
+                )
+                event = notifications.emit_job_notification(
+                    {
+                        "id": "job-2",
+                        "status": "failed",
+                        "templateId": "operator_handoff_note",
+                        "targetAgent": "main",
+                        "summary": "Workflow failed",
+                    }
+                )
+                fake_payload = {"ok": True, "drafted": True}
+                with (
+                    patch.dict(os.environ, {"OPENCLAW_LISTEN_ALLOW_DANGEROUS": "true"}, clear=False),
+                    patch.object(worker, "run_steer", return_value=worker.subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(fake_payload), stderr="")),
+                ):
+                    deliveries = worker.dispatch_notification_event(
+                        {"id": "job-2", "status": "failed", "templateId": "operator_handoff_note", "summary": "Workflow failed"},
+                        event,
+                    )
+                events = notifications.list_notification_events()
+        self.assertEqual(deliveries[0]["status"], "drafted")
+        self.assertEqual(events[0]["deliveries"][0]["target"], "ops@example.com")
 
     def test_resolve_template_builds_browser_snapshot_review(self) -> None:
         spec, inputs = workflow_templates.resolve_template("browser_snapshot_review", {"url": "http://localhost:3000/command"})

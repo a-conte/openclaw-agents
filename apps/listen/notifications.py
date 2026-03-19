@@ -224,6 +224,7 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
         "summary": summary or None,
         "dashboardPrimary": bool(preferences.get("dashboardPrimary", True)),
         "routing": route or None,
+        "deliveries": [],
     }
 
     state = _load_state()
@@ -234,3 +235,40 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
     state["events"] = events[-200:]
     _save_state(state)
     return event
+
+
+def record_notification_delivery(
+    event_id: str,
+    channel: str,
+    status: str,
+    *,
+    detail: str | None = None,
+    target: str | None = None,
+) -> dict[str, Any] | None:
+    state = _load_state()
+    events = state.get("events")
+    if not isinstance(events, list):
+        return None
+    target_event: dict[str, Any] | None = None
+    for item in events:
+        if isinstance(item, dict) and str(item.get("id") or "") == event_id:
+            target_event = item
+            break
+    if target_event is None:
+        return None
+    deliveries = target_event.get("deliveries")
+    if not isinstance(deliveries, list):
+        deliveries = []
+        target_event["deliveries"] = deliveries
+    payload: dict[str, Any] = {
+        "channel": channel,
+        "status": status,
+        "at": now_iso(),
+    }
+    if detail:
+        payload["detail"] = detail
+    if target:
+        payload["target"] = target
+    deliveries.append(payload)
+    _save_state(state)
+    return payload
