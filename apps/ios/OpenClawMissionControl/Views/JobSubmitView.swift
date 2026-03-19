@@ -10,6 +10,16 @@ private enum JobWorkspacePane: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum JobStatusFilter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case running = "Running"
+    case failed = "Failed"
+    case completed = "Completed"
+    case stopped = "Stopped"
+
+    var id: String { rawValue }
+}
+
 struct JobSubmitView: View {
     @ObservedObject var viewModel: DashboardViewModel
     @State private var selectedPane: JobWorkspacePane = .jobs
@@ -41,6 +51,7 @@ struct JobSubmitView: View {
     @State private var notificationsImessageEnabled = false
     @State private var notificationsMailDraftEnabled = false
     @State private var isSavingNotificationPreferences = false
+    @State private var selectedJobFilter: JobStatusFilter = .all
 
     private let agents = ["main", "mail", "docs", "research", "ai-research", "dev", "security"]
 
@@ -301,6 +312,13 @@ struct JobSubmitView: View {
 
             Toggle("Show archived jobs", isOn: $showArchived)
                 .toggleStyle(.switch)
+
+            Picker("Job filter", selection: $selectedJobFilter) {
+                ForEach(JobStatusFilter.allCases) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
 
             jobsList
         }
@@ -673,14 +691,25 @@ struct JobSubmitView: View {
     }
 
     private var jobsList: some View {
-        let items = showArchived ? viewModel.archivedJobs : viewModel.jobs
+        let sourceItems = showArchived ? viewModel.archivedJobs : viewModel.jobs
+        let items = filteredJobs(sourceItems)
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text(showArchived ? "Archived Jobs" : "Recent Jobs")
-                .font(.title2.bold())
+            HStack {
+                Text(showArchived ? "Archived Jobs" : "Recent Jobs")
+                    .font(.title2.bold())
+                Spacer()
+                Text("\(items.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
 
             if items.isEmpty {
-                ContentUnavailableView(showArchived ? "No archived jobs" : "No jobs", systemImage: "tray", description: Text("Submitted automation jobs will appear here."))
+                ContentUnavailableView(
+                    showArchived ? "No archived jobs" : "No jobs",
+                    systemImage: "tray",
+                    description: Text(emptyJobsDescription)
+                )
             } else {
                 ForEach(items) { job in
                     Button {
@@ -698,6 +727,39 @@ struct JobSubmitView: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+        }
+    }
+
+    private var emptyJobsDescription: String {
+        let scope = showArchived ? "archived" : "active"
+        switch selectedJobFilter {
+        case .all:
+            return "Submitted \(scope) automation jobs will appear here."
+        case .running:
+            return "No running \(scope) jobs matched the current filter."
+        case .failed:
+            return "No failed \(scope) jobs matched the current filter."
+        case .completed:
+            return "No completed \(scope) jobs matched the current filter."
+        case .stopped:
+            return "No stopped \(scope) jobs matched the current filter."
+        }
+    }
+
+    private func filteredJobs(_ jobs: [Job]) -> [Job] {
+        jobs.filter { job in
+            switch selectedJobFilter {
+            case .all:
+                return true
+            case .running:
+                return job.status == .running
+            case .failed:
+                return job.status == .failed
+            case .completed:
+                return job.status == .completed
+            case .stopped:
+                return job.status == .stopped
             }
         }
     }
@@ -973,8 +1035,16 @@ private struct JobDetailSheet: View {
                                     }
                                     if !step.artifacts.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
-                                            ForEach(step.artifacts.keys.sorted(), id: \.self) { key in
-                                                artifactRow(key: key, value: step.artifacts[key])
+                                            evidenceSummary(for: step.artifacts)
+                                            ForEach(groupedArtifacts(step.artifacts)) { group in
+                                                VStack(alignment: .leading, spacing: 6) {
+                                                    Text("\(group.title) (\(group.items.count))")
+                                                        .font(.caption.weight(.semibold))
+                                                        .foregroundStyle(.secondary)
+                                                    ForEach(group.items, id: \.key) { item in
+                                                        artifactRow(key: item.key, value: item.value)
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1066,6 +1136,23 @@ private struct JobDetailSheet: View {
         return value.displayString
     }
 
+    @ViewBuilder
+    private func evidenceSummary(for artifacts: [String: JSONValue]) -> some View {
+        let groups = groupedArtifacts(artifacts)
+        if !groups.isEmpty {
+            HStack(spacing: 8) {
+                ForEach(groups) { group in
+                    Text("\(group.title): \(group.items.count)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.thinMaterial, in: Capsule())
+                }
+            }
+        }
+    }
+
     private func artifactPreview(_ value: JSONValue?) -> String? {
         guard let value else { return nil }
         if case .object(let object) = value {
@@ -1130,6 +1217,59 @@ private struct JobDetailSheet: View {
     private func summaryLine(kind: String, relativePath: String) -> String {
         [kind, relativePath].filter { !$0.isEmpty }.joined(separator: " · ")
     }
+
+    private func groupedArtifacts(_ artifacts: [String: JSONValue]) -> [ArtifactGroup] {
+        let ordered = artifacts.keys.sorted().map { key in
+            ArtifactItem(key: key, value: artifacts[key])
+        }
+        let grouped = Dictionary(grouping: ordered, by: artifactCategory(for:))
+        let categoryOrder: [ArtifactCategory] = [.image, .log, .structured, .text, .other]
+        return categoryOrder.compactMap { category in
+            guard let items = grouped[category], !items.isEmpty else { return nil }
+            return ArtifactGroup(title: category.rawValue, items: items)
+        }
+    }
+
+    private func artifactCategory(for item: ArtifactItem) -> ArtifactCategory {
+        guard let value = item.value else { return .other }
+        if case .object(let object) = value {
+            let kind = object["kind"]?.displayString.lowercased() ?? ""
+            let path = object["relativePath"]?.displayString.lowercased() ?? ""
+            if kind.hasPrefix("image") || path.hasSuffix(".png") || path.hasSuffix(".jpg") || path.hasSuffix(".jpeg") || path.hasSuffix(".gif") || path.hasSuffix(".webp") {
+                return .image
+            }
+            if kind.contains("log") || path.hasSuffix(".log") || item.key.lowercased().contains("stdout") || item.key.lowercased().contains("stderr") {
+                return .log
+            }
+            if kind.contains("json") || path.hasSuffix(".json") {
+                return .structured
+            }
+            if kind.contains("text") || path.hasSuffix(".txt") || path.hasSuffix(".md") {
+                return .text
+            }
+        }
+        return .other
+    }
+}
+
+private struct ArtifactItem {
+    let key: String
+    let value: JSONValue?
+}
+
+private struct ArtifactGroup: Identifiable {
+    let title: String
+    let items: [ArtifactItem]
+
+    var id: String { title }
+}
+
+private enum ArtifactCategory: String {
+    case image = "Images"
+    case log = "Logs"
+    case structured = "Structured"
+    case text = "Text"
+    case other = "Other"
 }
 
 private struct MetricsDetailSheet: View {
@@ -1159,10 +1299,21 @@ private struct MetricsDetailSheet: View {
                             }
                         }
 
+                        if !metrics.templates.usage.isEmpty {
+                            detailSection("Template Usage") {
+                                ForEach(metrics.templates.usage.prefix(8)) { item in
+                                    metricRow(item.templateId, "\(item.count) runs")
+                                }
+                            }
+                        }
+
                         if !metrics.trends.isEmpty {
                             detailSection("Recent Trends") {
                                 ForEach(metrics.trends.suffix(7)) { item in
-                                    metricRow(item.date, "\(item.total) total · \(item.completed) ok · \(item.failed) failed · \(item.blocked) blocked")
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        metricRow(item.date, "\(item.total) total · \(item.completed) ok · \(item.failed) failed · \(item.blocked) blocked")
+                                        trendBar(item)
+                                    }
                                 }
                             }
                         }
@@ -1215,6 +1366,32 @@ private struct MetricsDetailSheet: View {
             Spacer()
             Text(value).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
         }
+    }
+
+    @ViewBuilder
+    private func trendBar(_ trend: JobMetrics.Trend) -> some View {
+        let total = max(trend.total, 1)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            HStack(spacing: 4) {
+                Rectangle()
+                    .fill(Color.green.opacity(0.8))
+                    .frame(width: max(0, width * CGFloat(trend.completed) / CGFloat(total)))
+                Rectangle()
+                    .fill(Color.red.opacity(0.8))
+                    .frame(width: max(0, width * CGFloat(trend.failed) / CGFloat(total)))
+                Rectangle()
+                    .fill(Color.orange.opacity(0.8))
+                    .frame(width: max(0, width * CGFloat(trend.blocked) / CGFloat(total)))
+                if trend.completed + trend.failed + trend.blocked < total {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.25))
+                        .frame(width: max(0, width * CGFloat(total - trend.completed - trend.failed - trend.blocked) / CGFloat(total)))
+                }
+            }
+        }
+        .frame(height: 8)
+        .clipShape(Capsule())
     }
 }
 

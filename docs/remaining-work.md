@@ -47,8 +47,8 @@ Status:
 
 Remaining tasks:
 - [x] add a cleaner navigation structure for admin, jobs, templates, metrics, and alerts
-- improve artifact browsing and preview depth
-- deepen metrics and history drill-down
+- partially improve artifact browsing and preview depth
+- partially deepen metrics and history drill-down
 - partially move admin functions into cleaner dedicated screens instead of stacking them into a few views
 
 ## 4. Workflow Library Depth
