@@ -4,6 +4,7 @@ import type {
   AgentSummaryContract,
 } from '@openclaw/contracts';
 import type { HealthResponse, Task, WorkflowRun, RepoStatus } from './types';
+import { getAgentStatus } from './utils';
 
 const QUIET_THRESHOLD_MS = 60 * 60 * 1000;       // 60 minutes
 const STALE_TASK_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -25,7 +26,7 @@ export function buildAgentSummaries(health: HealthResponse | null): AgentSummary
     return {
       agentId: agent.agentId,
       name: agent.name ?? agent.agentId,
-      status: agent.status ?? 'offline',
+      status: agent.status ?? getAgentStatus(lastActivity),
       ...(lastActivity != null ? { lastActivity } : {}),
     };
   });

@@ -88,9 +88,28 @@ describe('mission-control', () => {
     });
 
     it('defaults status to offline when undefined', () => {
-      const health = makeHealth([makeAgent({ agentId: 'x', status: undefined })]);
+      const health = makeHealth([makeAgent({ agentId: 'x', status: undefined, sessions: { path: '/tmp', count: 0, recent: [] } })]);
       const summaries = buildAgentSummaries(health);
       expect(summaries[0].status).toBe('offline');
+    });
+
+    it('derives status from recent activity when explicit status is undefined', () => {
+      const now = Date.now();
+      const health = makeHealth([
+        makeAgent({
+          agentId: 'online-agent',
+          status: undefined,
+          sessions: { path: '/tmp', count: 1, recent: [{ key: 's1', updatedAt: now - 60_000, age: 0 }] },
+        }),
+        makeAgent({
+          agentId: 'warning-agent',
+          status: undefined,
+          sessions: { path: '/tmp', count: 1, recent: [{ key: 's2', updatedAt: now - 20 * 60_000, age: 0 }] },
+        }),
+      ]);
+      const summaries = buildAgentSummaries(health);
+      expect(summaries[0].status).toBe('online');
+      expect(summaries[1].status).toBe('warning');
     });
   });
 
