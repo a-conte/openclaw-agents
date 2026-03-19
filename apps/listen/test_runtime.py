@@ -192,9 +192,17 @@ class ListenRuntimeTests(unittest.TestCase):
                 updated = notifications.update_notification_preferences(
                     {
                         "dashboardPrimary": True,
-                        "severityThreshold": "error",
+                        "severityThreshold": "warning",
                         "channels": {"push": True, "notes": False, "imessage": False, "mail_draft": False},
                         "agentAllowlist": ["main"],
+                        "eventPolicy": {
+                            "failed": True,
+                            "stopped": True,
+                            "policyBlocked": True,
+                            "timedOut": True,
+                            "completedHandoffs": True,
+                            "completedGeneral": False,
+                        },
                         "templateRouting": {
                             "operator_handoff_note": {
                                 "channels": {"push": False, "notes": True, "imessage": True, "mail_draft": False},
@@ -215,19 +223,23 @@ class ListenRuntimeTests(unittest.TestCase):
                     }
                 )
                 events = notifications.list_notification_events()
-        self.assertEqual(updated["severityThreshold"], "error")
+        self.assertEqual(updated["severityThreshold"], "warning")
         self.assertIn("operator_handoff_note", updated["templateRouting"])
         self.assertEqual(registered["id"], "ipad-1")
         self.assertIsNotNone(emitted)
         self.assertEqual(events[0]["jobId"], "job-1")
         self.assertIn("imessage", events[0]["channels"])
         self.assertEqual(events[0]["deliveries"], [])
+        self.assertEqual(events[0]["signalClass"], "failure")
 
     def test_default_notification_preferences_include_operator_template_routes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "notification-state.json"
             with patch.object(notifications, "STATE_PATH", state_path):
                 preferences = notifications.get_notification_preferences()
+        self.assertEqual(preferences["mode"], "focused")
+        self.assertEqual(preferences["severityThreshold"], "warning")
+        self.assertFalse(preferences["channels"]["notes"])
         route = preferences["templateRouting"]["operator_handoff_note"]
         self.assertTrue(route["channels"]["push"])
         self.assertTrue(route["channels"]["notes"])
@@ -306,6 +318,40 @@ class ListenRuntimeTests(unittest.TestCase):
                 events = notifications.list_notification_events()
         self.assertEqual(deliveries[0]["status"], "drafted")
         self.assertEqual(events[0]["deliveries"][0]["target"], "ops@example.com")
+
+    def test_completed_general_job_does_not_emit_when_focused_policy_is_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                event = notifications.emit_job_notification(
+                    {
+                        "id": "job-3",
+                        "status": "completed",
+                        "templateId": "repo_branch_hygiene",
+                        "targetAgent": "main",
+                        "summary": "Completed normally",
+                    }
+                )
+        self.assertIsNone(event)
+
+    def test_completed_handoff_job_emits_under_focused_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "notification-state.json"
+            with patch.object(notifications, "STATE_PATH", state_path):
+                event = notifications.emit_job_notification(
+                    {
+                        "id": "job-4",
+                        "status": "completed",
+                        "templateId": "operator_handoff_note",
+                        "targetAgent": "main",
+                        "summary": "Prepared handoff note",
+                    }
+                )
+                events = notifications.list_notification_events()
+        self.assertIsNotNone(event)
+        self.assertEqual(event["signalClass"], "handoff_completion")
+        self.assertEqual(event["severity"], "warning")
+        self.assertEqual(events[0]["jobId"], "job-4")
 
     def test_resolve_template_builds_browser_snapshot_review(self) -> None:
         spec, inputs = workflow_templates.resolve_template("browser_snapshot_review", {"url": "http://localhost:3000/command"})

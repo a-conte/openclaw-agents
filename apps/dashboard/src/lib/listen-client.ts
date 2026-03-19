@@ -47,7 +47,18 @@ export type NotificationSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 export type NotificationPreferences = {
   dashboardPrimary: boolean;
+  mode?: 'focused' | 'verbose';
+  legacySignals?: 'dashboard_only' | 'include_in_operator_feed';
   severityThreshold: NotificationSeverity;
+  eventPolicy?: {
+    failed: boolean;
+    stopped: boolean;
+    policyBlocked: boolean;
+    timedOut: boolean;
+    completedHandoffs: boolean;
+    completedGeneral: boolean;
+  };
+  completionTemplateAllowlist?: string[];
   channels: {
     push: boolean;
     notes: boolean;
@@ -81,6 +92,14 @@ export type NotificationEvent = {
   templateId?: string | null;
   summary?: string | null;
   dashboardPrimary?: boolean;
+  source?: string;
+  signalClass?: string;
+  routing?: {
+    channels?: Record<string, boolean>;
+    recipient?: string | null;
+    mailTo?: string | null;
+    mailSubjectPrefix?: string | null;
+  } | null;
 };
 
 function buildUrl(path: string) {

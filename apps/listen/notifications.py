@@ -9,7 +9,16 @@ from typing import Any
 
 STATE_PATH = Path(__file__).resolve().parent / "notification-state.json"
 _SEVERITY_RANK = {"info": 0, "warning": 1, "error": 2, "critical": 3}
-_DEFAULT_CHANNELS = {"push": True, "notes": True, "imessage": False, "mail_draft": False}
+_DEFAULT_CHANNELS = {"push": True, "notes": False, "imessage": False, "mail_draft": False}
+_DEFAULT_COMPLETION_TEMPLATES = [
+    "operator_handoff_note",
+    "operator_handoff_bundle",
+    "browser_recovery_handoff",
+    "daemon_recovery_handoff",
+    "repo_validation_handoff",
+    "incident_capture",
+    "incident_mail_handoff",
+]
 _DEFAULT_TEMPLATE_ROUTING = {
     "operator_handoff_note": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
     "operator_handoff_bundle": {"channels": {"push": True, "notes": True, "imessage": False, "mail_draft": False}},
@@ -28,7 +37,18 @@ def now_iso() -> str:
 def _default_preferences() -> dict[str, Any]:
     return {
         "dashboardPrimary": True,
-        "severityThreshold": "error",
+        "severityThreshold": "warning",
+        "mode": "focused",
+        "eventPolicy": {
+            "failed": True,
+            "stopped": True,
+            "policyBlocked": True,
+            "timedOut": True,
+            "completedHandoffs": True,
+            "completedGeneral": False,
+        },
+        "completionTemplateAllowlist": list(_DEFAULT_COMPLETION_TEMPLATES),
+        "legacySignals": "dashboard_only",
         "channels": dict(_DEFAULT_CHANNELS),
         "agentAllowlist": [],
         "templateAllowlist": [],
@@ -87,6 +107,10 @@ def get_notification_preferences() -> dict[str, Any]:
         return _default_preferences()
     normalized = dict(_default_preferences())
     normalized.update(current)
+    if normalized.get("mode") not in {"focused", "verbose"}:
+        normalized["mode"] = "focused"
+    if normalized.get("legacySignals") not in {"dashboard_only", "include_in_operator_feed"}:
+        normalized["legacySignals"] = "dashboard_only"
     channels = current.get("channels")
     if isinstance(channels, dict):
         merged_channels = dict(_DEFAULT_CHANNELS)
@@ -94,6 +118,20 @@ def get_notification_preferences() -> dict[str, Any]:
             if name in channels:
                 merged_channels[name] = bool(channels[name])
         normalized["channels"] = merged_channels
+    current_policy = current.get("eventPolicy")
+    merged_policy = dict(_default_preferences()["eventPolicy"])
+    if isinstance(current_policy, dict):
+        for name in merged_policy:
+            if name in current_policy:
+                merged_policy[name] = bool(current_policy[name])
+    normalized["eventPolicy"] = merged_policy
+    raw_completion_templates = current.get("completionTemplateAllowlist")
+    if isinstance(raw_completion_templates, list):
+        normalized["completionTemplateAllowlist"] = [
+            str(item).strip() for item in raw_completion_templates if str(item).strip()
+        ]
+    else:
+        normalized["completionTemplateAllowlist"] = list(_DEFAULT_COMPLETION_TEMPLATES)
     raw_routing = current.get("templateRouting")
     merged_routing = {key: _normalize_route(value) for key, value in _DEFAULT_TEMPLATE_ROUTING.items()}
     if isinstance(raw_routing, dict):
@@ -113,6 +151,28 @@ def update_notification_preferences(data: dict[str, Any]) -> dict[str, Any]:
     threshold = data.get("severityThreshold")
     if isinstance(threshold, str) and threshold in _SEVERITY_RANK:
         current["severityThreshold"] = threshold
+
+    mode = data.get("mode")
+    if isinstance(mode, str) and mode in {"focused", "verbose"}:
+        current["mode"] = mode
+
+    legacy_signals = data.get("legacySignals")
+    if isinstance(legacy_signals, str) and legacy_signals in {"dashboard_only", "include_in_operator_feed"}:
+        current["legacySignals"] = legacy_signals
+
+    event_policy = data.get("eventPolicy")
+    if isinstance(event_policy, dict):
+        merged_policy = dict(current.get("eventPolicy") or _default_preferences()["eventPolicy"])
+        for name in _default_preferences()["eventPolicy"]:
+            if name in event_policy:
+                merged_policy[name] = bool(event_policy[name])
+        current["eventPolicy"] = merged_policy
+
+    raw_completion_templates = data.get("completionTemplateAllowlist")
+    if isinstance(raw_completion_templates, list):
+        current["completionTemplateAllowlist"] = [
+            str(item).strip() for item in raw_completion_templates if str(item).strip()
+        ]
 
     channels = data.get("channels")
     if isinstance(channels, dict):
@@ -209,15 +269,41 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
     if not status:
         return None
 
+    event_policy = preferences.get("eventPolicy")
+    event_policy = event_policy if isinstance(event_policy, dict) else {}
+    template_id = str(job.get("templateId") or "").strip()
+    completion_templates = preferences.get("completionTemplateAllowlist")
+    completion_templates = completion_templates if isinstance(completion_templates, list) else []
+    is_handoff_completion = status == "completed" and template_id in completion_templates
+
     severity = "info"
+    signal_class = "operator"
     if bool(job.get("timedOut")):
+        if not bool(event_policy.get("timedOut", True)):
+            return None
         severity = "critical"
+        signal_class = "timeout"
     elif isinstance(job.get("policy"), dict) and job["policy"].get("allowed") is False:
+        if not bool(event_policy.get("policyBlocked", True)):
+            return None
         severity = "critical"
+        signal_class = "policy_block"
     elif status in {"failed", "stopped"}:
+        if not bool(event_policy.get(status, True)):
+            return None
         severity = "error"
+        signal_class = "failure"
     elif status == "completed":
-        severity = "info"
+        if is_handoff_completion:
+            if not bool(event_policy.get("completedHandoffs", True)):
+                return None
+            severity = "warning"
+            signal_class = "handoff_completion"
+        else:
+            if not bool(event_policy.get("completedGeneral", False)):
+                return None
+            severity = "info"
+            signal_class = "completion"
     else:
         return None
 
@@ -226,7 +312,6 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     template_allowlist = preferences.get("templateAllowlist")
-    template_id = str(job.get("templateId") or "").strip()
     if isinstance(template_allowlist, list) and template_allowlist and template_id not in template_allowlist:
         return None
 
@@ -258,6 +343,8 @@ def emit_job_notification(job: dict[str, Any]) -> dict[str, Any] | None:
         "templateId": template_id or None,
         "summary": summary or None,
         "dashboardPrimary": bool(preferences.get("dashboardPrimary", True)),
+        "source": "automation_runtime",
+        "signalClass": signal_class,
         "routing": route or None,
         "deliveries": [],
     }

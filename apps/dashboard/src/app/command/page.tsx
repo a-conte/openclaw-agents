@@ -78,7 +78,18 @@ type AutomationTemplate = JobTemplateContract & {
 
 type AppleNotificationPreferences = {
   dashboardPrimary: boolean;
+  mode?: 'focused' | 'verbose';
+  legacySignals?: 'dashboard_only' | 'include_in_operator_feed';
   severityThreshold: 'info' | 'warning' | 'error' | 'critical';
+  eventPolicy?: {
+    failed: boolean;
+    stopped: boolean;
+    policyBlocked: boolean;
+    timedOut: boolean;
+    completedHandoffs: boolean;
+    completedGeneral: boolean;
+  };
+  completionTemplateAllowlist?: string[];
   channels: {
     push: boolean;
     notes: boolean;
@@ -112,6 +123,8 @@ type AppleNotificationEvent = {
   createdAt: string;
   targetAgent?: string | null;
   templateId?: string | null;
+  source?: string;
+  signalClass?: string;
   routing?: {
     channels?: Record<string, boolean>;
     recipient?: string | null;
@@ -1445,11 +1458,110 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
           ) : null}
 
           {notificationPreferences ? (
+            (() => {
+              const eventPolicy = {
+                failed: true,
+                stopped: true,
+                policyBlocked: true,
+                timedOut: true,
+                completedHandoffs: true,
+                completedGeneral: false,
+                ...(notificationPreferences.eventPolicy || {}),
+              };
+              return (
             <div className="rounded-lg border border-border bg-surface-3 p-3">
-              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Apple Delivery</div>
+              <div className="mb-2 text-xs uppercase tracking-[0.16em] text-text-tertiary">Operator Alerts</div>
               <div className="space-y-2 text-xs text-text-secondary">
                 <div>Dashboard primary: {notificationPreferences.dashboardPrimary ? 'yes' : 'no'}</div>
+                <div>Policy mode: {notificationPreferences.mode || 'focused'}</div>
                 <div>Severity threshold: {notificationPreferences.severityThreshold}</div>
+                <div className="rounded-md border border-border bg-surface-2/70 p-2 text-[11px] leading-relaxed text-text-secondary">
+                  <div className="font-semibold text-text-primary">Primary alert policy</div>
+                  <div className="mt-1">Operator alerts are for automation runtime events only.</div>
+                  <div>Legacy gateway and channel state stays in the dashboard and does not mirror to Apple delivery.</div>
+                  <div className="mt-1">
+                    Default signal set:
+                    {' '}
+                    failures, policy blocks, timed-out jobs, and explicit handoff completions.
+                  </div>
+                </div>
+                <div className="rounded-md border border-border bg-surface-2/70 p-2">
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Signal policy</div>
+                  <div className="grid gap-2">
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Failed jobs</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.failed}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, failed: event.target.checked },
+                        })}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Stopped jobs</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.stopped}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, stopped: event.target.checked },
+                        })}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Policy-blocked jobs</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.policyBlocked}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, policyBlocked: event.target.checked },
+                        })}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Timed-out jobs</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.timedOut}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, timedOut: event.target.checked },
+                        })}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Completed handoff templates</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.completedHandoffs}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, completedHandoffs: event.target.checked },
+                        })}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span>Other completed jobs</span>
+                      <input
+                        type="checkbox"
+                        checked={eventPolicy.completedGeneral}
+                        onChange={(event) => void saveNotificationPreferences({
+                          ...notificationPreferences,
+                          dashboardPrimary: true,
+                          eventPolicy: { ...eventPolicy, completedGeneral: event.target.checked },
+                        })}
+                      />
+                    </label>
+                  </div>
+                </div>
                 <label className="flex items-center justify-between gap-2">
                   <span>iPad alerts</span>
                   <input
@@ -1500,7 +1612,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 </label>
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Supplemental device policy</div>
-                  <div>The dashboard remains the primary Mission Control. Apple delivery mirrors high-signal alerts and structured Apple handoffs.</div>
+                  <div>The dashboard remains the primary Mission Control. Apple delivery mirrors only high-signal operator alerts and structured handoffs.</div>
                 </div>
                 {selectedTemplate ? (() => {
                   const route = notificationPreferences.templateRouting?.[selectedTemplate.id] || {
@@ -1671,7 +1783,7 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                   );
                 })() : null}
                 <div>
-                  <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent alerts</div>
+                  <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Recent operator alerts</div>
                   <div className="space-y-1">
                     {notificationEvents.length > 0 ? notificationEvents.slice(0, 3).map((event) => (
                       <button
@@ -1686,6 +1798,9 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-text-primary">{event.title}</span>
                           <span className="text-[11px] uppercase text-text-tertiary">{event.severity}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-text-tertiary">
+                          {(event.signalClass || 'operator').replace(/_/g, ' ')} · {event.source || 'automation_runtime'}
                         </div>
                         <div className="mt-1 text-[11px] text-text-secondary">{event.body}</div>
                         {event.routing ? (
@@ -1718,6 +1833,8 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                 </Button>
               </div>
             </div>
+              );
+            })()
           ) : null}
 
           {artifactAdmin ? (
