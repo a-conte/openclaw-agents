@@ -55,13 +55,14 @@ Remaining tasks:
 
 Status:
 - Strong starter library is already in place
+- Library now covers repo hygiene, validation handoffs, browser UI audit, and incident mail handoff flows in addition to the earlier repair/recovery templates
 - Remaining work depends on real daily usage patterns
 
 Remaining tasks:
-- add more repo maintenance flows
-- add more incident and recovery bundles
-- add more browser and app-specific flows
-- add more operator handoff variants
+- partially add more repo maintenance flows
+- partially add more incident and recovery bundles
+- partially add more browser and app-specific flows
+- partially add more operator handoff variants
 - prune or merge low-value templates once usage patterns are clear
 
 Primary reference:

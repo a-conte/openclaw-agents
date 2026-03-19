@@ -576,6 +576,61 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "repo_branch_hygiene",
+        "name": "Repo Branch Hygiene",
+        "description": "Inspect branch tracking state, worktree drift, and remote configuration before making repo changes.",
+        "category": "repo",
+        "builtIn": True,
+        "artifactRetentionDays": 21,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to inspect.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+        ],
+    },
+    {
+        "id": "repo_validation_handoff",
+        "name": "Repo Validation Handoff",
+        "description": "Run repo validation and draft an Apple Notes handoff with the validation outputs and next actions.",
+        "category": "repo",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "repoPath",
+                "label": "Repo Path",
+                "description": "Absolute repo path to validate.",
+                "required": False,
+                "defaultValue": str(REPO_ROOT),
+            },
+            {
+                "key": "testCommand",
+                "label": "Test Command",
+                "description": "Validation command run first.",
+                "required": False,
+                "defaultValue": "npm run dashboard:test",
+            },
+            {
+                "key": "buildCommand",
+                "label": "Build Command",
+                "description": "Build or packaging command run after tests.",
+                "required": False,
+                "defaultValue": "npm run dashboard:build",
+            },
+            {
+                "key": "noteTitle",
+                "label": "Note Title",
+                "description": "Apple Note title used for the handoff.",
+                "required": False,
+                "defaultValue": "Repo Validation Handoff",
+            },
+        ],
+    },
+    {
         "id": "dashboard_policy_audit",
         "name": "Dashboard Policy Audit",
         "description": "Open the dashboard, capture policy and metrics endpoints, then gather screenshot and OCR evidence for admin review.",
@@ -639,6 +694,30 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "browser_ui_audit",
+        "name": "Browser UI Audit",
+        "description": "Open a target page, capture Safari UI dump, screenshot, and OCR evidence for deeper browser inspection.",
+        "category": "browser",
+        "builtIn": True,
+        "artifactRetentionDays": 30,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Target URL",
+                "description": "Browser page to inspect.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "expectedText",
+                "label": "Expected Text",
+                "description": "Optional text to wait for before capture.",
+                "required": False,
+                "defaultValue": "",
+            },
+        ],
+    },
+    {
         "id": "daemon_recovery_handoff",
         "name": "Daemon Recovery Handoff",
         "description": "Restart a daemon, capture status/logs/health, and draft a short recovery handoff summary.",
@@ -689,6 +768,44 @@ BUILTIN_TEMPLATES: list[dict[str, Any]] = [
                 "description": "Operator-facing opening text for the recovery handoff note.",
                 "required": False,
                 "defaultValue": "Daemon recovery handoff:\n- Context:\n- Recovery action:\n- Current status:\n- Next action:",
+            },
+        ],
+    },
+    {
+        "id": "incident_mail_handoff",
+        "name": "Incident Mail Handoff",
+        "description": "Capture browser evidence, write an Apple Note handoff, and prepare a reviewable Mail draft for escalation.",
+        "category": "operator",
+        "builtIn": True,
+        "artifactRetentionDays": 45,
+        "inputs": [
+            {
+                "key": "url",
+                "label": "Target URL",
+                "description": "Browser page to capture before drafting the handoff.",
+                "required": False,
+                "defaultValue": "http://localhost:3000/command",
+            },
+            {
+                "key": "mailTo",
+                "label": "Recipient Email",
+                "description": "Email address used for the reviewable Mail draft.",
+                "required": True,
+                "defaultValue": "",
+            },
+            {
+                "key": "subject",
+                "label": "Subject",
+                "description": "Mail draft subject line.",
+                "required": False,
+                "defaultValue": "OpenClaw incident handoff",
+            },
+            {
+                "key": "noteTitle",
+                "label": "Note Title",
+                "description": "Apple Note title for the operator handoff.",
+                "required": False,
+                "defaultValue": "Incident Mail Handoff",
             },
         ],
     },
@@ -1681,6 +1798,81 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
             ]
         }, inputs
 
+    if template_id == "repo_branch_hygiene":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        return {
+            "steps": [
+                {
+                    "id": "repo_branch_identity",
+                    "name": "Capture branch identity",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git branch --show-current && git status --short && git branch -vv",
+                },
+                {
+                    "id": "repo_remote_snapshot",
+                    "name": "Capture remote snapshot",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git remote -v && git stash list | head -5",
+                },
+                {
+                    "id": "repo_branch_hygiene_summary",
+                    "name": "Draft branch hygiene summary",
+                    "type": "agent",
+                    "targetAgent": "dev",
+                    "prompt": f"Review branch hygiene for {repo_path} after `git branch -vv`, `git status --short`, and `git remote -v`. Call out drift, stash risk, and next actions.",
+                },
+            ]
+        }, inputs
+
+    if template_id == "repo_validation_handoff":
+        repo_path = inputs.get("repoPath") or str(REPO_ROOT)
+        test_command = inputs.get("testCommand") or "npm run dashboard:test"
+        build_command = inputs.get("buildCommand") or "npm run dashboard:build"
+        note_title = inputs.get("noteTitle") or "Repo Validation Handoff"
+        return {
+            "steps": [
+                {
+                    "id": "repo_validation_status",
+                    "name": "Capture repo status",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && git status --short && git diff --stat",
+                },
+                {
+                    "id": "repo_validation_test",
+                    "name": "Run validation tests",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {test_command}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "repo_validation_build",
+                    "name": "Run validation build",
+                    "type": "shell",
+                    "prompt": f"cd {repo_path} && {build_command}",
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "repo_validation_note",
+                    "name": "Create repo validation handoff note",
+                    "type": "steer",
+                    "command": "notes",
+                    "args": [
+                        "create",
+                        "--title",
+                        note_title,
+                        "--body",
+                        (
+                            f"Repo validation handoff for {repo_path}\n\n"
+                            f"Commands:\n- Test: {test_command}\n- Build: {build_command}\n\n"
+                            "Outputs:\n- Status:\n{{{{steps.repo_validation_status.result.output}}}}\n\n"
+                            "- Test:\n{{{{steps.repo_validation_test.result.output}}}}\n\n"
+                            "- Build:\n{{{{steps.repo_validation_build.result.output}}}}"
+                        ),
+                    ],
+                },
+            ]
+        }, inputs
+
     if template_id == "dashboard_policy_audit":
         url = inputs.get("url") or "http://localhost:3000/command"
         policy_url = inputs.get("policyUrl") or "http://localhost:3000/api/jobs/policy/admin"
@@ -1782,6 +1974,51 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
             ]
         }, inputs
 
+    if template_id == "browser_ui_audit":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        expected_text = inputs.get("expectedText") or ""
+        wait_args = ["text", "--app", "Safari", "--window", "--text", expected_text, "--contains", "--timeout", "10", "--interval", "0.75"] if expected_text else ["url", "--url", url, "--contains", "--timeout", "10", "--interval", "0.75"]
+        return {
+            "steps": [
+                {
+                    "id": "browser_ui_open",
+                    "name": "Open browser page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "browser_ui_wait",
+                    "name": "Wait for browser page",
+                    "type": "steer",
+                    "command": "wait",
+                    "args": wait_args,
+                    "onFailure": "continue",
+                },
+                {
+                    "id": "browser_ui_dump",
+                    "name": "Capture browser UI dump",
+                    "type": "steer",
+                    "command": "ui",
+                    "args": ["dump", "--app", "Safari"],
+                },
+                {
+                    "id": "browser_ui_capture",
+                    "name": "Capture browser screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "browser_ui_ocr",
+                    "name": "OCR browser screenshot",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+            ]
+        }, inputs
+
     if template_id == "daemon_recovery_handoff":
         restart_command = inputs.get("restartCommand") or ""
         status_command = inputs.get("statusCommand") or ""
@@ -1830,6 +2067,77 @@ def resolve_template(template_id: str, raw_inputs: dict[str, Any] | None = None)
                         note_title,
                         "--body",
                         f"{note_lead}\n\nCommands:\n- Restart: {restart_command}\n- Status: {status_command}\n- Health: {health_command}\n- Logs: {log_command}\n\nOutputs:\n- Status:\n{{{{steps.daemon_handoff_status.result.output}}}}\n\n- Health:\n{{{{steps.daemon_handoff_health.result.output}}}}\n\n- Logs:\n{{{{steps.daemon_handoff_logs.result.output}}}}",
+                    ],
+                },
+            ]
+        }, inputs
+
+    if template_id == "incident_mail_handoff":
+        url = inputs.get("url") or "http://localhost:3000/command"
+        mail_to = inputs.get("mailTo") or ""
+        subject = inputs.get("subject") or "OpenClaw incident handoff"
+        note_title = inputs.get("noteTitle") or "Incident Mail Handoff"
+        return {
+            "steps": [
+                {
+                    "id": "incident_mail_open",
+                    "name": "Open incident page",
+                    "type": "steer",
+                    "command": "open-url",
+                    "args": ["--app", "Safari", "--url", url],
+                },
+                {
+                    "id": "incident_mail_capture",
+                    "name": "Capture incident screenshot",
+                    "type": "steer",
+                    "command": "see",
+                    "args": ["--app", "Safari", "--window"],
+                },
+                {
+                    "id": "incident_mail_ocr",
+                    "name": "OCR incident screenshot",
+                    "type": "steer",
+                    "command": "ocr",
+                    "args": ["--app", "Safari", "--window", "--store"],
+                },
+                {
+                    "id": "incident_mail_note",
+                    "name": "Create incident handoff note",
+                    "type": "steer",
+                    "command": "notes",
+                    "args": [
+                        "create",
+                        "--title",
+                        note_title,
+                        "--body",
+                        (
+                            f"Incident mail handoff for {url}\n\n"
+                            "Evidence:\n"
+                            "- Screenshot: {{{{steps.incident_mail_capture.result.screenshot}}}}\n"
+                            "- OCR image: {{{{steps.incident_mail_ocr.result.image}}}}"
+                        ),
+                    ],
+                },
+                {
+                    "id": "incident_mail_draft",
+                    "name": "Draft incident mail",
+                    "type": "steer",
+                    "command": "mail",
+                    "args": [
+                        "draft",
+                        "--to",
+                        mail_to,
+                        "--subject",
+                        subject,
+                        "--body",
+                        (
+                            f"Incident handoff for {url}\n\n"
+                            "See Apple Note: "
+                            f"{note_title}\n\n"
+                            "Evidence:\n"
+                            "- Screenshot: {{{{steps.incident_mail_capture.result.screenshot}}}}\n"
+                            "- OCR image: {{{{steps.incident_mail_ocr.result.image}}}}"
+                        ),
                     ],
                 },
             ]

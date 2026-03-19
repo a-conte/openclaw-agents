@@ -157,6 +157,34 @@ class ListenRuntimeTests(unittest.TestCase):
         )
         self.assertIsNone(error)
 
+    def test_workflow_library_includes_new_depth_templates(self) -> None:
+        template_ids = {template["id"] for template in workflow_templates.list_templates()}
+        self.assertIn("repo_branch_hygiene", template_ids)
+        self.assertIn("repo_validation_handoff", template_ids)
+        self.assertIn("browser_ui_audit", template_ids)
+        self.assertIn("incident_mail_handoff", template_ids)
+
+    def test_repo_validation_handoff_resolves_note_placeholders(self) -> None:
+        workflow_spec, inputs = workflow_templates.resolve_template(
+            "repo_validation_handoff",
+            {
+                "repoPath": "/tmp/example",
+                "testCommand": "pytest -q",
+                "buildCommand": "npm run build",
+            },
+        )
+        self.assertEqual(inputs["repoPath"], "/tmp/example")
+        steps = workflow_spec["steps"]
+        self.assertEqual(steps[-1]["type"], "steer")
+        self.assertEqual(steps[-1]["command"], "notes")
+        note_body = steps[-1]["args"][-1]
+        self.assertIn("{{steps.repo_validation_test.result.output}}", note_body)
+        self.assertIn("{{steps.repo_validation_build.result.output}}", note_body)
+
+    def test_incident_mail_handoff_requires_mail_to_input(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Missing required template input: mailTo"):
+            workflow_templates.resolve_template("incident_mail_handoff", {"url": "http://localhost:3000"})
+
     def test_notification_preferences_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "notification-state.json"
