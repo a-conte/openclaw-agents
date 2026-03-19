@@ -17,7 +17,7 @@ export interface AssignWorkContext {
 interface AssignWorkModalProps {
   context: AssignWorkContext | null;
   onClose: () => void;
-  onAssigned?: () => void;
+  onAssigned?: (result?: { agentId: string; action: 'run' | 'create'; jobId?: string; title: string }) => void;
 }
 
 export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModalProps) {
@@ -91,7 +91,12 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
           createdAt: new Date().toISOString(),
         });
       }
-      onAssigned?.();
+      onAssigned?.({
+        agentId,
+        action,
+        jobId: typeof data?.jobId === 'string' ? data.jobId : undefined,
+        title: title.trim(),
+      });
       onClose();
     } catch {
       pushToast({ title: 'Network error', description: 'Could not reach the server.', tone: 'error' });

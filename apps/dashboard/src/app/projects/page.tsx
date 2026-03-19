@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { FolderKanban, Plus, Users } from 'lucide-react';
-import { AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
+import { FolderKanban, Play, Plus, Users } from 'lucide-react';
+import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { InlineError } from '@/components/shared/InlineError';
-import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { AssignWorkModal, type AssignWorkContext } from '@/components/command/AssignWorkModal';
+import { useChatPanel, useDashboardFilters, useToast } from '@/components/providers/DashboardProviders';
 import { useTasks } from '@/hooks/useTasks';
 import type { Project } from '@/lib/types';
 
@@ -16,11 +17,16 @@ const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 function ProjectsContent() {
   const { filters } = useDashboardFilters();
+  const { pushToast } = useToast();
+  const { openChat } = useChatPanel();
   const { data: projects, isLoading, error, mutate } = useSWR<Project[]>('/api/projects', fetcher);
   const { tasks } = useTasks();
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [projectAgentDrafts, setProjectAgentDrafts] = useState<Record<string, string>>({});
+  const [assignContext, setAssignContext] = useState<AssignWorkContext | null>(null);
+  const [startingProjectId, setStartingProjectId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -43,6 +49,94 @@ function ProjectsContent() {
     if (!searchNeedle) return true;
     return [project.name, project.description, project.labels.join(' ')].join(' ').toLowerCase().includes(searchNeedle);
   });
+
+  const tasksByProject = useMemo(() => {
+    const map = new Map<string, typeof tasks>();
+    for (const project of projects || []) {
+      map.set(project.id, tasks.filter((task) => task.projectId === project.id || task.labels.includes(project.name)));
+    }
+    return map;
+  }, [projects, tasks]);
+
+  async function updateProjectAgents(project: Project, agentId: string) {
+    const nextAgents = Array.from(new Set([agentId, ...(project.agentIds || [])]));
+    await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentIds: nextAgents, status: 'active' }),
+    });
+    await mutate();
+  }
+
+  async function startProjectWithCodex(project: Project) {
+    const selectedAgent = projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev';
+    const projectTasks = tasksByProject.get(project.id) || [];
+    const taskSummary = projectTasks.length > 0
+      ? projectTasks
+          .slice(0, 6)
+          .map((task) => `- ${task.title}${task.description ? `: ${task.description}` : ''}`)
+          .join('\n')
+      : '- No project tasks are linked yet. Start by assessing the repo and proposing the next concrete steps.';
+    const prompt = [
+      `Project: ${project.name}`,
+      project.description ? `Description: ${project.description}` : null,
+      '',
+      'Work this project in the current repo using Codex. Start by assessing the project context, then execute the next concrete engineering step.',
+      'Keep working until you either complete a meaningful chunk, hit a real blocker, or need operator input for a dangerous decision.',
+      '',
+      'Known project tasks:',
+      taskSummary,
+    ].filter(Boolean).join('\n');
+
+    setStartingProjectId(project.id);
+    try {
+      await updateProjectAgents(project, selectedAgent);
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'workflow',
+          targetAgent: selectedAgent,
+          templateId: 'codex_repo_task',
+          templateInputs: {
+            prompt,
+          },
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        pushToast({
+          title: 'Failed to start Codex project run',
+          description: payload?.error || 'The project assignment was saved, but the Codex workflow did not start.',
+          tone: 'error',
+        });
+        return;
+      }
+      openChat(selectedAgent, {
+        source: 'assignment',
+        title: `Started project in Codex: ${project.name}`,
+        detail: typeof payload?.id === 'string'
+          ? `Job ${payload.id} is now running through the Codex project workflow. Watch progress in Automation Jobs and use chat for follow-up.`
+          : 'The Codex project workflow is now running. Watch progress in Automation Jobs and use chat for follow-up.',
+        jobId: typeof payload?.id === 'string' ? payload.id : undefined,
+        prompt,
+        createdAt: new Date().toISOString(),
+      });
+      pushToast({
+        title: 'Codex project started',
+        description: `${selectedAgent} is now working on ${project.name}.`,
+        tone: 'success',
+      });
+    } catch {
+      pushToast({
+        title: 'Network error',
+        description: 'Could not start the Codex project workflow.',
+        tone: 'error',
+      });
+    } finally {
+      setStartingProjectId(null);
+    }
+  }
 
   return (
     <div className="p-6 max-w-5xl overflow-auto h-full">
@@ -150,11 +244,59 @@ function ProjectsContent() {
                     </div>
                   </div>
                 )}
+
+                <div className="mt-4 grid gap-2">
+                  <select
+                    value={projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev'}
+                    onChange={(event) => setProjectAgentDrafts((current) => ({ ...current, [project.id]: event.target.value }))}
+                    className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-text-primary"
+                  >
+                    {ACTIVE_AGENT_IDS.map((agentId) => (
+                      <option key={agentId} value={agentId}>
+                        {AGENT_EMOJIS[agentId]} {agentId}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => void startProjectWithCodex(project)}
+                      disabled={startingProjectId === project.id}
+                      className="flex items-center gap-1.5 rounded-md bg-accent/10 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                    >
+                      <Play size={12} />
+                      {startingProjectId === project.id ? 'Starting Codex…' : 'Start with Codex'}
+                    </button>
+                    <button
+                      onClick={() =>
+                        setAssignContext({
+                          agentId: projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev',
+                          title: project.name,
+                          instructions: project.description,
+                        })
+                      }
+                      className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-2"
+                    >
+                      More Assign Options
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <AssignWorkModal
+        context={assignContext}
+        onClose={() => setAssignContext(null)}
+        onAssigned={async (result) => {
+          if (!assignContext || !result?.agentId) return;
+          const project = (projects || []).find((item) => item.name === assignContext.title);
+          if (project) {
+            await updateProjectAgents(project, result.agentId);
+          }
+        }}
+      />
     </div>
   );
 }
