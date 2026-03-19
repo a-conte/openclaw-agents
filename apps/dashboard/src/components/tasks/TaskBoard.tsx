@@ -20,12 +20,14 @@ import type { Task, TaskStatus } from '@/lib/types';
 
 interface TaskBoardProps {
   tasks: Task[];
-  onUpdate: (id: string, updates: Partial<Task>) => void;
-  onCreate: (task: Partial<Task>) => void;
+  onUpdate: (id: string, updates: Partial<Task>) => Promise<Task | null | void> | Task | null | void;
+  onCreate: (task: Partial<Task>) => Promise<Task | null | void> | Task | null | void;
+  onUpdateAndRun?: (id: string, updates: Partial<Task>) => Promise<void> | void;
+  onCreateAndRun?: (task: Partial<Task>) => Promise<void> | void;
   onDelete: (id: string) => void;
 }
 
-export function TaskBoard({ tasks, onUpdate, onCreate, onDelete }: TaskBoardProps) {
+export function TaskBoard({ tasks, onUpdate, onCreate, onUpdateAndRun, onCreateAndRun, onDelete }: TaskBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -102,6 +104,8 @@ export function TaskBoard({ tasks, onUpdate, onCreate, onDelete }: TaskBoardProp
         onClose={() => { setModalOpen(false); setSelectedTask(null); }}
         onSave={onUpdate}
         onCreate={onCreate}
+        onSaveAndRun={onUpdateAndRun}
+        onCreateAndRun={onCreateAndRun}
         onDelete={onDelete}
       />
     </>

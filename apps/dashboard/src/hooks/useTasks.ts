@@ -46,17 +46,20 @@ export function useTasks() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
+      const updated = await res.json();
       if (!res.ok) {
         mutate(previousTasks, false);
         pushToast({ title: 'Failed to update task', description: 'The server rejected the task update.', tone: 'error' });
-      } else {
-        pushToast({ title: 'Task updated', description: updates.title || updates.status || 'Changes saved.', tone: 'success' });
+        return null;
       }
+      pushToast({ title: 'Task updated', description: updates.title || updates.status || 'Changes saved.', tone: 'success' });
+      await mutate();
+      return updated;
     } catch {
       mutate(previousTasks, false);
       pushToast({ title: 'Failed to update task', description: 'Network error while updating the task.', tone: 'error' });
+      return null;
     }
-    await mutate();
   };
 
   const deleteTask = async (id: string) => {

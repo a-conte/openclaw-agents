@@ -12,12 +12,14 @@ interface TaskModalProps {
   task: Task | null;
   open: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Task>) => void;
-  onCreate: (task: Partial<Task>) => void;
+  onSave: (id: string, updates: Partial<Task>) => Promise<Task | null | void> | Task | null | void;
+  onCreate: (task: Partial<Task>) => Promise<Task | null | void> | Task | null | void;
+  onSaveAndRun?: (id: string, updates: Partial<Task>) => Promise<void> | void;
+  onCreateAndRun?: (task: Partial<Task>) => Promise<void> | void;
   onDelete: (id: string) => void;
 }
 
-export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: TaskModalProps) {
+export function TaskModal({ task, open, onClose, onSave, onCreate, onSaveAndRun, onCreateAndRun, onDelete }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('backlog');
@@ -48,7 +50,9 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: T
     setPreviewMode(false);
   }, [task, open]);
 
-  const handleSave = () => {
+  const [submitting, setSubmitting] = useState<'save' | 'run' | null>(null);
+
+  const handleSave = async (mode: 'save' | 'run') => {
     const data = {
       title,
       description,
@@ -58,12 +62,23 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: T
       labels: labels.split(',').map(l => l.trim()).filter(Boolean),
       dueDate: dueDate || undefined,
     };
-    if (task) {
-      onSave(task.id, data);
-    } else {
-      onCreate(data);
+    setSubmitting(mode);
+    try {
+      if (task) {
+        if (mode === 'run' && onSaveAndRun) {
+          await onSaveAndRun(task.id, data);
+        } else {
+          await onSave(task.id, data);
+        }
+      } else if (mode === 'run' && onCreateAndRun) {
+        await onCreateAndRun(data);
+      } else {
+        await onCreate(data);
+      }
+      onClose();
+    } finally {
+      setSubmitting(null);
     }
-    onClose();
   };
 
   const selectClass = 'bg-surface-3 border border-border rounded-md px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus:border-border-active';
@@ -71,10 +86,20 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: T
 
   return (
     <Dialog open={open} onClose={onClose} title={task ? 'Edit Task' : 'New Task'} className="max-w-xl">
-      <div className="space-y-4">
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
+        <div className="space-y-4">
+          {agentId ? (
+            <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-text-secondary">
+              Saving with <span className="font-medium text-text-primary">{AGENT_EMOJIS[agentId] || '🤖'} {agentId}</span> can also start a real automation job.
+              Use <span className="font-medium text-text-primary">Save & Start Agent</span> if you want the agent to begin work immediately.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-text-tertiary">
+              Selecting an agent assigns ownership. To actually start work from here, pick an agent first and use <span className="font-medium text-text-secondary">Save & Start Agent</span>.
+            </div>
+          )}
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
           placeholder="Task title"
           className={inputClass}
           autoFocus
@@ -165,8 +190,11 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onDelete }: T
           )}
           <div className="flex items-center gap-2 ml-auto">
             <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" size="sm" onClick={handleSave} disabled={!title.trim()}>
-              {task ? 'Save' : 'Create'}
+            <Button variant="secondary" size="sm" onClick={() => void handleSave('save')} disabled={!title.trim() || submitting !== null}>
+              {submitting === 'save' ? 'Saving...' : task ? 'Save Only' : 'Create Only'}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => void handleSave('run')} disabled={!title.trim() || !agentId || submitting !== null}>
+              {submitting === 'run' ? 'Starting...' : 'Save & Start Agent'}
             </Button>
           </div>
         </div>

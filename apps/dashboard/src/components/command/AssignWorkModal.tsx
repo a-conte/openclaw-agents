@@ -105,6 +105,14 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
         </div>
 
         <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+            <div className="font-medium text-text-primary">Recommended path</div>
+            <div className="mt-1">
+              <span className="font-medium text-text-primary">Assign &amp; Run</span> creates a real automation job that shows up in <span className="font-medium text-text-primary">Automation Jobs</span>.
+              <span className="ml-1">Use <span className="font-medium text-text-primary">Assign only</span> only if you want to record ownership without starting work yet.</span>
+            </div>
+          </div>
+
           {/* Agent selector */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-text-secondary">Agent</label>
@@ -174,7 +182,7 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
             disabled={!!submitting}
             className="text-xs text-text-tertiary transition-colors hover:text-text-secondary disabled:opacity-50"
           >
-            {submitting === 'create' ? 'Creating...' : 'Assign only (don\u2019t run)'}
+            {submitting === 'create' ? 'Saving assignment...' : 'Assign only (save ownership)'}
           </button>
           <Button
             variant="primary"
@@ -187,7 +195,7 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
             ) : (
               <Zap size={14} />
             )}
-            <span className="ml-1.5">{submitting === 'run' ? 'Dispatching...' : 'Assign & Run'}</span>
+            <span className="ml-1.5">{submitting === 'run' ? 'Starting agent job...' : 'Assign & Start Agent'}</span>
           </Button>
         </div>
       </div>

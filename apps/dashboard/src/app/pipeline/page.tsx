@@ -7,18 +7,66 @@ import { InlineError } from '@/components/shared/InlineError';
 import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { TaskFilters } from '@/components/tasks/TaskFilters';
 import { TaskModal } from '@/components/tasks/TaskModal';
-import { useDashboardFilters } from '@/components/providers/DashboardProviders';
+import { useDashboardFilters, useToast } from '@/components/providers/DashboardProviders';
 import { PIPELINE_STAGES, AGENT_COLORS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List } from 'lucide-react';
+import type { Task } from '@/lib/types';
 
 function PipelineContent() {
   const { filters, setSearch, setAgentId } = useDashboardFilters();
+  const { pushToast } = useToast();
   const { tasks, isLoading, error, createTask, updateTask, deleteTask } = useTasks();
   const [priorityFilter, setPriorityFilter] = useState('');
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [view, setView] = useState<'funnel' | 'board'>('funnel');
+
+  async function dispatchTaskRun(task: Pick<Task, 'id' | 'title' | 'description' | 'agentId'>) {
+    if (!task.agentId) return;
+    const response = await fetch(`/api/agents/${task.agentId}/recommendations/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'run',
+        type: 'task',
+        taskId: task.id,
+        title: task.title,
+        description: task.description,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      pushToast({
+        title: 'Agent dispatch failed',
+        description: data?.error || 'The task was saved, but the agent job did not start.',
+        tone: 'error',
+      });
+      return;
+    }
+    pushToast({
+      title: 'Agent started',
+      description: data?.jobId ? `Job ${data.jobId} is now running for ${task.agentId}.` : `${task.agentId} is now working on ${task.title}.`,
+      tone: 'success',
+    });
+  }
+
+  async function updateTaskAndRun(id: string, updates: Partial<Task>) {
+    const existing = tasks.find((task) => task.id === id);
+    if (!existing) return;
+    const updated = await updateTask(id, updates);
+    const taskForRun = ((updated && typeof updated === 'object' ? updated : null) as Task | null) || { ...existing, ...updates };
+    if (taskForRun.agentId) {
+      await dispatchTaskRun(taskForRun);
+    }
+  }
+
+  async function createTaskAndRun(task: Partial<Task>) {
+    const created = await createTask(task);
+    if (created && typeof created === 'object' && 'id' in created && 'agentId' in created) {
+      await dispatchTaskRun(created as Task);
+    }
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -183,6 +231,8 @@ function PipelineContent() {
             tasks={filteredTasks}
             onUpdate={updateTask}
             onCreate={createTask}
+            onUpdateAndRun={updateTaskAndRun}
+            onCreateAndRun={createTaskAndRun}
             onDelete={deleteTask}
           />
         </div>
@@ -194,6 +244,8 @@ function PipelineContent() {
         onClose={() => setNewTaskOpen(false)}
         onSave={updateTask}
         onCreate={createTask}
+        onSaveAndRun={updateTaskAndRun}
+        onCreateAndRun={createTaskAndRun}
         onDelete={deleteTask}
       />
     </div>
