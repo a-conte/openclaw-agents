@@ -1,7 +1,18 @@
 import SwiftUI
 
+private enum JobWorkspacePane: String, CaseIterable, Identifiable {
+    case jobs = "Jobs"
+    case templates = "Templates"
+    case alerts = "Alerts"
+    case metrics = "Metrics"
+    case admin = "Admin"
+
+    var id: String { rawValue }
+}
+
 struct JobSubmitView: View {
     @ObservedObject var viewModel: DashboardViewModel
+    @State private var selectedPane: JobWorkspacePane = .jobs
     @State private var prompt = ""
     @State private var selectedAgent = "main"
     @State private var selectedMode: JobMode = .agent
@@ -39,12 +50,25 @@ struct JobSubmitView: View {
                 Text("Automation Jobs")
                     .font(.largeTitle.bold())
 
-                submitForm
+                Picker("Workspace", selection: $selectedPane) {
+                    ForEach(JobWorkspacePane.allCases) { pane in
+                        Text(pane.rawValue).tag(pane)
+                    }
+                }
+                .pickerStyle(.segmented)
 
-                Toggle("Show archived jobs", isOn: $showArchived)
-                    .toggleStyle(.switch)
-
-                jobsList
+                switch selectedPane {
+                case .jobs:
+                    jobsPane
+                case .templates:
+                    templatesPane
+                case .alerts:
+                    alertsPane
+                case .metrics:
+                    metricsPane
+                case .admin:
+                    adminPane
+                }
             }
             .padding(24)
         }
@@ -188,252 +212,6 @@ struct JobSubmitView: View {
             Text("Submit Job")
                 .font(.title2.bold())
 
-            if let notificationPreferences = viewModel.notificationPreferences {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Apple delivery")
-                        .font(.caption.weight(.semibold))
-                    Text(notificationPreferences.dashboardPrimary ? "Dashboard remains the primary Mission Control; iPad alerts are supplemental." : "Apple channels are elevated above the dashboard.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("Severity threshold", selection: $notificationSeverityThreshold) {
-                        Text("Info").tag("info")
-                        Text("Warning").tag("warning")
-                        Text("Error").tag("error")
-                        Text("Critical").tag("critical")
-                    }
-                    .pickerStyle(.segmented)
-                    Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
-                    Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
-                    Toggle("Enable iMessage delivery routes", isOn: $notificationsImessageEnabled)
-                    Toggle("Enable Mail draft delivery routes", isOn: $notificationsMailDraftEnabled)
-                    Button {
-                        Task {
-                            isSavingNotificationPreferences = true
-                            defer { isSavingNotificationPreferences = false }
-                            let updated = NotificationPreferences(
-                                dashboardPrimary: true,
-                                severityThreshold: notificationSeverityThreshold,
-                                channels: NotificationChannels(
-                                    push: notificationsPushEnabled,
-                                    notes: notificationsNotesEnabled,
-                                    imessage: notificationsImessageEnabled,
-                                    mail_draft: notificationsMailDraftEnabled
-                                ),
-                                agentAllowlist: notificationPreferences.agentAllowlist,
-                                templateAllowlist: notificationPreferences.templateAllowlist,
-                                templateRouting: notificationPreferences.templateRouting,
-                                updatedAt: notificationPreferences.updatedAt
-                            )
-                            await viewModel.saveNotificationPreferences(updated)
-                        }
-                    } label: {
-                        if isSavingNotificationPreferences {
-                            ProgressView()
-                        } else {
-                            Text("Save Apple delivery settings")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if !viewModel.notificationEvents.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Recent Apple alerts")
-                        .font(.caption.weight(.semibold))
-                    ForEach(viewModel.notificationEvents.prefix(3)) { event in
-                        Button {
-                            showArchived = false
-                            selectedJob = currentJob(for: event.jobId)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(event.title)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text(event.body)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(event.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if let policy = viewModel.jobPolicy {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Remote policy")
-                        .font(.caption.weight(.semibold))
-                    Text(policy.allowDangerous == true ? "Dangerous actions enabled" : "Dangerous actions blocked by default")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Change `OPENCLAW_LISTEN_ALLOW_DANGEROUS` or the allowlist env vars on the listen server to widen access.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if let policyAdmin = viewModel.policyAdmin {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Policy admin")
-                        .font(.caption.weight(.semibold))
-                    if let summary = policyAdmin.summary, !summary.isEmpty {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(policyAdmin.env.prefix(3)) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.name)
-                                .font(.caption2.weight(.semibold))
-                            Text(entry.value.isEmpty ? "(empty)" : entry.value)
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(.secondary)
-                            Text(entry.description)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Button("Open policy admin") {
-                        showPolicyAdminDetail = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if let metrics = viewModel.jobMetrics {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Observability")
-                        .font(.caption.weight(.semibold))
-                    Text("Jobs: \(metrics.jobs.total) · Active: \(metrics.jobs.active) · Blocked: \(metrics.policy.blockedJobs)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let duration = metrics.jobs.averageCompletedDurationMs {
-                        Text("Average completed duration: \(duration / 1000)s")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 12) {
-                        if let duration = metrics.jobs.medianCompletedDurationMs {
-                            Text("Median: \(duration / 1000)s")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        if let duration = metrics.jobs.p95CompletedDurationMs {
-                            Text("P95: \(duration / 1000)s")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    if !metrics.steps.topFailures.isEmpty {
-                        metricList(
-                            title: "Top step failures",
-                            items: metrics.steps.topFailures.prefix(3).map { "\($0.name) · \($0.count)" }
-                        )
-                    }
-                    if !metrics.policy.topBlockReasons.isEmpty {
-                        metricList(
-                            title: "Top policy blocks",
-                            items: metrics.policy.topBlockReasons.prefix(3).map { "\($0.reason) · \($0.count)" }
-                        )
-                    }
-                    if !metrics.longRunning.isEmpty {
-                        metricList(
-                            title: "Long-running jobs",
-                            items: metrics.longRunning.prefix(3).map { item in
-                                let label = item.templateId ?? item.workflow ?? item.mode ?? (item.jobId ?? "job")
-                                let age = item.ageMs.map { "\($0 / 1000)s" } ?? "n/a"
-                                return "\(label) · \(age)"
-                            }
-                        )
-                    }
-                    Button("Open metrics detail") {
-                        showMetricsDetail = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            if let artifactAdmin = viewModel.artifactAdmin {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Artifact store")
-                        .font(.caption.weight(.semibold))
-                    Text("Active: \(artifactAdmin.active.jobCount) jobs · Archived: \(artifactAdmin.archived.jobCount) jobs")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let retentionDays = artifactAdmin.retentionDays {
-                        Text("Retention target: \(retentionDays) days")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let oldestArchivedAgeDays = artifactAdmin.oldestArchivedAgeDays {
-                        Text("Oldest archived artifact set: \(Int(oldestArchivedAgeDays)) days")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 8) {
-                        TextField("Compress days", text: $compressDays)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.numberPad)
-                        Button {
-                            Task {
-                                isCompressingArtifacts = true
-                                defer { isCompressingArtifacts = false }
-                                await viewModel.compressArtifacts(olderThanDays: Int(compressDays) ?? 7)
-                            }
-                        } label: {
-                            if isCompressingArtifacts {
-                                ProgressView()
-                            } else {
-                                Text("Compress")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isCompressingArtifacts)
-                    }
-                    HStack(spacing: 8) {
-                        TextField("Prune days", text: $pruneDays)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.numberPad)
-                        Button(role: .destructive) {
-                            Task {
-                                isPruningArtifacts = true
-                                defer { isPruningArtifacts = false }
-                                await viewModel.pruneArtifacts(olderThanDays: Int(pruneDays) ?? 30)
-                            }
-                        } label: {
-                            if isPruningArtifacts {
-                                ProgressView()
-                            } else {
-                                Text("Prune")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isPruningArtifacts)
-                    }
-                    Button("Open artifact admin") {
-                        showArtifactAdminDetail = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
             Picker("Mode", selection: $selectedMode) {
                 ForEach(JobMode.allCases, id: \.self) { mode in
                     Text(mode.rawValue.capitalized).tag(mode)
@@ -467,74 +245,7 @@ struct JobSubmitView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("Template", selection: $selectedTemplateId) {
-                        ForEach(viewModel.jobTemplates) { template in
-                            Text(template.name).tag(template.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    if let template = selectedTemplate {
-                        Text(template.description)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Text(templateMetaLine(template))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 10) {
-                            Button("New Custom") {
-                                editingTemplate = .blank()
-                            }
-                            .buttonStyle(.bordered)
-
-                            Button("Clone") {
-                                editingTemplate = .fromTemplate(template, clone: true)
-                            }
-                            .buttonStyle(.bordered)
-
-                            if template.builtIn != true {
-                                Button("Edit") {
-                                    editingTemplate = .fromTemplate(template, clone: false)
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-
-                        ForEach(template.inputs) { input in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(input.label)
-                                    .font(.caption.weight(.semibold))
-                                TextField(input.defaultValue ?? input.label, text: Binding(
-                                    get: { templateInputs[input.key] ?? input.defaultValue ?? "" },
-                                    set: { templateInputs[input.key] = $0 }
-                                ), axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-                                .lineLimit(1...3)
-                                if let description = input.description, !description.isEmpty {
-                                    Text(description)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-
-                        if !viewModel.selectedTemplateVersions.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Template Versions")
-                                    .font(.caption.weight(.semibold))
-                                Text("\(viewModel.selectedTemplateVersions.count) saved version(s)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Button("Open version history") {
-                                    showTemplateVersionsDetail = true
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                            .padding(.top, 4)
-                        }
-                    }
+                    workflowTemplatePicker(showManagementActions: false)
                 }
             }
 
@@ -582,6 +293,383 @@ struct JobSubmitView: View {
         }
         .padding(18)
         .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var jobsPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            submitForm
+
+            Toggle("Show archived jobs", isOn: $showArchived)
+                .toggleStyle(.switch)
+
+            jobsList
+        }
+    }
+
+    private var templatesPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            panelCard(title: "Templates", subtitle: "Manage workflow templates, inputs, versions, and custom variants.") {
+                if viewModel.jobTemplates.isEmpty {
+                    Text("No workflow templates available.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    workflowTemplatePicker(showManagementActions: true)
+                }
+            }
+        }
+    }
+
+    private var alertsPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            appleDeliveryPanel
+            recentAlertsPanel
+        }
+    }
+
+    private var metricsPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            observabilityPanel
+        }
+    }
+
+    private var adminPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            remotePolicyPanel
+            policyAdminPanel
+            artifactAdminPanel
+        }
+    }
+
+    @ViewBuilder
+    private func panelCard<Content: View>(title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.title2.bold())
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            content()
+        }
+        .padding(18)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var appleDeliveryPanel: some View {
+        panelCard(title: "Apple Delivery", subtitle: "Dashboard remains primary. iPad alerts and Apple channels are supplemental.") {
+            if let notificationPreferences = viewModel.notificationPreferences {
+                Picker("Severity threshold", selection: $notificationSeverityThreshold) {
+                    Text("Info").tag("info")
+                    Text("Warning").tag("warning")
+                    Text("Error").tag("error")
+                    Text("Critical").tag("critical")
+                }
+                .pickerStyle(.segmented)
+                Toggle("Enable local iPad alerts", isOn: $notificationsPushEnabled)
+                Toggle("Enable Apple Notes handoff templates", isOn: $notificationsNotesEnabled)
+                Toggle("Enable iMessage delivery routes", isOn: $notificationsImessageEnabled)
+                Toggle("Enable Mail draft delivery routes", isOn: $notificationsMailDraftEnabled)
+                Button {
+                    Task {
+                        isSavingNotificationPreferences = true
+                        defer { isSavingNotificationPreferences = false }
+                        let updated = NotificationPreferences(
+                            dashboardPrimary: true,
+                            severityThreshold: notificationSeverityThreshold,
+                            channels: NotificationChannels(
+                                push: notificationsPushEnabled,
+                                notes: notificationsNotesEnabled,
+                                imessage: notificationsImessageEnabled,
+                                mail_draft: notificationsMailDraftEnabled
+                            ),
+                            agentAllowlist: notificationPreferences.agentAllowlist,
+                            templateAllowlist: notificationPreferences.templateAllowlist,
+                            templateRouting: notificationPreferences.templateRouting,
+                            updatedAt: notificationPreferences.updatedAt
+                        )
+                        await viewModel.saveNotificationPreferences(updated)
+                    }
+                } label: {
+                    if isSavingNotificationPreferences {
+                        ProgressView()
+                    } else {
+                        Text("Save Apple delivery settings")
+                    }
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("Notification preferences are not loaded yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var recentAlertsPanel: some View {
+        panelCard(title: "Recent Alerts", subtitle: "Open recent notification events and jump straight into the related job.") {
+            if viewModel.notificationEvents.isEmpty {
+                Text("No recent Apple alerts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(viewModel.notificationEvents.prefix(8)) { event in
+                    Button {
+                        showArchived = false
+                        selectedJob = currentJob(for: event.jobId)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text(event.body)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(event.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var observabilityPanel: some View {
+        panelCard(title: "Metrics", subtitle: "Inspect failures, long-running jobs, retry lineage, and template performance.") {
+            if let metrics = viewModel.jobMetrics {
+                Text("Jobs: \(metrics.jobs.total) · Active: \(metrics.jobs.active) · Blocked: \(metrics.policy.blockedJobs)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let duration = metrics.jobs.averageCompletedDurationMs {
+                    Text("Average completed duration: \(duration / 1000)s")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 12) {
+                    if let duration = metrics.jobs.medianCompletedDurationMs {
+                        Text("Median: \(duration / 1000)s")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let duration = metrics.jobs.p95CompletedDurationMs {
+                        Text("P95: \(duration / 1000)s")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if !metrics.steps.topFailures.isEmpty {
+                    metricList(title: "Top step failures", items: metrics.steps.topFailures.prefix(4).map { "\($0.name) · \($0.count)" })
+                }
+                if !metrics.policy.topBlockReasons.isEmpty {
+                    metricList(title: "Top policy blocks", items: metrics.policy.topBlockReasons.prefix(4).map { "\($0.reason) · \($0.count)" })
+                }
+                if !metrics.longRunning.isEmpty {
+                    metricList(
+                        title: "Long-running jobs",
+                        items: metrics.longRunning.prefix(4).map { item in
+                            let label = item.templateId ?? item.workflow ?? item.mode ?? (item.jobId ?? "job")
+                            let age = item.ageMs.map { "\($0 / 1000)s" } ?? "n/a"
+                            return "\(label) · \(age)"
+                        }
+                    )
+                }
+                Button("Open metrics detail") {
+                    showMetricsDetail = true
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("Metrics are not loaded yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var remotePolicyPanel: some View {
+        panelCard(title: "Remote Policy", subtitle: "Quick-read summary of what the listen runtime currently allows.") {
+            if let policy = viewModel.jobPolicy {
+                Text(policy.allowDangerous == true ? "Dangerous actions enabled" : "Dangerous actions blocked by default")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Change `OPENCLAW_LISTEN_ALLOW_DANGEROUS` or the allowlist env vars on the listen server to widen access.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Policy summary is not loaded yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var policyAdminPanel: some View {
+        panelCard(title: "Policy Admin", subtitle: "Inspect the host-side env configuration used by the listen runtime.") {
+            if let policyAdmin = viewModel.policyAdmin {
+                if let summary = policyAdmin.summary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(policyAdmin.env.prefix(3)) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.name)
+                            .font(.caption2.weight(.semibold))
+                        Text(entry.value.isEmpty ? "(empty)" : entry.value)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                        Text(entry.description)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button("Open policy admin") {
+                    showPolicyAdminDetail = true
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("Policy admin details are not loaded yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var artifactAdminPanel: some View {
+        panelCard(title: "Artifact Admin", subtitle: "Inspect retention and manage archived artifact compression and pruning.") {
+            if let artifactAdmin = viewModel.artifactAdmin {
+                Text("Active: \(artifactAdmin.active.jobCount) jobs · Archived: \(artifactAdmin.archived.jobCount) jobs")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let retentionDays = artifactAdmin.retentionDays {
+                    Text("Retention target: \(retentionDays) days")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let oldestArchivedAgeDays = artifactAdmin.oldestArchivedAgeDays {
+                    Text("Oldest archived artifact set: \(Int(oldestArchivedAgeDays)) days")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    TextField("Compress days", text: $compressDays)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.numberPad)
+                    Button {
+                        Task {
+                            isCompressingArtifacts = true
+                            defer { isCompressingArtifacts = false }
+                            await viewModel.compressArtifacts(olderThanDays: Int(compressDays) ?? 7)
+                        }
+                    } label: {
+                        if isCompressingArtifacts { ProgressView() } else { Text("Compress") }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isCompressingArtifacts)
+                }
+                HStack(spacing: 8) {
+                    TextField("Prune days", text: $pruneDays)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.numberPad)
+                    Button(role: .destructive) {
+                        Task {
+                            isPruningArtifacts = true
+                            defer { isPruningArtifacts = false }
+                            await viewModel.pruneArtifacts(olderThanDays: Int(pruneDays) ?? 30)
+                        }
+                    } label: {
+                        if isPruningArtifacts { ProgressView() } else { Text("Prune") }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isPruningArtifacts)
+                }
+                Button("Open artifact admin") {
+                    showArtifactAdminDetail = true
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("Artifact admin is not loaded yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func workflowTemplatePicker(showManagementActions: Bool) -> some View {
+        Picker("Template", selection: $selectedTemplateId) {
+            ForEach(viewModel.jobTemplates) { template in
+                Text(template.name).tag(template.id)
+            }
+        }
+        .pickerStyle(.menu)
+
+        if let template = selectedTemplate {
+            Text(template.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(templateMetaLine(template))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            if showManagementActions {
+                HStack(spacing: 10) {
+                    Button("New Custom") {
+                        editingTemplate = .blank()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Clone") {
+                        editingTemplate = .fromTemplate(template, clone: true)
+                    }
+                    .buttonStyle(.bordered)
+
+                    if template.builtIn != true {
+                        Button("Edit") {
+                            editingTemplate = .fromTemplate(template, clone: false)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            ForEach(template.inputs) { input in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(input.label)
+                        .font(.caption.weight(.semibold))
+                    TextField(input.defaultValue ?? input.label, text: Binding(
+                        get: { templateInputs[input.key] ?? input.defaultValue ?? "" },
+                        set: { templateInputs[input.key] = $0 }
+                    ), axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...3)
+                    if let description = input.description, !description.isEmpty {
+                        Text(description)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !viewModel.selectedTemplateVersions.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Template Versions")
+                        .font(.caption.weight(.semibold))
+                    Text("\(viewModel.selectedTemplateVersions.count) saved version(s)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Button("Open version history") {
+                        showTemplateVersionsDetail = true
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 4)
+            }
+        }
     }
 
     private var jobsList: some View {

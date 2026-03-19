@@ -42,13 +42,14 @@ Primary reference:
 
 Status:
 - Strong supplemental surface
+- Core workspace split for jobs, templates, alerts, metrics, and admin is now in place
 - Not yet full dashboard parity
 
 Remaining tasks:
-- add a cleaner navigation structure for admin, jobs, templates, metrics, and alerts
+- [x] add a cleaner navigation structure for admin, jobs, templates, metrics, and alerts
 - improve artifact browsing and preview depth
 - deepen metrics and history drill-down
-- move admin functions into cleaner dedicated screens instead of stacking them into a few views
+- partially move admin functions into cleaner dedicated screens instead of stacking them into a few views
 
 ## 4. Workflow Library Depth
 
