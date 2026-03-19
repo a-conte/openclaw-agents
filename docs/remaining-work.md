@@ -77,7 +77,7 @@ Status:
 Remaining tasks:
 - [x] set explicit global git `user.name` and `user.email`
 - [x] add a top-level “status of everything” view or script snapshot
-- decide whether to keep expanding tmux-based local ops or move some services to `launchd`
+- [x] decide whether to keep expanding tmux-based local ops or move some services to `launchd`
 - continue tightening local bring-up and maintenance docs as habits stabilize
 
 Primary references:

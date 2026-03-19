@@ -23,6 +23,12 @@ For the normal daily service bring-up after bootstrap, use:
 
 The stable day-to-day startup flow is documented in [`docs/local-startup.md`](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
 
+If you want the dashboard and `listen` to stay up as user services across login sessions, install the LaunchAgents after bootstrap:
+
+```bash
+./scripts/install-launchd.sh install
+```
+
 ## 1. Base Tooling
 
 ```bash

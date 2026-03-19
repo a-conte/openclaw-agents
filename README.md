@@ -95,6 +95,12 @@ Start the dashboard and automation runtime together:
 
 The stable operator flow is documented in [docs/local-startup.md](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
 
+For always-on local services that survive shell churn and re-login, use:
+
+```bash
+./scripts/install-launchd.sh install
+```
+
 For a quick machine-wide snapshot:
 
 ```bash

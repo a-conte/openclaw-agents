@@ -2,6 +2,11 @@
 
 Use the dashboard as the primary Mission Control and treat the iPad app as a supplemental surface for alerts, quick job review, and lightweight control.
 
+Operating model:
+
+- use `tmux` via [`scripts/local-stack.sh`](/Users/a_conte/dev/openclaw-agents/scripts/local-stack.sh) for interactive development and debugging
+- use `launchd` via [`scripts/install-launchd.sh`](/Users/a_conte/dev/openclaw-agents/scripts/install-launchd.sh) when you want the dashboard and `listen` to stay up across login sessions and reboots
+
 ## Daily Start
 
 From the repo root:
@@ -54,6 +59,38 @@ Stop both services:
 ```bash
 ./scripts/local-stack.sh stop
 ```
+
+## Always-On Mode With `launchd`
+
+Install user LaunchAgents for the dashboard and `listen` runtime:
+
+```bash
+cd /Users/a_conte/dev/openclaw-agents
+./scripts/install-launchd.sh install
+```
+
+Check LaunchAgent status:
+
+```bash
+./scripts/install-launchd.sh status
+```
+
+Restart the LaunchAgents cleanly:
+
+```bash
+./scripts/install-launchd.sh restart
+```
+
+Remove them again:
+
+```bash
+./scripts/install-launchd.sh uninstall
+```
+
+Recommended split:
+
+- `tmux` for active development, logs, and quick restarts
+- `launchd` for daily always-on operation when you want the services to survive shell/session churn
 
 ## Network Model
 
