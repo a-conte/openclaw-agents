@@ -136,7 +136,7 @@ type AppleNotificationEvent = {
 export default function CommandPage() {
   const { filters } = useDashboardFilters();
   const { createTask } = useTasks();
-  const refreshInterval = usePollingInterval(POLL_INTERVAL);
+  const refreshInterval = usePollingInterval(5000);
   const { data, error: swrError, mutate } = useSWR<{
     health: any;
     agents: Agent[];
@@ -313,7 +313,7 @@ export default function CommandPage() {
           <div className="grid min-w-[280px] gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
             <TrustPill
               label="Automation runtime"
-              value={`${jobs?.length || 0} visible jobs · dashboard is the primary control plane`}
+              value={`${jobs?.length || 0} visible jobs · polls every ${Math.round(refreshInterval / 1000)}s while visible`}
               tone="good"
             />
             <TrustPill
@@ -506,7 +506,10 @@ export default function CommandPage() {
       <AssignWorkModal
         context={assignContext}
         onClose={() => setAssignContext(null)}
-        onAssigned={() => mutate()}
+        onAssigned={() => {
+          void mutate();
+          void mutateJobs();
+        }}
       />
     </div>
   );
@@ -958,9 +961,11 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
   const [compressDays, setCompressDays] = useState('7');
   const [pruneDays, setPruneDays] = useState('30');
   const [error, setError] = useState<string | null>(null);
+  const { openChat } = useChatPanel();
 
   const visibleJobs = showArchived ? archivedJobs : jobs;
   const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) || visibleJobs[0];
+  const liveJobs = useMemo(() => visibleJobs.filter((job) => job.status === 'running' || job.status === 'queued').length, [visibleJobs]);
   const selectedTemplate = serverTemplates.find((template) => template.id === selectedTemplateId);
   const filteredTemplates = useMemo(() => {
     return serverTemplates.filter((template) => {
@@ -1137,10 +1142,25 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
         setError(payload.error || 'Failed to submit job');
         return;
       }
+      if (typeof payload.id === 'string') {
+        setSelectedJobId(payload.id);
+      }
       setPrompt('');
       setCommand('');
       setArgsText('');
       onChanged();
+      if (mode === 'agent') {
+        openChat(targetAgent, {
+          source: 'agent-job',
+          title: `Started ${targetAgent} job`,
+          detail: typeof payload.id === 'string'
+            ? `Job ${payload.id} is now live. Use this chat for follow-up while the structured job continues in Automation Jobs.`
+            : 'A structured agent job is now live. Use this chat for follow-up while the structured job continues in Automation Jobs.',
+          jobId: typeof payload.id === 'string' ? payload.id : undefined,
+          prompt: prompt.trim() || undefined,
+          createdAt: new Date().toISOString(),
+        });
+      }
       await loadPolicy();
       await loadPolicyAdmin();
       await loadArtifactAdmin();
@@ -1402,6 +1422,10 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
     void loadTemplates();
   }, []);
 
+  useEffect(() => {
+    void loadNotificationEvents();
+  }, [jobs]);
+
   async function saveNotificationPreferences(next: AppleNotificationPreferences) {
     setSavingNotifications(true);
     setError(null);
@@ -1438,6 +1462,11 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             This tab now favors current runtime state over historical noise. Live jobs and the selected job stay at the top.
             Older archived jobs and long-tail admin controls stay below so the command tab reads like a 24/7 operations surface instead of a dashboard dump.
           </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <Badge color={liveJobs > 0 ? '#4A9EFF' : '#555555'}>{liveJobs} live jobs</Badge>
+            <Badge color={showArchived ? '#ffd166' : '#06d6a0'}>{showArchived ? 'archived view' : 'current view'}</Badge>
+            <Badge color="#8338ec">{notificationEvents.length} recent operator alerts</Badge>
+          </div>
         </div>
 
         <div className="order-1 space-y-3">
@@ -1464,7 +1493,36 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
                   {job.status}
                 </Badge>
               </div>
-              {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+              {job.currentStepId ? (
+                <div className="mt-2 text-xs text-accent-blue">
+                  Current step: {job.stepStatus?.find((step) => step.id === job.currentStepId)?.name || job.currentStepId}
+                </div>
+              ) : null}
+              {Array.isArray(job.updates) && job.updates.length > 0 ? (
+                <div className="mt-2 text-xs text-text-secondary">
+                  {job.updates[job.updates.length - 1]?.message}
+                </div>
+              ) : job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+              {Array.isArray(job.stepStatus) && job.stepStatus.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {job.stepStatus.slice(0, 4).map((step) => (
+                    <Badge
+                      key={step.id}
+                      color={
+                        step.status === 'failed'
+                          ? '#e94560'
+                          : step.status === 'completed'
+                            ? '#06d6a0'
+                            : step.status === 'running'
+                              ? '#4A9EFF'
+                              : '#555555'
+                      }
+                    >
+                      {step.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-3">
                 <Link href={`/command/jobs/${job.id}`} className="text-xs text-accent hover:text-accent-hover" onClick={(event) => event.stopPropagation()}>
                   Open detail page

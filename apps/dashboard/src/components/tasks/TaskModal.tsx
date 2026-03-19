@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog } from '@/components/shared/Dialog';
 import { Button } from '@/components/shared/Button';
 import { MarkdownRenderer } from '@/components/shared/MarkdownRenderer';
+import { useChatPanel } from '@/components/providers/DashboardProviders';
 import { ACTIVE_AGENT_IDS, TASK_STATUSES, TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
 import { Trash2, Eye, Edit3 } from 'lucide-react';
 import type { Task } from '@/lib/types';
@@ -20,6 +21,7 @@ interface TaskModalProps {
 }
 
 export function TaskModal({ task, open, onClose, onSave, onCreate, onSaveAndRun, onCreateAndRun, onDelete }: TaskModalProps) {
+  const { openChat } = useChatPanel();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('backlog');
@@ -67,11 +69,29 @@ export function TaskModal({ task, open, onClose, onSave, onCreate, onSaveAndRun,
       if (task) {
         if (mode === 'run' && onSaveAndRun) {
           await onSaveAndRun(task.id, data);
+          if (agentId) {
+            openChat(agentId, {
+              source: 'task-run',
+              title: `${title.trim()} is now running`,
+              detail: 'This task was dispatched from the pipeline. Follow-up messages to the agent can happen here while execution stays visible in Automation Jobs.',
+              prompt: description.trim() || undefined,
+              createdAt: new Date().toISOString(),
+            });
+          }
         } else {
           await onSave(task.id, data);
         }
       } else if (mode === 'run' && onCreateAndRun) {
         await onCreateAndRun(data);
+        if (agentId) {
+          openChat(agentId, {
+            source: 'task-run',
+            title: `${title.trim()} is now running`,
+            detail: 'This newly created task was dispatched immediately. Follow-up messages to the agent can happen here while execution stays visible in Automation Jobs.',
+            prompt: description.trim() || undefined,
+            createdAt: new Date().toISOString(),
+          });
+        }
       } else {
         await onCreate(data);
       }

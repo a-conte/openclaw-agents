@@ -126,6 +126,9 @@ export function JobDetailPanel({
   onResume?: (jobId: string, mode: 'resume_failed' | 'resume_from' | 'rerun_all', resumeFromStepId?: string) => void;
   detailHref?: string;
 }) {
+  const currentStep = Array.isArray(job.stepStatus) ? job.stepStatus.find((step) => step.id === job.currentStepId) : null;
+  const latestUpdate = Array.isArray(job.updates) && job.updates.length > 0 ? job.updates[job.updates.length - 1] : null;
+
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -165,6 +168,12 @@ export function JobDetailPanel({
       {job.summary ? (
         <div className="rounded-lg border border-border bg-surface-3 p-3 text-sm text-text-secondary">{job.summary}</div>
       ) : null}
+      {currentStep ? (
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/8 px-3 py-2 text-xs text-blue-100">
+          Running now: <span className="font-semibold">{currentStep.name}</span>
+          {latestUpdate?.message ? ` · ${latestUpdate.message}` : ''}
+        </div>
+      ) : null}
       {job.policy && job.policy.allowed === false ? (
         <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/8 px-3 py-2 text-xs text-yellow-100">{job.policy.reason || 'Blocked by policy'}</div>
       ) : null}
@@ -192,7 +201,7 @@ export function JobDetailPanel({
             <div className="space-y-1 text-xs text-text-secondary">
               {job.updates.slice(-10).map((update) => (
                 <div key={`${update.at}-${update.message}`} className={update.level === 'error' ? 'text-red-300' : undefined}>
-                  • {update.message}
+                  • {update.message} <span className="text-text-tertiary">· {relativeTime(update.at)}</span>
                 </div>
               ))}
             </div>

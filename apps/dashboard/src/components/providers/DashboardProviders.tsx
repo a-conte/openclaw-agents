@@ -20,6 +20,15 @@ interface DashboardFiltersState {
   focus: string;
 }
 
+interface ChatLaunchContext {
+  source: 'agent-job' | 'task-run' | 'assignment';
+  title: string;
+  detail?: string;
+  jobId?: string;
+  prompt?: string;
+  createdAt: string;
+}
+
 interface DashboardContextValue {
   filters: DashboardFiltersState;
   setSearch: (value: string) => void;
@@ -31,8 +40,10 @@ interface DashboardContextValue {
   clearStatusBanner: (key: string) => void;
   isChatOpen: boolean;
   chatAgentId: string;
-  openChat: (agentId?: string) => void;
+  chatLaunchContext: ChatLaunchContext | null;
+  openChat: (agentId?: string, launchContext?: ChatLaunchContext | null) => void;
   closeChat: () => void;
+  clearChatLaunchContext: () => void;
 }
 
 interface StatusBannerItem {
@@ -52,14 +63,20 @@ export function DashboardProviders({ children }: { children: React.ReactNode }) 
   const [statusBanners, setStatusBanners] = useState<StatusBannerItem[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatAgentId, setChatAgentId] = useState('main');
+  const [chatLaunchContext, setChatLaunchContext] = useState<ChatLaunchContext | null>(null);
 
-  const openChat = useCallback((agentId?: string) => {
+  const openChat = useCallback((agentId?: string, launchContext?: ChatLaunchContext | null) => {
     if (agentId) setChatAgentId(agentId);
+    setChatLaunchContext(launchContext ?? null);
     setIsChatOpen(true);
   }, []);
 
   const closeChat = useCallback(() => {
     setIsChatOpen(false);
+  }, []);
+
+  const clearChatLaunchContext = useCallback(() => {
+    setChatLaunchContext(null);
   }, []);
 
   useEffect(() => {
@@ -121,8 +138,23 @@ export function DashboardProviders({ children }: { children: React.ReactNode }) 
   }, []);
 
   const value = useMemo(
-    () => ({ filters, setSearch, setAgentId, setFocus, resetFilters, pushToast, setStatusBanner, clearStatusBanner, isChatOpen, chatAgentId, openChat, closeChat }),
-    [clearStatusBanner, filters, pushToast, resetFilters, setAgentId, setFocus, setSearch, setStatusBanner, isChatOpen, chatAgentId, openChat, closeChat]
+    () => ({
+      filters,
+      setSearch,
+      setAgentId,
+      setFocus,
+      resetFilters,
+      pushToast,
+      setStatusBanner,
+      clearStatusBanner,
+      isChatOpen,
+      chatAgentId,
+      chatLaunchContext,
+      openChat,
+      closeChat,
+      clearChatLaunchContext,
+    }),
+    [chatAgentId, chatLaunchContext, clearChatLaunchContext, clearStatusBanner, closeChat, filters, isChatOpen, openChat, pushToast, resetFilters, setAgentId, setFocus, setSearch, setStatusBanner]
   );
 
   return (
@@ -221,8 +253,10 @@ export function useChatPanel() {
   return {
     isChatOpen: context.isChatOpen,
     chatAgentId: context.chatAgentId,
+    chatLaunchContext: context.chatLaunchContext,
     openChat: context.openChat,
     closeChat: context.closeChat,
+    clearChatLaunchContext: context.clearChatLaunchContext,
   };
 }
 

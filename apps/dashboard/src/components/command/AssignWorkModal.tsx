@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, X, Zap } from 'lucide-react';
 import { Button } from '@/components/shared/Button';
-import { useToast } from '@/components/providers/DashboardProviders';
+import { useChatPanel, useToast } from '@/components/providers/DashboardProviders';
 import { ACTIVE_AGENT_IDS, AGENT_EMOJIS, AGENT_ROLES } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 
@@ -22,6 +22,7 @@ interface AssignWorkModalProps {
 
 export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModalProps) {
   const { pushToast } = useToast();
+  const { openChat } = useChatPanel();
   const [agentId, setAgentId] = useState('');
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -78,6 +79,18 @@ export function AssignWorkModal({ context, onClose, onAssigned }: AssignWorkModa
           : `Task queued for ${agentId}`,
         tone: 'success',
       });
+      if (action === 'run') {
+        openChat(agentId, {
+          source: 'assignment',
+          title: `Assigned ${agentId}: ${title.trim()}`,
+          detail: data?.jobId
+            ? `Structured job ${data.jobId} is now running. Use this chat window for follow-up while the live job stays visible in Automation Jobs.`
+            : 'The agent was dispatched from the assignment flow. Use this chat window for follow-up while the live job runs.',
+          jobId: typeof data?.jobId === 'string' ? data.jobId : undefined,
+          prompt: instructions.trim() || undefined,
+          createdAt: new Date().toISOString(),
+        });
+      }
       onAssigned?.();
       onClose();
     } catch {

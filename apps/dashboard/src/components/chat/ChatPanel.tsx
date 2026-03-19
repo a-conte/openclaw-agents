@@ -9,7 +9,7 @@ import { ACTIVE_AGENT_IDS, AGENT_EMOJIS, AGENT_ROLES } from '@/lib/constants';
 import type { ChatMessage } from '@/lib/types';
 
 export function ChatPanel() {
-  const { isChatOpen, chatAgentId, closeChat } = useChatPanel();
+  const { isChatOpen, chatAgentId, chatLaunchContext, closeChat, clearChatLaunchContext } = useChatPanel();
   const { messages, agentId, sendMessage, switchAgent, clearMessages, isWaiting, messagesEndRef } = useChat();
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -105,6 +105,30 @@ export function ChatPanel() {
         <div className="border-b border-border px-4 py-2 text-xs text-text-tertiary">
           {AGENT_ROLES[agentId] || 'Agent'}
         </div>
+
+        {chatLaunchContext ? (
+          <div className="border-b border-border bg-surface-2/80 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Live handoff</div>
+                <div className="mt-1 text-sm font-medium text-text-primary">{chatLaunchContext.title}</div>
+                {chatLaunchContext.detail ? (
+                  <div className="mt-1 text-xs leading-relaxed text-text-secondary">{chatLaunchContext.detail}</div>
+                ) : null}
+                <div className="mt-2 text-[11px] text-text-tertiary">
+                  {chatLaunchContext.jobId ? `Job ${chatLaunchContext.jobId}` : 'Structured work dispatched'} · {new Date(chatLaunchContext.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <button
+                onClick={clearChatLaunchContext}
+                className="shrink-0 rounded-md p-1 text-text-tertiary transition-colors hover:bg-surface-3 hover:text-text-secondary"
+                title="Dismiss handoff context"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-auto px-4 py-4">
