@@ -24,6 +24,7 @@ function ProjectsContent() {
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newAgentId, setNewAgentId] = useState<string>('dev');
   const [projectAgentDrafts, setProjectAgentDrafts] = useState<Record<string, string>>({});
   const [assignContext, setAssignContext] = useState<AssignWorkContext | null>(null);
   const [startingProjectId, setStartingProjectId] = useState<string | null>(null);
@@ -33,13 +34,38 @@ function ProjectsContent() {
     await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName, description: newDesc }),
+      body: JSON.stringify({ name: newName, description: newDesc, agentIds: newAgentId ? [newAgentId] : [] }),
     });
     setNewName('');
     setNewDesc('');
+    setNewAgentId('dev');
     setShowNew(false);
     mutate();
   };
+
+  async function handleCreateAndStart() {
+    if (!newName.trim()) return;
+    const response = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, description: newDesc, agentIds: newAgentId ? [newAgentId] : [] }),
+    });
+    const created = await response.json();
+    if (!response.ok || !created?.id) {
+      pushToast({
+        title: 'Failed to create project',
+        description: created?.error || 'The project could not be created.',
+        tone: 'error',
+      });
+      return;
+    }
+    setNewName('');
+    setNewDesc('');
+    setNewAgentId('dev');
+    setShowNew(false);
+    await mutate();
+    await startProjectWithCodex(created as Project);
+  }
 
   const searchNeedle = filters.search.trim().toLowerCase();
   const visibleProjects = (projects || []).filter((project) => {
@@ -173,8 +199,20 @@ function ProjectsContent() {
             rows={2}
             className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none resize-none mb-3"
           />
+          <select
+            value={newAgentId}
+            onChange={(e) => setNewAgentId(e.target.value)}
+            className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none mb-3"
+          >
+            {ACTIVE_AGENT_IDS.map((agentId) => (
+              <option key={agentId} value={agentId}>
+                {AGENT_EMOJIS[agentId]} {agentId}
+              </option>
+            ))}
+          </select>
           <div className="flex gap-2">
             <button onClick={handleCreate} className="px-3 py-1.5 text-xs bg-accent/10 text-accent rounded-md hover:bg-accent/20 transition-colors">Create</button>
+            <button onClick={() => void handleCreateAndStart()} className="px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:bg-accent/90 transition-colors">Create &amp; Start with Codex</button>
             <button onClick={() => setShowNew(false)} className="px-3 py-1.5 text-xs text-text-tertiary hover:text-text-secondary transition-colors">Cancel</button>
           </div>
         </div>
