@@ -134,6 +134,8 @@ export default function CommandPage() {
     briefings: Briefing[];
     radarItems: Array<{ id: string }>;
     systemRecommendations: SystemRecommendation[];
+    legacyOverviewHealthy: boolean;
+    legacyIssues: string[];
   }>('/api/command-overview', fetcher, { refreshInterval });
   const { data: jobs, mutate: mutateJobs } = useSWR<JobContract[]>('/api/jobs', fetcher, { refreshInterval });
 
@@ -146,9 +148,12 @@ export default function CommandPage() {
   const briefings = data?.briefings || [];
   const radarSignals = data?.radarItems?.length || 0;
   const systemRecommendations = data?.systemRecommendations || [];
+  const legacyOverviewHealthy = data?.legacyOverviewHealthy ?? false;
+  const legacyIssues = data?.legacyIssues || [];
   const searchNeedle = filters.search.trim().toLowerCase();
   const [creatingRecommendationId, setCreatingRecommendationId] = useState<string | null>(null);
   const [assignContext, setAssignContext] = useState<AssignWorkContext | null>(null);
+  const [showLegacyOverview, setShowLegacyOverview] = useState(false);
   const { now, hydrated } = useNow([data]);
 
   const agentSummaries = useMemo<AgentSummary[]>(() => {
@@ -275,90 +280,42 @@ export default function CommandPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 overflow-auto p-6">
-      {swrError && <InlineError message="Failed to load command overview." onRetry={() => mutate()} />}
+      {swrError && <InlineError message="Failed to load the legacy command overview. Automation jobs are still available." onRetry={() => mutate()} />}
       <section className="rounded-2xl border border-border bg-surface-1/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] glass">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-text-tertiary">
-              <Diamond size={14} className="text-accent" />
-              Command Deck
+              <Play size={14} className="text-accent-blue" />
+              Automation Mission Control
             </div>
             <div>
-              <h1 className="font-[var(--font-heading)] text-2xl text-text-primary md:text-3xl">Run the day from one screen</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">{MISSION_STATEMENT}</p>
+              <h1 className="font-[var(--font-heading)] text-2xl text-text-primary md:text-3xl">Run automation first</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
+                The primary command surface is now the structured automation runtime behind <code className="rounded bg-surface-2 px-1 py-0.5 text-xs">listen</code>.
+                The older gateway/tasks/workflow overview is still available, but it is secondary and may be stale when the gateway is down.
+              </p>
             </div>
           </div>
 
           <div className="grid min-w-[280px] gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
             <TrustPill
-              label={health?.ok ? 'Gateway live' : 'Gateway degraded'}
-              value={health?.ts ? `Last health ping ${relativeTime(health.ts)}` : 'No live health timestamp'}
-              tone={health?.ok ? 'good' : 'danger'}
+              label="Automation runtime"
+              value={`${jobs?.length || 0} visible jobs · dashboard is the primary control plane`}
+              tone="good"
             />
             <TrustPill
-              label="Polling cadence"
-              value={`Agents, runs, and repos refresh every ${Math.round(POLL_INTERVAL / 1000)}s`}
-              tone="neutral"
+              label="Legacy overview"
+              value={legacyOverviewHealthy ? 'Gateway/tasks/workflows loaded' : 'Secondary panels are degraded or stale'}
+              tone={legacyOverviewHealthy ? 'neutral' : 'warn'}
             />
             <TrustPill
               label="Delivery model"
-              value="Workflow completions may reply in Telegram; approvals trigger a Telegram notification before execution."
+              value="Dashboard first. iPad and Apple delivery are supplemental."
               tone="warn"
             />
           </div>
         </div>
       </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <ErrorBoundary name="Needs Attention">
-        <Panel title="Needs Attention" eyebrow="Triage" icon={<AlertTriangle size={15} className="text-accent" />}>
-          <div className="grid gap-3 md:grid-cols-2">
-            {attentionItems.map((item) => (
-              <AttentionCard key={item.id} item={item} onAssign={(ctx) => setAssignContext(ctx)} />
-            ))}
-          </div>
-        </Panel>
-        </ErrorBoundary>
-
-        <ErrorBoundary name="Operational Snapshot">
-        <Panel title="Operational Snapshot" eyebrow="Now" icon={<Sparkles size={15} className="text-accent-blue" />}>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Agents active" value={`${activeAgents.length}/${agentSummaries.length || 0}`} note="last hour" tone="accent" />
-            <StatCard label="Runs in flight" value={runningRuns.length.toString()} note="live workflows" tone="info" />
-            <StatCard label="Tasks moving" value={inProgressTasks.length.toString()} note={`${overdueTasks.length} stale`} tone="warn" />
-            <StatCard label="Signals" value={radarSignals.toString()} note={`${pendingBriefings.length} pending briefings`} tone="neutral" />
-          </div>
-        </Panel>
-        </ErrorBoundary>
-      </section>
-
-      <ErrorBoundary name="System Recommendations">
-      <section>
-        <Panel title="Improve the System" eyebrow="Fresh Recommendations" icon={<Sparkles size={15} className="text-accent-purple" />}>
-          <div className="grid gap-3 xl:grid-cols-2">
-            {systemRecommendations.map((recommendation) => (
-              <RecommendationCard
-                key={recommendation.id}
-                recommendation={recommendation}
-                creating={creatingRecommendationId === recommendation.id}
-                onCreateTask={async () => {
-                  setCreatingRecommendationId(recommendation.id);
-                  try {
-                    await createTask({
-                      ...recommendation.taskDraft,
-                      status: 'todo',
-                    });
-                  } finally {
-                    setCreatingRecommendationId((current) => (current === recommendation.id ? null : current));
-                  }
-                }}
-                onAssign={(ctx) => setAssignContext(ctx)}
-              />
-            ))}
-          </div>
-        </Panel>
-      </section>
-      </ErrorBoundary>
 
       <section>
         <ErrorBoundary name="Automation Jobs">
@@ -366,96 +323,172 @@ export default function CommandPage() {
         </ErrorBoundary>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <ErrorBoundary name="Workflow Queue">
-        <Panel title="Workflow Queue" eyebrow="Execution" icon={<Zap size={15} className="text-accent-yellow" />}>
-          {filteredWorkflows.length === 0 ? (
-            <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No workflows match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No workflows defined yet.'} />
-          ) : (
-            <div className="grid gap-3 xl:grid-cols-2">
-              {filteredWorkflows.map((workflow) => (
-                <WorkflowCard key={workflow.name} workflow={workflow} runs={runs.filter((run) => run.workflowName === workflow.name)} onAssign={(ctx) => setAssignContext(ctx)} />
-              ))}
+      <section className="rounded-2xl border border-border bg-surface-1/80 p-4">
+        <button
+          type="button"
+          onClick={() => setShowLegacyOverview((value) => !value)}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-text-tertiary">Legacy Mission Control</div>
+            <div className="mt-1 text-sm text-text-secondary">
+              Older gateway, task, workflow, repo, and activity panels. Useful when healthy, but secondary to structured automation jobs.
             </div>
-          )}
-        </Panel>
-        </ErrorBoundary>
+            {!legacyOverviewHealthy ? (
+              <div className="mt-2 text-xs text-amber-300">
+                Currently degraded{legacyIssues.length > 0 ? `: ${legacyIssues[0]}` : '.'}
+              </div>
+            ) : null}
+          </div>
+          <Button variant="secondary">{showLegacyOverview ? 'Hide' : 'Show'} Legacy Overview</Button>
+        </button>
+      </section>
 
-        <div className="grid gap-4">
-          <ErrorBoundary name="Running Now">
-          <Panel title="Running Now" eyebrow="Focus" icon={<Loader2 size={15} className="text-accent-blue" />}>
-            {runningRuns.length === 0 && inProgressTasks.length === 0 ? (
-              <EmptyMessage message="No workflows or tasks are running right now." />
-            ) : (
-              <div className="space-y-2">
-                {runningRuns.slice(0, 4).map((run) => (
-                  <RunListItem key={run.id} run={run} />
-                ))}
-                {inProgressTasks.slice(0, 4).map((task) => (
-                  <div key={task.id} className="rounded-lg border border-border bg-surface-2/75 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm text-text-primary">{task.title}</div>
-                        <div className="text-xs text-text-tertiary">
-                          {task.agentId ? `${AGENT_EMOJIS[task.agentId] || ''} ${task.agentId}` : 'unassigned'} · {relativeTime(task.updatedAt)}
-                        </div>
-                      </div>
-                      <Badge color="#4A9EFF">in_progress</Badge>
-                    </div>
-                  </div>
+      {showLegacyOverview ? (
+        <>
+          <section className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+            <ErrorBoundary name="Needs Attention">
+            <Panel title="Needs Attention" eyebrow="Triage" icon={<AlertTriangle size={15} className="text-accent" />}>
+              <div className="grid gap-3 md:grid-cols-2">
+                {attentionItems.map((item) => (
+                  <AttentionCard key={item.id} item={item} onAssign={(ctx) => setAssignContext(ctx)} />
                 ))}
               </div>
-            )}
-          </Panel>
+            </Panel>
+            </ErrorBoundary>
+
+            <ErrorBoundary name="Operational Snapshot">
+            <Panel title="Operational Snapshot" eyebrow="Now" icon={<Sparkles size={15} className="text-accent-blue" />}>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard label="Agents active" value={`${activeAgents.length}/${agentSummaries.length || 0}`} note="last hour" tone="accent" />
+                <StatCard label="Runs in flight" value={runningRuns.length.toString()} note="live workflows" tone="info" />
+                <StatCard label="Tasks moving" value={inProgressTasks.length.toString()} note={`${overdueTasks.length} stale`} tone="warn" />
+                <StatCard label="Signals" value={radarSignals.toString()} note={`${pendingBriefings.length} pending briefings`} tone="neutral" />
+              </div>
+            </Panel>
+            </ErrorBoundary>
+          </section>
+
+          <ErrorBoundary name="System Recommendations">
+          <section>
+            <Panel title="Improve the System" eyebrow="Fresh Recommendations" icon={<Sparkles size={15} className="text-accent-purple" />}>
+              <div className="grid gap-3 xl:grid-cols-2">
+                {systemRecommendations.map((recommendation) => (
+                  <RecommendationCard
+                    key={recommendation.id}
+                    recommendation={recommendation}
+                    creating={creatingRecommendationId === recommendation.id}
+                    onCreateTask={async () => {
+                      setCreatingRecommendationId(recommendation.id);
+                      try {
+                        await createTask({
+                          ...recommendation.taskDraft,
+                          status: 'todo',
+                        });
+                      } finally {
+                        setCreatingRecommendationId((current) => (current === recommendation.id ? null : current));
+                      }
+                    }}
+                    onAssign={(ctx) => setAssignContext(ctx)}
+                  />
+                ))}
+              </div>
+            </Panel>
+          </section>
           </ErrorBoundary>
 
-          <ErrorBoundary name="Agent Pulse">
-          <Panel title="Agent Pulse" eyebrow="Coverage" icon={<Users size={15} className="text-accent-teal" />}>
-            <div className="space-y-2">
-              {agentSummaries.slice(0, 7).map((agent) => (
-                <AgentPulseRow key={agent.agentId} agent={agent} onAssign={(ctx) => setAssignContext(ctx)} />
-              ))}
-            </div>
-          </Panel>
-          </ErrorBoundary>
-        </div>
-      </section>
+          <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+            <ErrorBoundary name="Workflow Queue">
+            <Panel title="Workflow Queue" eyebrow="Execution" icon={<Zap size={15} className="text-accent-yellow" />}>
+              {filteredWorkflows.length === 0 ? (
+                <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No workflows match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No workflows defined yet.'} />
+              ) : (
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {filteredWorkflows.map((workflow) => (
+                    <WorkflowCard key={workflow.name} workflow={workflow} runs={runs.filter((run) => run.workflowName === workflow.name)} onAssign={(ctx) => setAssignContext(ctx)} />
+                  ))}
+                </div>
+              )}
+            </Panel>
+            </ErrorBoundary>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_1fr]">
-        <ErrorBoundary name="Repos">
-        <Panel title="Repos That Need You" eyebrow="Code" icon={<GitBranch size={15} className="text-accent" />}>
-          {dirtyRepos.length === 0 ? (
-            <EmptyMessage message={filters.search || filters.focus ? `No repos match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'Watched repos are clean.'} />
-          ) : (
-            <div className="space-y-3">
-              {dirtyRepos.slice(0, 5).map((repo) => (
-                <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} onAssign={(ctx) => setAssignContext(ctx)} />
-              ))}
-            </div>
-          )}
-        </Panel>
-        </ErrorBoundary>
+            <div className="grid gap-4">
+              <ErrorBoundary name="Running Now">
+              <Panel title="Running Now" eyebrow="Focus" icon={<Loader2 size={15} className="text-accent-blue" />}>
+                {runningRuns.length === 0 && inProgressTasks.length === 0 ? (
+                  <EmptyMessage message="No workflows or tasks are running right now." />
+                ) : (
+                  <div className="space-y-2">
+                    {runningRuns.slice(0, 4).map((run) => (
+                      <RunListItem key={run.id} run={run} />
+                    ))}
+                    {inProgressTasks.slice(0, 4).map((task) => (
+                      <div key={task.id} className="rounded-lg border border-border bg-surface-2/75 px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm text-text-primary">{task.title}</div>
+                            <div className="text-xs text-text-tertiary">
+                              {task.agentId ? `${AGENT_EMOJIS[task.agentId] || ''} ${task.agentId}` : 'unassigned'} · {relativeTime(task.updatedAt)}
+                            </div>
+                          </div>
+                          <Badge color="#4A9EFF">in_progress</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+              </ErrorBoundary>
 
-        <ErrorBoundary name="Briefings">
-        <Panel title="Upcoming Briefings" eyebrow="Schedule" icon={<CalendarClock size={15} className="text-accent-yellow" />}>
-          {filteredBriefings.length === 0 ? (
-            <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No briefings match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No briefings scheduled.'} />
-          ) : (
-            <div className="space-y-2">
-              {filteredBriefings.slice(0, 6).map((briefing) => (
-                <BriefingRow key={briefing.id} briefing={briefing} />
-              ))}
+              <ErrorBoundary name="Agent Pulse">
+              <Panel title="Agent Pulse" eyebrow="Coverage" icon={<Users size={15} className="text-accent-teal" />}>
+                <div className="space-y-2">
+                  {agentSummaries.slice(0, 7).map((agent) => (
+                    <AgentPulseRow key={agent.agentId} agent={agent} onAssign={(ctx) => setAssignContext(ctx)} />
+                  ))}
+                </div>
+              </Panel>
+              </ErrorBoundary>
             </div>
-          )}
-        </Panel>
-        </ErrorBoundary>
+          </section>
 
-        <ErrorBoundary name="Activity">
-        <Panel title="Recent Activity" eyebrow="Signals" icon={<Radar size={15} className="text-accent-purple" />}>
-          <ActivityFeed />
-        </Panel>
-        </ErrorBoundary>
-      </section>
+          <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_1fr]">
+            <ErrorBoundary name="Repos">
+            <Panel title="Repos That Need You" eyebrow="Code" icon={<GitBranch size={15} className="text-accent" />}>
+              {dirtyRepos.length === 0 ? (
+                <EmptyMessage message={filters.search || filters.focus ? `No repos match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'Watched repos are clean.'} />
+              ) : (
+                <div className="space-y-3">
+                  {dirtyRepos.slice(0, 5).map((repo) => (
+                    <RepoCard key={`${repo.owner}/${repo.name}`} repo={repo} onAssign={(ctx) => setAssignContext(ctx)} />
+                  ))}
+                </div>
+              )}
+            </Panel>
+            </ErrorBoundary>
+
+            <ErrorBoundary name="Briefings">
+            <Panel title="Upcoming Briefings" eyebrow="Schedule" icon={<CalendarClock size={15} className="text-accent-yellow" />}>
+              {filteredBriefings.length === 0 ? (
+                <EmptyMessage message={filters.search || filters.agentId || filters.focus ? `No briefings match the current filters${filters.focus ? ` (${filters.focus})` : ''}.` : 'No briefings scheduled.'} />
+              ) : (
+                <div className="space-y-2">
+                  {filteredBriefings.slice(0, 6).map((briefing) => (
+                    <BriefingRow key={briefing.id} briefing={briefing} />
+                  ))}
+                </div>
+              )}
+            </Panel>
+            </ErrorBoundary>
+
+            <ErrorBoundary name="Activity">
+            <Panel title="Recent Activity" eyebrow="Signals" icon={<Radar size={15} className="text-accent-purple" />}>
+              <ActivityFeed />
+            </Panel>
+            </ErrorBoundary>
+          </section>
+        </>
+      ) : null}
 
       <AssignWorkModal
         context={assignContext}

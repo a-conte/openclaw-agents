@@ -156,7 +156,8 @@ async function loadBriefingsUncached(): Promise<Briefing[]> {
   return cronJobs
     .filter((job: any) => job.enabled !== false)
     .map((job: any) => {
-      const parts = (job.schedule || '').split(' ');
+      const schedule = typeof job.schedule === 'string' ? job.schedule : '';
+      const parts = schedule.split(' ');
       const minute = parseInt(parts[0]) || 0;
       const hour = parseInt(parts[1]) || 0;
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -175,7 +176,7 @@ async function loadBriefingsUncached(): Promise<Briefing[]> {
       return {
         id: job.id || job.name,
         name: job.name || job.id,
-        schedule: job.schedule,
+        schedule,
         agentId: job.agentId || 'main',
         time: timeStr,
         status,

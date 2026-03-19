@@ -8,16 +8,42 @@ import { getCached } from '@/lib/server-cache';
 
 export const dynamic = 'force-dynamic';
 
+async function capture<T>(label: string, loader: () => Promise<T>): Promise<{ value: T | null; issue: string | null }> {
+  try {
+    return { value: await loader(), issue: null };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    return { value: null, issue: `${label}: ${detail}` };
+  }
+}
+
 async function loadCommandOverview() {
-  const [health, tasks, runs, workflows, repos, briefings, radarItems] = await Promise.all([
-    getHealth(),
-    getAllTasks(),
-    getAllRuns(),
-    loadWorkflows(),
-    loadRepos(),
-    loadBriefings(),
-    loadRadarItems(),
+  const [healthResult, tasksResult, runsResult, workflowsResult, reposResult, briefingsResult, radarItemsResult] = await Promise.all([
+    capture('gateway health', getHealth),
+    capture('tasks', getAllTasks),
+    capture('workflow runs', getAllRuns),
+    capture('workflows', loadWorkflows),
+    capture('repos', loadRepos),
+    capture('briefings', loadBriefings),
+    capture('radar', loadRadarItems),
   ]);
+
+  const health = healthResult.value;
+  const tasks = tasksResult.value || [];
+  const runs = runsResult.value || [];
+  const workflows = workflowsResult.value || [];
+  const repos = reposResult.value || [];
+  const briefings = briefingsResult.value || [];
+  const radarItems = radarItemsResult.value || [];
+  const legacyIssues = [
+    healthResult.issue,
+    tasksResult.issue,
+    runsResult.issue,
+    workflowsResult.issue,
+    reposResult.issue,
+    briefingsResult.issue,
+    radarItemsResult.issue,
+  ].filter((item): item is string => Boolean(item));
 
   const activeAgents = (health?.agents || []).filter((agent) => isActiveAgent(agent.agentId));
 
@@ -41,6 +67,8 @@ async function loadCommandOverview() {
     briefings,
     radarItems,
     systemRecommendations,
+    legacyOverviewHealthy: legacyIssues.length === 0,
+    legacyIssues,
   };
 }
 
