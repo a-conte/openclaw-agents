@@ -20,6 +20,7 @@ import {
   getListenJob,
   getListenArtifactAdmin,
   getListenMetrics,
+  getListenJobLiveOutput,
   getListenNotificationPreferences,
   getListenPolicy,
   getListenPolicyAdmin,
@@ -196,6 +197,10 @@ export async function getJobArtifact(id: string, relativePath: string) {
 
 export async function getJobArtifactBundle(id: string, kind = 'bundle') {
   return fetchListenArtifactBundle(id, kind);
+}
+
+export async function getJobLiveOutput(id: string, lines = 120) {
+  return getListenJobLiveOutput(id, lines);
 }
 
 export async function getShortcutsSummary() {

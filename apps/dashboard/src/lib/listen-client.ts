@@ -102,6 +102,18 @@ export type NotificationEvent = {
   } | null;
 };
 
+export type LiveJobOutput = {
+  jobId: string;
+  archived?: boolean;
+  status?: string;
+  currentStepId?: string | null;
+  ok: boolean;
+  session: string;
+  lines: number;
+  transcript: string;
+  error?: string;
+};
+
 function buildUrl(path: string) {
   return `${DEFAULT_BASE_URL}${path}`;
 }
@@ -210,6 +222,11 @@ export async function fetchListenArtifactBundle(jobId: string, kind = 'bundle'):
     throw new Error(text || `Listen artifact bundle request failed with ${response.status}`);
   }
   return response;
+}
+
+export async function getListenJobLiveOutput(jobId: string, lines = 120): Promise<LiveJobOutput> {
+  const query = new URLSearchParams({ lines: String(lines) });
+  return listenFetch<LiveJobOutput>(`/job/${jobId}/live?${query.toString()}`);
 }
 
 export async function createListenJob(input: CreateAutomationJobInput): Promise<JobContract> {

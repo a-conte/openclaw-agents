@@ -409,9 +409,13 @@ def deep_resolve(value: Any, context: dict[str, Any]) -> Any:
     return value
 
 
-def run_shell_prompt(session: str, prompt: str) -> dict[str, Any]:
+def run_shell_prompt(session: str, prompt: str, timeout_seconds: float | None = None) -> dict[str, Any]:
     run_drive("session", "create", "--name", session, "--json")
-    result = run_drive("run", "--session", session, "--json", prompt)
+    args = ["run", "--session", session]
+    if timeout_seconds is not None:
+        args.extend(["--timeout", str(timeout_seconds)])
+    args.extend(["--json", prompt])
+    result = run_drive(*args)
     ok, payload = parse_json_result(result)
     if ok and isinstance(payload, dict):
         return payload
@@ -559,7 +563,8 @@ def execute_step(step: dict[str, Any], job: dict[str, Any], context: dict[str, A
     if step_type == "shell":
         prompt = str(step.get("prompt", "")).strip()
         session = str(step.get("session") or job.get("session") or f"listen-{job['id']}")
-        return run_shell_prompt(session, prompt)
+        timeout_seconds = float(step.get("timeoutSeconds", 120))
+        return run_shell_prompt(session, prompt, timeout_seconds=timeout_seconds)
     if step_type == "note":
         message = str(step.get("message", "")).strip()
         append_update(job, message or "note", level="info", step_id=str(step.get("id", "")) or None)

@@ -72,6 +72,30 @@ class ListenRuntimeTests(unittest.TestCase):
         self.assertTrue(result["timedOut"])
         self.assertIn("result", result)
 
+    def test_shell_step_uses_timeout_seconds_for_drive_run(self) -> None:
+        job = {"id": "job-shell", "session": "listen-job-shell", "updates": [], "stepStatus": []}
+
+        def fake_run_drive(*args: str):
+            if args[:2] == ("session", "create"):
+                return type("Result", (), {"stdout": '{"ok": true, "created": true, "session": "codex-job"}', "stderr": "", "returncode": 0})()
+            self.assertEqual(args[:4], ("run", "--session", "codex-job", "--timeout"))
+            self.assertEqual(args[4], "1800.0")
+            return type("Result", (), {"stdout": '{"ok": true, "session": "codex-job", "exitCode": 0}', "stderr": "", "returncode": 0})()
+
+        with patch.object(worker, "run_drive", side_effect=fake_run_drive):
+            result = worker.execute_step(
+                {
+                    "type": "shell",
+                    "session": "codex-job",
+                    "timeoutSeconds": 1800,
+                    "prompt": "echo hello",
+                },
+                job,
+                {"steps": {}},
+            )
+
+        self.assertTrue(result["ok"])
+
     def test_extract_step_artifacts_keeps_compact_structured_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base_dir = Path(tmp) / "artifacts"

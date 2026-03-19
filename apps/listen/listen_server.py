@@ -121,6 +121,73 @@ def _job_root_id(job: dict[str, object]) -> str:
     return root or clean_str(job.get("id")) or "unknown"
 
 
+def _infer_job_session(job: dict[str, object]) -> str:
+    template_inputs = job.get("templateInputs")
+    if isinstance(template_inputs, dict):
+        session_name = clean_str(template_inputs.get("sessionName"))
+        if session_name:
+            return session_name
+    step_status = job.get("stepStatus")
+    if isinstance(step_status, list):
+        for step in reversed(step_status):
+            if not isinstance(step, dict):
+                continue
+            step_session = clean_str(step.get("session"))
+            if step_session:
+                return step_session
+            result = step.get("result")
+            if isinstance(result, dict):
+                result_session = clean_str(result.get("session"))
+                if result_session:
+                    return result_session
+            artifacts = step.get("artifacts")
+            if isinstance(artifacts, dict):
+                artifact_session = artifacts.get("session")
+                if isinstance(artifact_session, str) and artifact_session.strip():
+                    return artifact_session.strip()
+    return clean_str(job.get("session"))
+
+
+def _read_job_live_output(job: dict[str, object], lines: int) -> dict[str, object]:
+    session_name = _infer_job_session(job)
+    if not session_name:
+        return {"ok": False, "error": "job session unavailable", "session": "", "transcript": ""}
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "apps" / "drive" / "drive_cli.py"),
+            "logs",
+            "--session",
+            session_name,
+            "--lines",
+            str(lines),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        cwd=str(REPO_ROOT),
+        check=False,
+    )
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    if isinstance(payload, dict) and payload.get("ok") is True:
+        return {
+            "ok": True,
+            "session": session_name,
+            "lines": lines,
+            "transcript": clean_str(payload.get("output")),
+        }
+    return {
+        "ok": False,
+        "session": session_name,
+        "lines": lines,
+        "error": clean_str(payload.get("error")) or clean_str(result.stderr) or "unable to read session logs",
+        "transcript": clean_str(payload.get("output")),
+    }
+
+
 def collect_job_metrics() -> dict[str, object]:
     active_jobs = list_jobs_in(JOBS_DIR)
     archived_jobs = list_jobs_in(ARCHIVED_DIR)
@@ -1058,6 +1125,33 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
                 return
             self._json(HTTPStatus.OK, {"artifacts": list_job_artifacts(job_id, archived=archived)})
+            return
+        if parsed.path.startswith("/job/") and parsed.path.endswith("/live"):
+            job_id = parsed.path.split("/")[2]
+            job = read_job(job_id)
+            archived = False
+            if not job:
+                job = read_job(job_id, archived=True)
+                archived = True
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "job not found"})
+                return
+            raw_lines = parse_qs(parsed.query).get("lines", ["120"])[0]
+            try:
+                lines = max(20, min(400, int(raw_lines)))
+            except ValueError:
+                lines = 120
+            live = _read_job_live_output(job, lines)
+            self._json(
+                HTTPStatus.OK,
+                {
+                    "jobId": job_id,
+                    "archived": archived,
+                    "status": job.get("status"),
+                    "currentStepId": job.get("currentStepId"),
+                    **live,
+                },
+            )
             return
         if parsed.path.startswith("/agent/job/") and parsed.path.endswith("/artifacts"):
             job_id = parsed.path.split("/")[3]

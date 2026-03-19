@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { JobContract } from '@openclaw/contracts';
 import { Badge } from '@/components/shared/Badge';
@@ -32,6 +33,11 @@ function durationMsText(durationMs?: number) {
   const seconds = durationMs / 1000;
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
   return `${(seconds / 60).toFixed(1)}m`;
+}
+
+function liveDurationText(startedAt?: string, completedAt?: string) {
+  const anchor = completedAt || new Date().toISOString();
+  return durationText(startedAt, anchor);
 }
 
 type ArtifactReference = {
@@ -128,6 +134,53 @@ export function JobDetailPanel({
 }) {
   const currentStep = Array.isArray(job.stepStatus) ? job.stepStatus.find((step) => step.id === job.currentStepId) : null;
   const latestUpdate = Array.isArray(job.updates) && job.updates.length > 0 ? job.updates[job.updates.length - 1] : null;
+  const [liveTranscript, setLiveTranscript] = useState<{ session: string; transcript: string; error?: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    async function loadLiveTranscript() {
+      if (job.status !== 'running') {
+        setLiveTranscript(null);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/jobs/${job.id}/live?lines=120`, { cache: 'no-store' });
+        const payload = await response.json();
+        if (!cancelled) {
+          setLiveTranscript({
+            session: typeof payload.session === 'string' ? payload.session : '',
+            transcript: typeof payload.transcript === 'string' ? payload.transcript : '',
+            error: typeof payload.error === 'string' ? payload.error : undefined,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLiveTranscript({
+            session: '',
+            transcript: '',
+            error: error instanceof Error ? error.message : 'Unable to load live transcript',
+          });
+        }
+      } finally {
+        if (!cancelled && job.status === 'running') {
+          timer = setTimeout(loadLiveTranscript, 4000);
+        }
+      }
+    }
+
+    void loadLiveTranscript();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [job.id, job.status]);
+
+  const liveTranscriptText = useMemo(() => {
+    const text = liveTranscript?.transcript?.trim();
+    return text || '';
+  }, [liveTranscript]);
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
@@ -171,6 +224,7 @@ export function JobDetailPanel({
       {currentStep ? (
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/8 px-3 py-2 text-xs text-blue-100">
           Running now: <span className="font-semibold">{currentStep.name}</span>
+          {liveDurationText(currentStep.startedAt, currentStep.completedAt) ? ` · ${liveDurationText(currentStep.startedAt, currentStep.completedAt)}` : ''}
           {latestUpdate?.message ? ` · ${latestUpdate.message}` : ''}
         </div>
       ) : null}
@@ -238,6 +292,26 @@ export function JobDetailPanel({
           )) : <div className="text-xs text-text-secondary">No step details for this job.</div>}
         </div>
       </div>
+
+      {job.status === 'running' ? (
+        <div className="rounded-lg border border-border bg-surface-3 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="text-xs uppercase tracking-[0.16em] text-text-tertiary">Live Transcript</div>
+            <div className="text-[11px] text-text-tertiary">
+              {liveTranscript?.session ? `session ${liveTranscript.session}` : 'waiting for session'}
+            </div>
+          </div>
+          {liveTranscript?.error ? (
+            <div className="text-xs text-red-300">{liveTranscript.error}</div>
+          ) : liveTranscriptText ? (
+            <pre className="max-h-80 overflow-auto rounded-md border border-border bg-surface-2 px-3 py-2 text-[11px] text-text-secondary">
+              {liveTranscriptText}
+            </pre>
+          ) : (
+            <div className="text-xs text-text-secondary">Waiting for live shell output…</div>
+          )}
+        </div>
+      ) : null}
 
       {job.result ? (
         <pre className="overflow-x-auto rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
