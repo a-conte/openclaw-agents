@@ -7,6 +7,7 @@ import { getCached } from './server-cache';
 import { resolveAgentsRoot } from './paths';
 
 const execFileAsync = promisify(execFile);
+const LIVE_SIGNAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export function expandHome(p: string): string {
   if (p.startsWith('~/')) return path.join(process.env.HOME || '', p.slice(2));
@@ -252,7 +253,7 @@ export function buildSystemRecommendations(input: {
   const now = Date.now();
 
   const failedRuns = runs
-    .filter((run) => run.status === 'failed')
+    .filter((run) => run.status === 'failed' && now - new Date(run.startedAt).getTime() <= LIVE_SIGNAL_WINDOW_MS)
     .sort((a, b) => +new Date(b.startedAt) - +new Date(a.startedAt));
   const dirtyRepos = repos.filter((repo) => repo.status !== 'clean');
   const staleTasks = tasks.filter(

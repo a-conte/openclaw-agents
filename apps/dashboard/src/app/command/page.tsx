@@ -1431,8 +1431,66 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
 
   return (
     <Panel title="Automation Jobs" eyebrow="Remote Control" icon={<Play size={15} className="text-accent-blue" />}>
-      <div className="grid gap-4 xl:grid-cols-[380px_320px_1fr]">
-        <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-surface-2/75 p-4 text-sm text-text-secondary">
+          <div className="font-semibold text-text-primary">Live view</div>
+          <div className="mt-1">
+            This tab now favors current runtime state over historical noise. Live jobs and the selected job stay at the top.
+            Older archived jobs and long-tail admin controls stay below so the command tab reads like a 24/7 operations surface instead of a dashboard dump.
+          </div>
+        </div>
+
+        <div className="order-1 space-y-3">
+          {visibleJobs.length === 0 ? <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} /> : visibleJobs.slice(0, 12).map((job) => (
+            <div
+              key={job.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedJobId(job.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedJobId(job.id);
+                }
+              }}
+              className={`w-full rounded-xl border p-4 text-left ${selectedJob?.id === job.id ? 'border-accent bg-surface-3/90' : 'border-border bg-surface-2/75'}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-text-primary">{job.workflow || job.command || job.mode || job.prompt || job.id}</div>
+                  <div className="mt-1 text-xs text-text-tertiary">{(job.mode || 'job')} · {job.targetAgent} · {relativeTime(job.createdAt)}</div>
+                </div>
+                <Badge color={job.status === 'failed' ? '#e94560' : job.status === 'completed' ? '#06d6a0' : job.status === 'running' ? '#4A9EFF' : '#ffd166'}>
+                  {job.status}
+                </Badge>
+              </div>
+              {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
+              <div className="mt-3">
+                <Link href={`/command/jobs/${job.id}`} className="text-xs text-accent hover:text-accent-hover" onClick={(event) => event.stopPropagation()}>
+                  Open detail page
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="order-2">
+          {selectedJob ? (
+            <JobDetailPanel
+              job={selectedJob}
+              archived={showArchived}
+              onStop={(jobId) => void stop(jobId)}
+              onResume={(jobId, resumeMode, stepId) => void resume(jobId, resumeMode, stepId)}
+              detailHref={`/command/jobs/${selectedJob.id}`}
+            />
+          ) : (
+            <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
+              <EmptyMessage message="Select a job to inspect details." />
+            </div>
+          )}
+        </div>
+
+        <div className="order-3 rounded-xl border border-border bg-surface-2/75 p-4">
           {policy ? (
             <div className="rounded-lg border border-border bg-surface-3 px-3 py-2 text-xs text-text-secondary">
               <div className="font-semibold text-text-primary">Policy</div>
@@ -2215,54 +2273,6 @@ function AutomationJobsPanel({ jobs, onChanged }: { jobs: JobContract[]; onChang
             </Button>
           </div>
         </div>
-
-        <div className="space-y-3">
-          {visibleJobs.length === 0 ? <EmptyMessage message={showArchived ? 'No archived automation jobs.' : 'No automation jobs queued yet.'} /> : visibleJobs.slice(0, 12).map((job) => (
-            <div
-              key={job.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedJobId(job.id)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  setSelectedJobId(job.id);
-                }
-              }}
-              className={`w-full rounded-xl border p-4 text-left ${selectedJob?.id === job.id ? 'border-accent bg-surface-3/90' : 'border-border bg-surface-2/75'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-text-primary">{job.workflow || job.command || job.mode || job.prompt || job.id}</div>
-                  <div className="mt-1 text-xs text-text-tertiary">{(job.mode || 'job')} · {job.targetAgent} · {relativeTime(job.createdAt)}</div>
-                </div>
-                <Badge color={job.status === 'failed' ? '#e94560' : job.status === 'completed' ? '#06d6a0' : job.status === 'running' ? '#4A9EFF' : '#ffd166'}>
-                  {job.status}
-                </Badge>
-              </div>
-              {job.summary ? <div className="mt-2 text-xs text-text-secondary">{job.summary}</div> : null}
-              <div className="mt-3">
-                <Link href={`/command/jobs/${job.id}`} className="text-xs text-accent hover:text-accent-hover" onClick={(event) => event.stopPropagation()}>
-                  Open detail page
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {selectedJob ? (
-          <JobDetailPanel
-            job={selectedJob}
-            archived={showArchived}
-            onStop={(jobId) => void stop(jobId)}
-            onResume={(jobId, resumeMode, stepId) => void resume(jobId, resumeMode, stepId)}
-            detailHref={`/command/jobs/${selectedJob.id}`}
-          />
-        ) : (
-          <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
-            <EmptyMessage message="Select a job to inspect details." />
-          </div>
-        )}
       </div>
     </Panel>
   );
