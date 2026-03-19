@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { FolderKanban, Play, Plus, Users } from 'lucide-react';
@@ -39,7 +39,16 @@ function latestProjectJobFor(project: Project, jobs: JobContract[]) {
   })[0];
 }
 
+function stepStatusTone(status: NonNullable<JobContract['stepStatus']>[number]['status']) {
+  if (status === 'failed') return 'text-red-300';
+  if (status === 'completed') return 'text-green-300';
+  if (status === 'running') return 'text-blue-200';
+  if (status === 'skipped') return 'text-text-tertiary';
+  return 'text-text-secondary';
+}
+
 function ProjectsContent() {
+  const router = useRouter();
   const { filters } = useDashboardFilters();
   const { pushToast } = useToast();
   const { openChat } = useChatPanel();
@@ -127,6 +136,19 @@ function ProjectsContent() {
     return `codex-${suffix}`;
   }
 
+  function openProjectRun(project: Project, job: JobContract) {
+    const selectedAgent = projectAgentDrafts[project.id] || job.targetAgent || project.agentIds[0] || filters.agentId || 'dev';
+    openChat(selectedAgent, {
+      source: 'assignment',
+      title: `Live project run: ${project.name}`,
+      detail: `Watching ${job.templateId || job.mode || 'job'} · ${job.status}${job.currentStepId ? ` · ${job.currentStepId}` : ''}`,
+      jobId: job.id,
+      prompt: job.prompt,
+      createdAt: job.createdAt || new Date().toISOString(),
+    });
+    router.push(`/command/jobs/${job.id}`);
+  }
+
   async function retryProjectRun(project: Project, job: JobContract, mode: 'resume_failed' | 'rerun_all') {
     setRetryingProjectId(project.id);
     try {
@@ -161,6 +183,9 @@ function ProjectsContent() {
         description: `${project.name} is back in progress.`,
         tone: 'success',
       });
+      if (typeof payload?.id === 'string') {
+        router.push(`/command/jobs/${payload.id}`);
+      }
     } catch {
       pushToast({
         title: 'Network error',
@@ -233,6 +258,9 @@ function ProjectsContent() {
         tone: 'success',
       });
       await mutateJobs();
+      if (typeof payload?.id === 'string') {
+        router.push(`/command/jobs/${payload.id}`);
+      }
     } catch {
       pushToast({
         title: 'Network error',
@@ -316,6 +344,7 @@ function ProjectsContent() {
             const projectTasks = tasks.filter(t => t.projectId === project.id || t.labels.includes(project.name));
             const latestJob = latestProjectJobFor(project, jobs || []);
             const latestStep = latestJob?.stepStatus?.find((step) => step.id === latestJob.currentStepId);
+            const stepTimeline = latestJob?.stepStatus?.slice(0, 5) || [];
             const completed = projectTasks.filter(t => t.status === 'done').length;
             const total = projectTasks.length;
             const progress = total > 0 ? (completed / total) * 100 : 0;
@@ -386,10 +415,31 @@ function ProjectsContent() {
                       {latestJob.error ? (
                         <div className="line-clamp-2 text-red-300">{latestJob.error}</div>
                       ) : null}
+                      {stepTimeline.length > 0 ? (
+                        <div className="mt-2 rounded-md border border-border bg-surface-3/70 p-2">
+                          <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-text-tertiary">Step Timeline</div>
+                          <div className="space-y-1">
+                            {stepTimeline.map((step) => (
+                              <div key={step.id} className="flex items-center justify-between gap-2 text-[11px]">
+                                <div className={`truncate ${stepStatusTone(step.status)}`}>
+                                  {step.status === 'running' ? '• ' : ''}
+                                  {step.name}
+                                </div>
+                                <div className="shrink-0 text-text-tertiary">
+                                  {step.status}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="flex flex-wrap gap-2 pt-1">
-                        <Link href={`/command/jobs/${latestJob.id}`} className="text-accent hover:text-accent-hover">
-                          Open Run
-                        </Link>
+                        <button
+                          onClick={() => openProjectRun(project, latestJob)}
+                          className="text-accent hover:text-accent-hover"
+                        >
+                          {latestJob.status === 'running' ? 'Open Live Run' : 'Open Run'}
+                        </button>
                         {latestJob.status === 'failed' || latestJob.status === 'stopped' ? (
                           <>
                             <button
