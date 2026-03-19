@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { FolderKanban, Play, Plus, Users } from 'lucide-react';
+import type { JobContract } from '@openclaw/contracts';
 import { ACTIVE_AGENT_IDS, AGENT_EMOJIS } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -11,15 +13,40 @@ import { InlineError } from '@/components/shared/InlineError';
 import { AssignWorkModal, type AssignWorkContext } from '@/components/command/AssignWorkModal';
 import { useChatPanel, useDashboardFilters, useToast } from '@/components/providers/DashboardProviders';
 import { useTasks } from '@/hooks/useTasks';
+import { relativeTime } from '@/lib/utils';
 import type { Project } from '@/lib/types';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
+
+function projectJobStatusColor(status: JobContract['status']) {
+  if (status === 'failed' || status === 'stopped') return '#e94560';
+  if (status === 'completed') return '#06d6a0';
+  if (status === 'running') return '#4A9EFF';
+  return '#ffd166';
+}
+
+function latestProjectJobFor(project: Project, jobs: JobContract[]) {
+  const taggedJobs = jobs.filter((job) => {
+    if (job.templateId !== 'codex_repo_task' && job.templateId !== 'claude_code_repo_task') return false;
+    if (typeof job.prompt !== 'string') return false;
+    return job.prompt.includes(`Project: ${project.name}`);
+  });
+
+  return taggedJobs.sort((a, b) => {
+    const aTime = new Date(a.createdAt || 0).getTime();
+    const bTime = new Date(b.createdAt || 0).getTime();
+    return bTime - aTime;
+  })[0];
+}
 
 function ProjectsContent() {
   const { filters } = useDashboardFilters();
   const { pushToast } = useToast();
   const { openChat } = useChatPanel();
   const { data: projects, isLoading, error, mutate } = useSWR<Project[]>('/api/projects', fetcher);
+  const { data: jobs, mutate: mutateJobs } = useSWR<JobContract[]>('/api/jobs', fetcher, {
+    refreshInterval: 4000,
+  });
   const { tasks } = useTasks();
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -28,6 +55,7 @@ function ProjectsContent() {
   const [projectAgentDrafts, setProjectAgentDrafts] = useState<Record<string, string>>({});
   const [assignContext, setAssignContext] = useState<AssignWorkContext | null>(null);
   const [startingProjectId, setStartingProjectId] = useState<string | null>(null);
+  const [retryingProjectId, setRetryingProjectId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -99,6 +127,51 @@ function ProjectsContent() {
     return `codex-${suffix}`;
   }
 
+  async function retryProjectRun(project: Project, job: JobContract, mode: 'resume_failed' | 'rerun_all') {
+    setRetryingProjectId(project.id);
+    try {
+      const response = await fetch(`/api/jobs/${job.id}/retry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        pushToast({
+          title: 'Failed to restart project run',
+          description: payload?.error || 'The latest project job could not be restarted.',
+          tone: 'error',
+        });
+        return;
+      }
+      await mutateJobs();
+      const selectedAgent = projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev';
+      openChat(selectedAgent, {
+        source: 'assignment',
+        title: `${mode === 'resume_failed' ? 'Resumed' : 'Restarted'} project run: ${project.name}`,
+        detail: typeof payload?.id === 'string'
+          ? `Job ${payload.id} is now active for ${project.name}.`
+          : `A fresh project run is now active for ${project.name}.`,
+        jobId: typeof payload?.id === 'string' ? payload.id : undefined,
+        prompt: job.prompt,
+        createdAt: new Date().toISOString(),
+      });
+      pushToast({
+        title: mode === 'resume_failed' ? 'Project run resumed' : 'Project run restarted',
+        description: `${project.name} is back in progress.`,
+        tone: 'success',
+      });
+    } catch {
+      pushToast({
+        title: 'Network error',
+        description: 'Could not restart the project workflow.',
+        tone: 'error',
+      });
+    } finally {
+      setRetryingProjectId(null);
+    }
+  }
+
   async function startProjectWithCodex(project: Project) {
     const selectedAgent = projectAgentDrafts[project.id] || project.agentIds[0] || filters.agentId || 'dev';
     const projectTasks = tasksByProject.get(project.id) || [];
@@ -159,6 +232,7 @@ function ProjectsContent() {
         description: `${selectedAgent} is now working on ${project.name}.`,
         tone: 'success',
       });
+      await mutateJobs();
     } catch {
       pushToast({
         title: 'Network error',
@@ -240,6 +314,8 @@ function ProjectsContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {visibleProjects.map((project) => {
             const projectTasks = tasks.filter(t => t.projectId === project.id || t.labels.includes(project.name));
+            const latestJob = latestProjectJobFor(project, jobs || []);
+            const latestStep = latestJob?.stepStatus?.find((step) => step.id === latestJob.currentStepId);
             const completed = projectTasks.filter(t => t.status === 'done').length;
             const total = projectTasks.length;
             const progress = total > 0 ? (completed / total) * 100 : 0;
@@ -288,6 +364,58 @@ function ProjectsContent() {
                     </div>
                   </div>
                 )}
+
+                <div className="mt-4 rounded-md border border-border bg-surface-2/80 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-text-tertiary">Latest Codex Run</div>
+                    {latestJob ? (
+                      <Badge color={projectJobStatusColor(latestJob.status)}>{latestJob.status}</Badge>
+                    ) : (
+                      <span className="text-[11px] text-text-tertiary">No runs yet</span>
+                    )}
+                  </div>
+                  {latestJob ? (
+                    <div className="mt-2 space-y-1 text-xs text-text-secondary">
+                      <div>
+                        {latestJob.targetAgent} · {relativeTime(latestJob.createdAt)}
+                        {latestJob.attempt ? ` · attempt ${latestJob.attempt}` : ''}
+                      </div>
+                      <div className="text-text-primary">
+                        {latestStep ? `Current step: ${latestStep.name}` : latestJob.summary || 'No summary yet'}
+                      </div>
+                      {latestJob.error ? (
+                        <div className="line-clamp-2 text-red-300">{latestJob.error}</div>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Link href={`/command/jobs/${latestJob.id}`} className="text-accent hover:text-accent-hover">
+                          Open Run
+                        </Link>
+                        {latestJob.status === 'failed' || latestJob.status === 'stopped' ? (
+                          <>
+                            <button
+                              onClick={() => void retryProjectRun(project, latestJob, 'resume_failed')}
+                              disabled={retryingProjectId === project.id}
+                              className="text-accent hover:text-accent-hover disabled:opacity-60"
+                            >
+                              {retryingProjectId === project.id ? 'Resuming…' : 'Resume Latest Failed'}
+                            </button>
+                            <button
+                              onClick={() => void retryProjectRun(project, latestJob, 'rerun_all')}
+                              disabled={retryingProjectId === project.id}
+                              className="text-accent hover:text-accent-hover disabled:opacity-60"
+                            >
+                              Rerun All
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-text-tertiary">
+                      This project has not launched a Codex run yet. Start one below to create a visible job with live progress.
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-4 grid gap-2">
                   <select

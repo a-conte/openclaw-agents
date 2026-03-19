@@ -40,6 +40,29 @@ function liveDurationText(startedAt?: string, completedAt?: string) {
   return durationText(startedAt, anchor);
 }
 
+function normalizeLiveTranscript(text: string) {
+  const lines = text
+    .split('\n')
+    .map((line) => line.replace(/\r/g, ''))
+    .filter((line) => line.trim().length > 0);
+  if (lines.length === 0) return '';
+
+  const filtered = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("printf '\\n__START_")) return false;
+    if (trimmed.startsWith('drive_stdout_file=$(mktemp)')) return false;
+    if (trimmed.startsWith('drive_stderr_file=$(mktemp)')) return false;
+    if (trimmed.startsWith('__DONE_')) return false;
+    if (trimmed.startsWith('__STDERR_END_')) return false;
+    if (trimmed.startsWith('a_conte@server ')) return false;
+    return true;
+  });
+
+  const compact = filtered.join('\n').trim();
+  if (!compact) return '';
+  return compact;
+}
+
 type ArtifactReference = {
   relativePath?: string;
   preview?: string | null;
@@ -178,7 +201,7 @@ export function JobDetailPanel({
   }, [job.id, job.status]);
 
   const liveTranscriptText = useMemo(() => {
-    const text = liveTranscript?.transcript?.trim();
+    const text = liveTranscript?.transcript ? normalizeLiveTranscript(liveTranscript.transcript) : '';
     return text || '';
   }, [liveTranscript]);
 
