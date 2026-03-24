@@ -95,17 +95,75 @@ Start the dashboard and automation runtime together:
 
 The stable operator flow is documented in [docs/local-startup.md](/Users/a_conte/dev/openclaw-agents/docs/local-startup.md).
 
+For the additive mac-mini compatibility path, use:
+
+```bash
+./scripts/local-stack.sh start-mac-mini
+```
+
+That path keeps the existing default flow intact and runs a separate additive stack on ports `3100` and `7601` by default, with the stricter readiness waits and dashboard lockfile workaround only when explicitly requested.
+
 For always-on local services that survive shell churn and re-login, use:
 
 ```bash
 ./scripts/install-launchd.sh install
 ```
 
+For additive mac-mini compatibility LaunchAgents, use:
+
+```bash
+./scripts/install-launchd.sh install-mac-mini
+```
+
+Those LaunchAgents use separate labels, ports, and log files so they can exist alongside the primary setup instead of replacing it.
+
 For a quick machine-wide snapshot:
 
 ```bash
 ./scripts/status-everything.sh
 ```
+
+## Codex Guardrails
+
+Claude-style protections are mirrored for Codex through additive guardrails:
+
+```bash
+python3 scripts/install_codex_guardrails.py
+```
+
+This installs managed shell rules into `~/.codex/rules/default.rules` without replacing your existing Codex rules. The current Codex CLI on this machine does not yet expose the same stable pre-tool hook model as Claude, so protected file and `.env` behavior is enforced through project instructions plus repo git hooks rather than native Codex hooks.
+
+## Claude Hooks Mastery
+
+If you want the additive `claude-code-hooks-mastery` hook pack available alongside Codex, install it with:
+
+```bash
+python3 scripts/install_claude_hooks_mastery.py
+```
+
+This merges hook configuration into `~/.claude/settings.json` without replacing your existing Claude plugins. The installer uses this repo's local [`.claude/`](/Users/a_conte/dev/openclaw-agents/.claude) asset pack, rewrites hook commands to absolute paths, and keeps notification/TTS behavior quiet by default. Restart Claude Code after installing so it reloads the hook snapshot.
+
+To remove the managed Claude hook entries later:
+
+```bash
+python3 scripts/uninstall_claude_hooks_mastery.py
+```
+
+The repo-local [`.claude/`](/Users/a_conte/dev/openclaw-agents/.claude) directory now also carries the additive mac-mini command, skill, and prompt pack plus the hooks-mastery commands, output styles, status lines, and hook scripts, so Claude can run against a single OpenClaw-managed asset set.
+
+## Listen And Direct
+
+`apps/direct/direct_cli.py` is the additive CLI for the local `listen` server, and mac-mini-style operator shortcuts are exposed through:
+
+```bash
+just listen-server
+just listen-templates
+just listen-send "Reply with exactly OK"
+just listen-jobs
+just listen-job <job-id>
+```
+
+If you prefer to work inside the `listen` app directory, there is also an additive [`apps/listen/justfile`](/Users/a_conte/dev/openclaw-agents/apps/listen/justfile) with the same `send`, `jobs`, `job`, `latest`, `wait`, `stop`, `retry`, and `clear` commands pointed at the existing `apps/direct/direct_cli.py` client.
 
 ## Setup
 

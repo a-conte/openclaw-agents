@@ -1054,22 +1054,32 @@ def cmd_messages_send(recipient: str, text: str) -> dict[str, object]:
     return {"ok": True, "app": "Messages", "recipient": recipient}
 
 
-def cmd_mail_draft(to: str, subject: str, body: str) -> dict[str, object]:
+def cmd_mail_draft(to: str, subject: str, body: str, attachment: str | None = None) -> dict[str, object]:
     to_escaped = apple_script_quote(to)
     subject_escaped = apple_script_quote(subject)
     body_escaped = apple_script_quote(body)
+    attachment_clause = ""
+    if attachment:
+        attachment_path = Path(attachment).expanduser().resolve()
+        attachment_escaped = apple_script_quote(str(attachment_path))
+        attachment_clause = f'''
+        try
+          make new attachment with properties {{file name:POSIX file "{attachment_escaped}"}} at after the last paragraph
+        end try
+        '''
     script = f'''
     tell application "Mail"
       activate
       set draftMessage to make new outgoing message with properties {{subject:"{subject_escaped}", content:"{body_escaped}" & return & return}}
       tell draftMessage
         make new to recipient at end of to recipients with properties {{address:"{to_escaped}"}}
+        {attachment_clause}
         set visible to true
       end tell
     end tell
     '''
     osa(script)
-    return {"ok": True, "app": "Mail", "to": to, "subject": subject}
+    return {"ok": True, "app": "Mail", "to": to, "subject": subject, "attachment": attachment}
 
 
 def print_result(data: dict[str, object], as_json: bool) -> None:
@@ -1302,6 +1312,7 @@ def build_parser() -> argparse.ArgumentParser:
     mail_draft.add_argument("--to", required=True)
     mail_draft.add_argument("--subject", required=True)
     mail_draft.add_argument("--body", required=True)
+    mail_draft.add_argument("--attachment")
     mail_draft.add_argument("--json", action="store_true")
 
     return parser
@@ -1454,7 +1465,7 @@ def main() -> None:
             return
     if args.command == "mail":
         if args.mail_command == "draft":
-            print_result(cmd_mail_draft(args.to, args.subject, args.body), args.json)
+            print_result(cmd_mail_draft(args.to, args.subject, args.body, args.attachment), args.json)
             return
 
 

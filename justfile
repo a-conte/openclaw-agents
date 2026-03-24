@@ -94,6 +94,48 @@ job-list:
 job-status id:
     curl -s http://localhost:3000/api/jobs/{{id}} | python3 -m json.tool
 
+# ─── Listen ──────────────────────────────────────────────────────────
+
+# Start the listen server locally
+listen-server:
+    python3 apps/listen/listen_server.py --host ${OPENCLAW_LISTEN_HOST:-127.0.0.1} --port ${OPENCLAW_LISTEN_PORT:-7600}
+
+# List workflow templates exposed by listen
+listen-templates:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} templates
+
+# Submit a prompt job to listen (usage: just listen-send "do the thing")
+listen-send prompt:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} start --prompt "{{prompt}}"
+
+# Submit and wait for completion
+listen-send-wait prompt:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} start --prompt "{{prompt}}" --wait
+
+# List active jobs
+listen-jobs:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} list
+
+# Show a specific job
+listen-job id:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} get --job-id {{id}}
+
+# Show latest jobs
+listen-latest count='1':
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} latest {{count}}
+
+# Wait for a job to finish
+listen-wait id:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} wait --job-id {{id}}
+
+# Stop a job
+listen-stop id:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} stop --job-id {{id}}
+
+# Clear active jobs
+listen-clear:
+    python3 apps/direct/direct_cli.py --base-url ${OPENCLAW_LISTEN_BASE_URL:-http://127.0.0.1:7600} clear
+
 # ─── Meta ────────────────────────────────────────────────────────────
 
 # Run all checks (typecheck + tests + contracts + json validation)

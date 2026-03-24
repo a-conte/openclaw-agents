@@ -21,6 +21,18 @@ for f in $STAGED; do
   esac
 done
 
+# Block protected identity files unless explicitly bypassed.
+if [ "${OPENCLAW_ALLOW_PROTECTED_FILE_COMMIT:-0}" != "1" ]; then
+  for f in $STAGED; do
+    case "$f" in
+      */SOUL.md|SOUL.md|*/IDENTITY.md|IDENTITY.md|*/USER.md|USER.md|*/PROTOCOL.md|PROTOCOL.md)
+        echo "BLOCKED: Refusing to commit protected identity/protocol file without OPENCLAW_ALLOW_PROTECTED_FILE_COMMIT=1: $f"
+        FOUND=1
+        ;;
+    esac
+  done
+fi
+
 # Scan staged diff content for secret patterns
 DIFF=$(git diff --cached -U0)
 

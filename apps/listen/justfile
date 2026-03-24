@@ -1,0 +1,52 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+base_url := env_var_or_default("OPENCLAW_LISTEN_BASE_URL", "http://127.0.0.1:7600")
+host := env_var_or_default("OPENCLAW_LISTEN_HOST", "127.0.0.1")
+port := env_var_or_default("OPENCLAW_LISTEN_PORT", "7600")
+direct := "../direct/direct_cli.py"
+server := "listen_server.py"
+
+default:
+    @just --list
+
+server-start:
+    python3 {{server}} --host {{host}} --port {{port}}
+
+templates:
+    python3 {{direct}} --base-url {{base_url}} templates
+
+send prompt:
+    python3 {{direct}} --base-url {{base_url}} start --prompt "{{prompt}}"
+
+send-wait prompt:
+    python3 {{direct}} --base-url {{base_url}} start --prompt "{{prompt}}" --wait
+
+jobs:
+    python3 {{direct}} --base-url {{base_url}} list
+
+jobs-archived:
+    python3 {{direct}} --base-url {{base_url}} list --archived
+
+job id:
+    python3 {{direct}} --base-url {{base_url}} get --job-id {{id}}
+
+latest count="1":
+    python3 {{direct}} --base-url {{base_url}} latest {{count}}
+
+latest-archived count="1":
+    python3 {{direct}} --base-url {{base_url}} latest {{count}} --archived
+
+wait id:
+    python3 {{direct}} --base-url {{base_url}} wait --job-id {{id}}
+
+stop id:
+    python3 {{direct}} --base-url {{base_url}} stop --job-id {{id}}
+
+retry id:
+    python3 {{direct}} --base-url {{base_url}} retry --job-id {{id}}
+
+retry-wait id:
+    python3 {{direct}} --base-url {{base_url}} retry --job-id {{id}} --wait
+
+clear:
+    python3 {{direct}} --base-url {{base_url}} clear

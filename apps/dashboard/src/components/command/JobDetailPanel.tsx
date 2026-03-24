@@ -41,7 +41,8 @@ function liveDurationText(startedAt?: string, completedAt?: string) {
 }
 
 function normalizeLiveTranscript(text: string) {
-  const lines = text
+  const stripped = text.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\u001b[@-Z\\-_]/g, '');
+  const lines = stripped
     .split('\n')
     .map((line) => line.replace(/\r/g, ''))
     .filter((line) => line.trim().length > 0);
@@ -87,6 +88,65 @@ function previewBlock(text: string) {
       {text}
     </pre>
   );
+}
+
+type ArtifactEntry = {
+  stepId: string;
+  stepName: string;
+  key: string;
+  value: ArtifactReference;
+};
+
+function collectArtifactEntries(job: JobContract): ArtifactEntry[] {
+  if (!Array.isArray(job.stepStatus)) return [];
+  const entries: ArtifactEntry[] = [];
+  for (const step of job.stepStatus) {
+    if (!step?.artifacts || typeof step.artifacts !== 'object') continue;
+    for (const [key, rawValue] of Object.entries(step.artifacts)) {
+      if (!isArtifactReference(rawValue) || typeof rawValue.relativePath !== 'string' || !rawValue.relativePath) continue;
+      entries.push({
+        stepId: step.id,
+        stepName: step.name,
+        key,
+        value: rawValue,
+      });
+    }
+  }
+  return entries;
+}
+
+function artifactLabel(entry: ArtifactEntry) {
+  return entry.value.name || entry.value.preview || `${entry.stepName} ${entry.key}`;
+}
+
+function buildHandoffSummary(job: JobContract, entries: ArtifactEntry[], origin: string, detailHref?: string) {
+  const bundleUrl = `${origin}/api/jobs/${job.id}/bundle`;
+  const incidentBundleUrl = `${origin}/api/jobs/${job.id}/bundle?kind=incident`;
+  const detailUrl = detailHref ? `${origin}${detailHref}` : `${origin}/command`;
+  const lines = [
+    `${job.workflow || job.command || job.mode || 'Automation job'} · ${job.status}`,
+    '',
+    `Job ID: ${job.id}`,
+    `Target agent: ${job.targetAgent || 'unknown'}`,
+    `Attempt: ${job.attempt || 1}`,
+    `Detail: ${detailUrl}`,
+    `Bundle ZIP: ${bundleUrl}`,
+    `Incident ZIP: ${incidentBundleUrl}`,
+  ];
+  if (job.summary) {
+    lines.push('', 'Summary:', job.summary.trim());
+  }
+  const keyArtifacts = entries.slice(0, 5);
+  if (keyArtifacts.length > 0) {
+    lines.push('', 'Key artifacts:');
+    for (const entry of keyArtifacts) {
+      lines.push(`- ${artifactLabel(entry)}: ${origin}/api/jobs/${job.id}/artifact?path=${encodeURIComponent(entry.value.relativePath || '')}`);
+    }
+  }
+  if (job.error) {
+    lines.push('', 'Error:', job.error.trim());
+  }
+  return lines.join('\n').trim();
 }
 
 function renderArtifactValue(jobId: string, value: unknown) {
@@ -157,7 +217,10 @@ export function JobDetailPanel({
 }) {
   const currentStep = Array.isArray(job.stepStatus) ? job.stepStatus.find((step) => step.id === job.currentStepId) : null;
   const latestUpdate = Array.isArray(job.updates) && job.updates.length > 0 ? job.updates[job.updates.length - 1] : null;
-  const [liveTranscript, setLiveTranscript] = useState<{ session: string; transcript: string; error?: string } | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<{ session: string; transcript: string; error?: string; polledAt: number } | null>(null);
+  const [copiedState, setCopiedState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [lastTranscriptChangeAt, setLastTranscriptChangeAt] = useState<number | null>(null);
+  const [deliveryState, setDeliveryState] = useState<{ channel?: 'notes' | 'mail_draft' | 'imessage'; message?: string; tone?: 'info' | 'error' }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +239,7 @@ export function JobDetailPanel({
             session: typeof payload.session === 'string' ? payload.session : '',
             transcript: typeof payload.transcript === 'string' ? payload.transcript : '',
             error: typeof payload.error === 'string' ? payload.error : undefined,
+            polledAt: Date.now(),
           });
         }
       } catch (error) {
@@ -184,6 +248,7 @@ export function JobDetailPanel({
             session: '',
             transcript: '',
             error: error instanceof Error ? error.message : 'Unable to load live transcript',
+            polledAt: Date.now(),
           });
         }
       } finally {
@@ -204,6 +269,85 @@ export function JobDetailPanel({
     const text = liveTranscript?.transcript ? normalizeLiveTranscript(liveTranscript.transcript) : '';
     return text || '';
   }, [liveTranscript]);
+  const liveTranscriptLines = useMemo(() => liveTranscriptText.split('\n').filter((line) => line.trim().length > 0), [liveTranscriptText]);
+  const artifactEntries = useMemo(() => collectArtifactEntries(job), [job]);
+  const primaryArtifacts = useMemo(
+    () => artifactEntries.filter((entry) => entry.key !== 'stdout' && entry.key !== 'stderr' && entry.key !== 'rawOutput'),
+    [artifactEntries],
+  );
+
+  useEffect(() => {
+    setLastTranscriptChangeAt(null);
+  }, [job.id]);
+
+  useEffect(() => {
+    if (job.status !== 'running') return;
+    if (!liveTranscriptText) return;
+    setLastTranscriptChangeAt(Date.now());
+  }, [job.status, liveTranscriptText]);
+
+  async function copyHandoffSummary() {
+    try {
+      const origin = window.location.origin;
+      const body = buildHandoffSummary(job, primaryArtifacts.length > 0 ? primaryArtifacts : artifactEntries, origin, detailHref);
+      await navigator.clipboard.writeText(body);
+      setCopiedState('copied');
+    } catch {
+      setCopiedState('error');
+    } finally {
+      window.setTimeout(() => setCopiedState('idle'), 1800);
+    }
+  }
+
+  async function deliverHandoff(channel: 'notes' | 'mail_draft' | 'imessage') {
+    let mailTo: string | undefined;
+    let recipient: string | undefined;
+
+    if (channel === 'mail_draft') {
+      const value = window.prompt('Mail draft recipient', '');
+      if (!value) return;
+      mailTo = value;
+    }
+    if (channel === 'imessage') {
+      const value = window.prompt('iMessage recipient', '');
+      if (!value) return;
+      recipient = value;
+    }
+
+    setDeliveryState({ channel, message: channel === 'notes' ? 'Creating note…' : channel === 'mail_draft' ? 'Drafting email…' : 'Sending iMessage…', tone: 'info' });
+
+    try {
+      const response = await fetch(`/api/jobs/${job.id}/deliver`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          channel,
+          detailPath: detailHref,
+          mailTo,
+          recipient,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'Delivery failed');
+      }
+      setDeliveryState({
+        channel,
+        message: channel === 'notes'
+          ? 'Notes handoff created.'
+          : channel === 'mail_draft'
+            ? 'Mail draft created with the bundle attached.'
+            : 'iMessage sent.',
+        tone: 'info',
+      });
+    } catch (error) {
+      setDeliveryState({
+        channel,
+        message: error instanceof Error ? error.message : 'Delivery failed',
+        tone: 'error',
+      });
+    }
+  }
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface-2/75 p-4">
@@ -238,6 +382,11 @@ export function JobDetailPanel({
             <Button size="sm" variant="secondary" onClick={() => onResume(job.id, 'resume_failed')}>Resume Failed</Button>
             <Button size="sm" variant="secondary" onClick={() => onResume(job.id, 'rerun_all')}>Rerun All</Button>
           </>
+        ) : null}
+        {(job.status === 'completed' || job.status === 'failed' || job.status === 'stopped') ? (
+          <Button size="sm" variant="secondary" onClick={() => void copyHandoffSummary()}>
+            {copiedState === 'copied' ? 'Copied Handoff' : copiedState === 'error' ? 'Copy Failed' : 'Copy Handoff'}
+          </Button>
         ) : null}
       </div>
 
@@ -324,6 +473,14 @@ export function JobDetailPanel({
               {liveTranscript?.session ? `session ${liveTranscript.session}` : 'waiting for session'}
             </div>
           </div>
+          <div className="mb-2 rounded-md border border-blue-500/20 bg-blue-500/8 px-3 py-2 text-[11px] text-blue-100">
+            {liveTranscriptLines.length > 0
+              ? `${liveTranscriptLines.length} line${liveTranscriptLines.length === 1 ? '' : 's'} loaded`
+              : 'No shell output yet'}
+            {liveTranscript?.polledAt ? ` · polled ${relativeTime(liveTranscript.polledAt)}` : ''}
+            {lastTranscriptChangeAt ? ` · last visible output ${relativeTime(lastTranscriptChangeAt)}` : ''}
+            {latestUpdate?.message ? ` · ${latestUpdate.message}` : ''}
+          </div>
           {liveTranscript?.error ? (
             <div className="text-xs text-red-300">{liveTranscript.error}</div>
           ) : liveTranscriptText ? (
@@ -331,7 +488,69 @@ export function JobDetailPanel({
               {liveTranscriptText}
             </pre>
           ) : (
-            <div className="text-xs text-text-secondary">Waiting for live shell output…</div>
+            <div className="text-xs text-text-secondary">
+              Waiting for live shell output. The step is still active, so use the heartbeat above and recent updates below to confirm progress.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {(job.status === 'completed' || job.status === 'failed' || job.status === 'stopped') ? (
+        <div className="rounded-lg border border-border bg-surface-3 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="text-xs uppercase tracking-[0.16em] text-text-tertiary">Delivery</div>
+            <div className="text-[11px] text-text-tertiary">
+              {primaryArtifacts.length > 0 ? `${primaryArtifacts.length} primary artifact${primaryArtifacts.length === 1 ? '' : 's'}` : `${artifactEntries.length} total artifact${artifactEntries.length === 1 ? '' : 's'}`}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Link href={`/api/jobs/${job.id}/bundle`} target="_blank" className="text-accent hover:text-accent-hover">
+              Bundle ZIP
+            </Link>
+            <Link href={`/api/jobs/${job.id}/bundle?kind=incident`} target="_blank" className="text-accent hover:text-accent-hover">
+              Incident ZIP
+            </Link>
+            {(primaryArtifacts[0] || artifactEntries[0]) ? (
+              <Link
+                href={`/api/jobs/${job.id}/artifact?path=${encodeURIComponent((primaryArtifacts[0] || artifactEntries[0])?.value.relativePath || '')}`}
+                target="_blank"
+                className="text-accent hover:text-accent-hover"
+              >
+                Open Primary Artifact
+              </Link>
+            ) : null}
+            <Button size="sm" variant="secondary" onClick={() => void deliverHandoff('notes')}>
+              Create Note
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void deliverHandoff('mail_draft')}>
+              Draft Mail
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void deliverHandoff('imessage')}>
+              Send iMessage
+            </Button>
+          </div>
+          {deliveryState.message ? (
+            <div className={`mt-3 text-xs ${deliveryState.tone === 'error' ? 'text-red-300' : 'text-text-secondary'}`}>
+              {deliveryState.message}
+            </div>
+          ) : null}
+          {artifactEntries.length > 0 ? (
+            <div className="mt-3 space-y-2 text-xs text-text-secondary">
+              {(primaryArtifacts.length > 0 ? primaryArtifacts : artifactEntries).slice(0, 5).map((entry) => (
+                <div key={`${entry.stepId}-${entry.key}-${entry.value.relativePath}`} className="rounded-md border border-border bg-surface-2/75 px-3 py-2">
+                  <div className="font-semibold text-text-primary">{artifactLabel(entry)}</div>
+                  <div className="mt-1 text-[11px] text-text-tertiary">
+                    {entry.stepName} · {entry.key}
+                    {typeof entry.value.size === 'number' ? ` · ${entry.value.size} bytes` : ''}
+                  </div>
+                  {entry.value.preview ? previewBlock(entry.value.preview) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 text-xs text-text-secondary">
+              No file artifacts were captured for this run, but the bundle still includes the job record and any exported step outputs.
+            </div>
           )}
         </div>
       ) : null}
