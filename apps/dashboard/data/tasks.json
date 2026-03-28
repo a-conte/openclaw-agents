@@ -130,5 +130,20 @@
     "order": 7,
     "createdAt": "2026-03-12T08:38:01.462Z",
     "updatedAt": "2026-03-12T22:33:44.474Z"
+  },
+  {
+    "id": "1b9b0ba3-8a86-4269-a1ea-506ea38c87fd",
+    "title": "Dashboard Cleanup",
+    "description": "I want the dashboard to be fast, simple, and effective. pretend you are a senior software engineer and data scientist, with the goal of making the most useful dashboard for agentic ai possible. feel free to use codex skills while working. and feel free to dangerously skip permissions. once you are done, send me the PR to approve",
+    "status": "todo",
+    "priority": "medium",
+    "agentId": "main",
+    "labels": [
+      "auto-suggested",
+      "stale"
+    ],
+    "order": 0,
+    "createdAt": "2026-03-19T05:33:52.347Z",
+    "updatedAt": "2026-03-19T17:00:48.730Z"
   }
 ]

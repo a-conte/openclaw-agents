@@ -1,0 +1,37 @@
+[
+  {
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "pwd"
+    }
+  },
+  {
+    "tool_name": "Edit",
+    "tool_input": {
+      "file_path": "/Users/a_conte/dev/openclaw-agents/main/SOUL.md"
+    }
+  },
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "ToolSearch",
+    "tool_input": {
+      "query": "select:mcp__plugin_playwright_playwright__browser_install",
+      "max_results": 1
+    },
+    "tool_use_id": "toolu_017etzYjdmfL93AVKdFUje1h"
+  },
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "mcp__plugin_playwright_playwright__browser_install",
+    "tool_input": {},
+    "tool_use_id": "toolu_01Skd9t5k5H4xbdE2SKtCHXX"
+  }
+]

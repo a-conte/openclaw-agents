@@ -1,0 +1,283 @@
+{
+  "preferences": {
+    "dashboardPrimary": true,
+    "severityThreshold": "warning",
+    "mode": "focused",
+    "eventPolicy": {
+      "failed": true,
+      "stopped": true,
+      "policyBlocked": true,
+      "timedOut": true,
+      "completedHandoffs": true,
+      "completedGeneral": false
+    },
+    "completionTemplateAllowlist": [
+      "operator_handoff_note",
+      "operator_handoff_bundle",
+      "browser_recovery_handoff",
+      "daemon_recovery_handoff",
+      "repo_validation_handoff",
+      "incident_capture",
+      "incident_mail_handoff"
+    ],
+    "legacySignals": "dashboard_only",
+    "channels": {
+      "push": true,
+      "notes": false,
+      "imessage": false,
+      "mail_draft": false
+    },
+    "agentAllowlist": [],
+    "templateAllowlist": [],
+    "templateRouting": {
+      "operator_handoff_note": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "operator_handoff_bundle": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "browser_recovery_handoff": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "daemon_recovery_handoff": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "repo_validation_handoff": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "incident_capture": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "incident_mail_handoff": {
+        "channels": {
+          "push": true,
+          "notes": true,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      },
+      "open_command_page": {
+        "channels": {
+          "push": false,
+          "notes": false,
+          "imessage": false,
+          "mail_draft": false
+        },
+        "recipient": null,
+        "mailTo": null,
+        "mailSubjectPrefix": null
+      }
+    },
+    "updatedAt": "2026-03-19T03:28:47Z"
+  },
+  "devices": [],
+  "events": [
+    {
+      "id": "ee79bc070fd3",
+      "jobId": "b85ee01a75",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-task\",\n  \"exitCode\": 2,\n  \"timedOut\": false,\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"error: unexpected argument '-a' found\\n\\n  tip: to pass '-a' as a value, use '-- -a'\\n\\nUsage: codex exec [OPTIONS] [PROMPT] [COMMAND]\\n\\nFor more information, try '--help'.\",\n  \"rawOutput\": \"printf '\\\\n__START_fe9a8d9100\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && codex exec --sandbox works\\npace-write -a never 'Project: Dashboard Cleanup\\nDescription: I want the dashboard to be fast, simple, and effective. pretend you\\n are a senior software engineer and data scientist, with the goal of making the\\nmost useful dashboard for agentic ai possible. feel free to use codex skills whi\\nle working. and feel free to dangerously skip permissions. once you are done, se\\nnd me the PR to approve\\n\\nWork this project in the current repo using Codex. Start by assessing the projec\\nt context, then execute the next concrete engineering step.\\nKeep working until you either complete a meaningful chunk, hit a real blocker, o\\nr need operator input for a dangerous decision.\\nKnown project tasks:\\n- No project tasks are linked yet. Start by assessing the repo and proposing the\\n next concrete steps.'; } >\\\"$drive_stdout_file\\\" 2>\\\"$drive_stderr_file\\\"; drive_ex\\nit_code=$?; prin%\\na_conte@server openclaw-agents % printf '\\\\n__START_fe9a8d9100\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && codex exec --sandbox workspace-write -a never 'Project: Dashboard Cleanup\\n\\ncursh cmdand quote> Description: I want the dashboard to be fast, simple, and ef\\nfective. pretend you are a senior software engineer and data scientist, with the\\n goal of making the most useful dashboard for agentic ai possible. feel free to\\nuse codex skills while working. and feel free to dangerously skip permissions. o\\nnce you are done, send me the PR to approve\\ncursh cmdand quote>\\ncursh cmdand quote> Work this project in the current repo using Codex. Start by\\nassessing the project context, then execute the next concrete engineering step.\\ncursh cmdand quote> Keep working until you either complete a meaningful chunk, h\\nit a real blocker, or need operator input for a dangerous decision.\\ncursh cmdand quote> Known project tasks:\\ncursh cmdand quote> - No project tasks are linked yet. Start by assessing the re\\npo and proposing the next concrete steps.'; } >\\\"$drive_stdout_file\\\" 2>\\\"$drive_st\\nderr_file\\\"; drive_exit_code=$?; printf '__STDOUT_START_fe9a8d9100\\\\n'; cat \\\"$driv\\ne_stdout_file\\\"; printf '\\\\n__STDOUT_END_fe9a8d9100\\\\n'; printf '__STDERR_START_fe9\\na8d9100\\\\n'; cat \\\"$drive_stderr_file\\\"; printf '\\\\n__STDERR_END_fe9a8d9100\\\\n'; rm -\\nf \\\"$drive_stdout_file\\\" \\\"$drive_stderr_file\\\"; printf '__DONE_fe9a8d9100:%s\\\\n' \\\"$d\\nrive_exit_code\\\"\\n\\n__START_fe9a8d9100\\n__STDOUT_START_fe9a8d9100\\n\\n__STDOUT_END_fe9a8d9100\\n__STDERR_START_fe9a8d9100\\nerror: unexpected argument '-a' found\\n\\n  tip: to pass '-a' as a value, use '-- -a'\\n\\nUsage: codex exec [OPTIONS] [PROMPT] [COMMAND]\\n\\nFor more information, try '--help'.\\n\\n__STDERR_END_fe9a8d9100\\n__DONE_fe9a8d9100:2\\na_conte@server openclaw-agents %\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T05:33:13Z",
+      "targetAgent": "main",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T05:33:13Z"
+        }
+      ]
+    },
+    {
+      "id": "80b9a84dd00d",
+      "jobId": "b0b556608f",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-smoke\",\n  \"timedOut\": true,\n  \"token\": \"__DONE_2cda560bd3\",\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"rawOutput\": \"printf '\\\\n__START_2cda560bd3\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && cat <<'__OPENCLAW_CODEX_PR\\nOMPT__' | codex exec --full-auto --sandbox workspace-write --color never -\\nInspect this repo and return a short summary of what it does. Do not modify any\\nfiles.\\n__OPENCLAW_CODEX_PROMPT__; } >\\\"$drive_stdout_file\\\" 2>\\\"$drive_stderr_file\\\"; drive\\n_exit_code=$?; printf '__STDOUT_START_2cda560bd3\\\\n'; cat \\\"$drive_stdout_file\\\"; p\\nrintf '\\\\n__STDOUT_END_2cda560bd3\\\\n'; printf '__STDERR_START_2cda560bd3\\\\n'; cat \\\"\\n$drive_stderr_file\\\"; printf '\\\\n__STDERR_END_2cda560bd3\\\\n'; rm -f \\\"$drive_stdout_\\nfile\\\" \\\"$drive_stderr_file\\\"; printf '__DONE_2cda560bd3:%s\\\\n' \\\"$drive_exit_code\\\"\\na_conte@server openclaw-agents % printf '\\\\n__START_2cda560bd3\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && cat <<'__OPENCLAW_CODEX_PROMPT__' | codex exec --full-auto --sandbox work\\nspace-write --color never -\\ncursh cmdand pipe heredoc> Inspect this repo and return a short summary of what\\nit does. Do not modify any files.\\ncursh cmdand pipe heredoc> __OPENCLAW_CODEX_PROMPT__; } >\\\"$drive_stdout_file\\\" 2>\\n\\\"$drive_stderr_file\\\"; drive_exit_code=$?; printf '__STDOUT_START_2cda560bd3\\\\n';\\ncat \\\"$drive_stdout_file\\\"; printf '\\\\n__STDOUT_END_2cda560bd3\\\\n'; printf '__STDERR\\n_START_2cda560bd3\\\\n'; cat \\\"$drive_stderr_file\\\"; printf '\\\\n__STDERR_END_2cda560bd\\n3\\\\n'; rm -f \\\"$drive_stdout_file\\\" \\\"$drive_stderr_file\\\"; printf '__DONE_2cda560bd3\\n:%s\\\\n' \\\"$drive_exit_code\\\"\\ncursh cmdand pipe heredoc>\\n\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T05:44:45Z",
+      "targetAgent": "main",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T05:44:45Z"
+        }
+      ]
+    },
+    {
+      "id": "9d33071f722b",
+      "jobId": "bf9c61d44a",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-task\",\n  \"timedOut\": true,\n  \"token\": \"__DONE_83d2149a29\",\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"rawOutput\": \"printf '\\\\n__START_fe9a8d9100\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && codex exec --sandbox works\\npace-write -a never 'Project: Dashboard Cleanup\\nDescription: I want the dashboard to be fast, simple, and effective. pretend you\\n are a senior software engineer and data scientist, with the goal of making the\\nmost useful dashboard for agentic ai possible. feel free to use codex skills whi\\nle working. and feel free to dangerously skip permissions. once you are done, se\\nnd me the PR to approve\\n\\nWork this project in the current repo using Codex. Start by assessing the projec\\nt context, then execute the next concrete engineering step.\\nKeep working until you either complete a meaningful chunk, hit a real blocker, o\\nr need operator input for a dangerous decision.\\nKnown project tasks:\\n- No project tasks are linked yet. Start by assessing the repo and proposing the\\n next concrete steps.'; } >\\\"$drive_stdout_file\\\" 2>\\\"$drive_stderr_file\\\"; drive_ex\\nit_code=$?; prin%\\na_conte@server openclaw-agents % printf '\\\\n__START_fe9a8d9100\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && codex exec --sandbox workspace-write -a never 'Project: Dashboard Cleanup\\n\\ncursh cmdand quote> Description: I want the dashboard to be fast, simple, and ef\\nfective. pretend you are a senior software engineer and data scientist, with the\\n goal of making the most useful dashboard for agentic ai possible. feel free to\\nuse codex skills while working. and feel free to dangerously skip permissions. o\\nnce you are done, send me the PR to approve\\ncursh cmdand quote>\\ncursh cmdand quote> Work this project in the current repo using Codex. Start by\\nassessing the project context, then execute the next concrete engineering step.\\ncursh cmdand quote> Keep working until you either complete a meaningful chunk, h\\nit a real blocker, or need operator input for a dangerous decision.\\ncursh cmdand quote> Known project tasks:\\ncursh cmdand quote> - No project tasks are linked yet. Start by assessing the re\\npo and proposing the next concrete steps.'; } >\\\"$drive_stdout_file\\\" 2>\\\"$drive_st\\nderr_file\\\"; drive_exit_code=$?; printf '__STDOUT_START_fe9a8d9100\\\\n'; cat \\\"$driv\\ne_stdout_file\\\"; printf '\\\\n__STDOUT_END_fe9a8d9100\\\\n'; printf '__STDERR_START_fe9\\na8d9100\\\\n'; cat \\\"$drive_stderr_file\\\"; printf '\\\\n__STDERR_END_fe9a8d9100\\\\n'; rm -\\nf \\\"$drive_stdout_file\\\" \\\"$drive_stderr_file\\\"; printf '__DONE_fe9a8d9100:%s\\\\n' \\\"$d\\nrive_exit_code\\\"\\n\\n__START_fe9a8d9100\\n__STDOUT_START_fe9a8d9100\\n\\n__STDOUT_END_fe9a8d9100\\n__STDERR_START_fe9a8d9100\\nerror: unexpected argument '-a' found\\n\\n  tip: to pass '-a' as a value, use '-- -a'\\n\\nUsage: codex exec [OPTIONS] [PROMPT] [COMMAND]\\n\\nFor more information, try '--help'.\\n\\n__STDERR_END_fe9a8d9100\\n__DONE_fe9a8d9100:2\\na_conte@server openclaw-agents % printf '\\\\n__START_83d2149a29\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && printf %s 'Project: API Smoke\\ncursh cmdand quote>\\ncursh cmdand quote> Work this project in the current repo using Codex. Start by\\nassessing the project context, then execute the next concrete engineering step.'\\n | codex exec --full-auto --sandbox workspace-write --color never -; } >\\\"$drive_\\nstdout_file\\\" 2>\\\"$drive_stderr_file\\\"; drive_exit_code=$?; printf '__STDOUT_START_\\n83d2149a29\\\\n'; cat \\\"$drive_stdout_file\\\"; printf '\\\\n__STDOUT_END_83d2149a29\\\\n'; p\\nrintf '__STDERR_START_83d2149a29\\\\n'; cat \\\"$drive_stderr_file\\\"; printf '\\\\n__STDER\\nR_END_83d2149a29\\\\n'; rm -f \\\"$drive_stdout_file\\\" \\\"$drive_stderr_file\\\"; printf '__\\nDONE_83d2149a29:%s\\\\n' \\\"$drive_exit_code\\\"\\n\\n__START_83d2149a29\\n\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T05:52:44Z",
+      "targetAgent": "dev",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T05:52:44Z"
+        }
+      ]
+    },
+    {
+      "id": "1a657ac4b02d",
+      "jobId": "701eebca18",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-292a7ca5-mmx2cbyb\",\n  \"timedOut\": true,\n  \"token\": \"__DONE_bc5dad6da9\",\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"rawOutput\": \"printf '\\\\n__START_bc5dad6da9\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && python3 -c 'import base64,\\nsys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJvamVjdDogRGFzaGJvYXJkIENsZWFudXAKR\\nGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRvIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZ\\nmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNvZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhI\\nHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcgdGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZ\\nCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVlIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpb\\nGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJvdXNseSBza2lwIHBlcm1pc3Npb25zLiBvb\\nmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8gYXBwcm92ZQoKV29yayB0aGlzIHByb2plY\\n3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4gU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwc\\nm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4dCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzd\\nGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBjb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1b\\nmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVyYXRvciBpbnB1dCBmb%\\na_conte@server openclaw-agents % printf '\\\\n__START_bc5dad6da9\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && python3 -c 'import base64,sys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJv\\namVjdDogRGFzaGJvYXJkIENsZWFudXAKRGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRv\\nIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNv\\nZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhIHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcg\\ndGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVl\\nIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpbGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJv\\ndXNseSBza2lwIHBlcm1pc3Npb25zLiBvbmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8g\\nYXBwcm92ZQoKV29yayB0aGlzIHByb2plY3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4g\\nU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwcm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4\\ndCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzdGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBj\\nb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1bmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVy\\nYXRvciBpbnB1dCBmb\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T06:04:20Z",
+      "targetAgent": "main",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T06:04:20Z"
+        }
+      ]
+    },
+    {
+      "id": "1e31f9f4fd9b",
+      "jobId": "345fdca92e",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-292a7ca5-mmx2dfov\",\n  \"timedOut\": true,\n  \"token\": \"__DONE_e3f08650dc\",\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"rawOutput\": \"printf '\\\\n__START_e3f08650dc\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && python3 -c 'import base64,\\nsys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJvamVjdDogRGFzaGJvYXJkIENsZWFudXAKR\\nGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRvIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZ\\nmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNvZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhI\\nHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcgdGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZ\\nCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVlIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpb\\nGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJvdXNseSBza2lwIHBlcm1pc3Npb25zLiBvb\\nmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8gYXBwcm92ZQoKV29yayB0aGlzIHByb2plY\\n3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4gU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwc\\nm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4dCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzd\\nGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBjb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1b\\nmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVyYXRvciBpbnB1dCBmb%\\na_conte@server openclaw-agents % printf '\\\\n__START_e3f08650dc\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && python3 -c 'import base64,sys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJv\\namVjdDogRGFzaGJvYXJkIENsZWFudXAKRGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRv\\nIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNv\\nZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhIHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcg\\ndGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVl\\nIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpbGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJv\\ndXNseSBza2lwIHBlcm1pc3Npb25zLiBvbmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8g\\nYXBwcm92ZQoKV29yayB0aGlzIHByb2plY3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4g\\nU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwcm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4\\ndCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzdGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBj\\nb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1bmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVy\\nYXRvciBpbnB1dCBmb\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T06:05:11Z",
+      "targetAgent": "main",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T06:05:11Z"
+        }
+      ]
+    },
+    {
+      "id": "e3df3c82c1fa",
+      "jobId": "fba153ee0c",
+      "status": "failed",
+      "severity": "error",
+      "title": "codex_repo_task failed",
+      "body": "{\n  \"ok\": false,\n  \"session\": \"codex-292a7ca5-mmx3079t\",\n  \"timedOut\": true,\n  \"token\": \"__DONE_49fc68b887\",\n  \"output\": \"\",\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"rawOutput\": \"printf '\\\\n__START_49fc68b887\\\\n'; drive_stdout_file=$(mktemp); drive_stderr_file=\\n$(mktemp); { cd /Users/a_conte/dev/openclaw-agents && python3 -c 'import base64,\\nsys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJvamVjdDogRGFzaGJvYXJkIENsZWFudXAKR\\nGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRvIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZ\\nmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNvZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhI\\nHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcgdGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZ\\nCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVlIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpb\\nGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJvdXNseSBza2lwIHBlcm1pc3Npb25zLiBvb\\nmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8gYXBwcm92ZQoKV29yayB0aGlzIHByb2plY\\n3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4gU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwc\\nm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4dCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzd\\nGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBjb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1b\\nmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVyYXRvciBpbnB1dCBmb%\\na_conte@server openclaw-agents % printf '\\\\n__START_49fc68b887\\\\n'; drive_stdout_f\\nile=$(mktemp); drive_stderr_file=$(mktemp); { cd /Users/a_conte/dev/openclaw-age\\nnts && python3 -c 'import base64,sys;sys.stdout.write(base64.b64decode('\\\"'\\\"'UHJv\\namVjdDogRGFzaGJvYXJkIENsZWFudXAKRGVzY3JpcHRpb246IEkgd2FudCB0aGUgZGFzaGJvYXJkIHRv\\nIGJlIGZhc3QsIHNpbXBsZSwgYW5kIGVmZmVjdGl2ZS4gcHJldGVuZCB5b3UgYXJlIGEgc2VuaW9yIHNv\\nZnR3YXJlIGVuZ2luZWVyIGFuZCBkYXRhIHNjaWVudGlzdCwgd2l0aCB0aGUgZ29hbCBvZiBtYWtpbmcg\\ndGhlIG1vc3QgdXNlZnVsIGRhc2hib2FyZCBmb3IgYWdlbnRpYyBhaSBwb3NzaWJsZS4gZmVlbCBmcmVl\\nIHRvIHVzZSBjb2RleCBza2lsbHMgd2hpbGUgd29ya2luZy4gYW5kIGZlZWwgZnJlZSB0byBkYW5nZXJv\\ndXNseSBza2lwIHBlcm1pc3Npb25zLiBvbmNlIHlvdSBhcmUgZG9uZSwgc2VuZCBtZSB0aGUgUFIgdG8g\\nYXBwcm92ZQoKV29yayB0aGlzIHByb2plY3QgaW4gdGhlIGN1cnJlbnQgcmVwbyB1c2luZyBDb2RleC4g\\nU3RhcnQgYnkgYXNzZXNzaW5nIHRoZSBwcm9qZWN0IGNvbnRleHQsIHRoZW4gZXhlY3V0ZSB0aGUgbmV4\\ndCBjb25jcmV0ZSBlbmdpbmVlcmluZyBzdGVwLgpLZWVwIHdvcmtpbmcgdW50aWwgeW91IGVpdGhlciBj\\nb21wbGV0ZSBhIG1lYW5pbmdmdWwgY2h1bmssIGhpdCBhIHJlYWwgYmxvY2tlciwgb3IgbmVlZCBvcGVy\\nYXRvciBpbnB1dCBmb\\n\"\n}",
+      "channels": [
+        "push"
+      ],
+      "createdAt": "2026-03-19T06:50:54Z",
+      "targetAgent": "main",
+      "templateId": "codex_repo_task",
+      "summary": "Workflow codex_repo_task failed",
+      "dashboardPrimary": true,
+      "source": "automation_runtime",
+      "signalClass": "failure",
+      "routing": null,
+      "deliveries": [
+        {
+          "channel": "push",
+          "status": "recorded",
+          "at": "2026-03-19T06:50:54Z"
+        }
+      ]
+    }
+  ]
+}

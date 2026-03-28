@@ -1,0 +1,43 @@
+[
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "permission_mode": "default",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cd /Users/a_conte/dev/openclaw-agents && npx playwright install chrome 2>&1 | tail -5",
+      "timeout": 120000,
+      "description": "Install Chrome for Playwright"
+    },
+    "tool_response": {
+      "stdout": "Switching to root user to install dependencies...\nsudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper\nsudo: a password is required\nFailed to install browsers\nError: Failed to install chrome",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false
+    },
+    "tool_use_id": "toolu_01DnGmH5hu6jbocHe3fHnEbW"
+  },
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "permission_mode": "default",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "ToolSearch",
+    "tool_input": {
+      "query": "select:mcp__plugin_playwright_playwright__browser_install",
+      "max_results": 1
+    },
+    "tool_response": {
+      "matches": [
+        "mcp__plugin_playwright_playwright__browser_install"
+      ],
+      "query": "select:mcp__plugin_playwright_playwright__browser_install",
+      "total_deferred_tools": 58
+    },
+    "tool_use_id": "toolu_017etzYjdmfL93AVKdFUje1h"
+  }
+]

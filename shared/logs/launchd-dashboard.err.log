@@ -1,0 +1,32 @@
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+env: node: No such file or directory
+⚠ Cross origin request detected from server to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:27:19.591Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:27:19.621Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:27:23.428Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:27:24.046Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:35:04.305Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:35:04.338Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:30.351Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:30.380Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:33.395Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:34.496Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:34.510Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:35.863Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:37.953Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T22:43:43.203Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T23:23:52.137Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}
+{"level":"error","msg":"Gateway call failed","ts":"2026-03-22T23:23:52.148Z","ctx":"gateway","method":"health","err":"spawn openclaw ENOENT"}

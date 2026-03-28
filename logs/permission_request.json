@@ -1,0 +1,51 @@
+[
+  {
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "README.md"
+    }
+  },
+  {
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Edit",
+    "tool_input": {
+      "file_path": "/Users/a_conte/dev/openclaw-agents/main/USER.md"
+    }
+  },
+  {
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Edit",
+    "tool_input": {
+      "file_path": "/Users/a_conte/dev/openclaw-agents/main/USER.md"
+    }
+  },
+  {
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Edit",
+    "tool_input": {
+      "file_path": "/Users/a_conte/dev/openclaw-agents/main/USER.md"
+    }
+  },
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "permission_mode": "default",
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "mcp__plugin_playwright_playwright__browser_install",
+    "tool_input": {},
+    "permission_suggestions": [
+      {
+        "type": "addRules",
+        "rules": [
+          {
+            "toolName": "mcp__plugin_playwright_playwright__browser_install"
+          }
+        ],
+        "behavior": "allow",
+        "destination": "localSettings"
+      }
+    ]
+  }
+]

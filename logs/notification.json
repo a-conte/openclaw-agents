@@ -1,0 +1,10 @@
+[
+  {
+    "session_id": "2d9402ea-efc7-4058-84ea-dedcff317a5c",
+    "transcript_path": "/Users/a_conte/.claude/projects/-Users-a-conte/2d9402ea-efc7-4058-84ea-dedcff317a5c.jsonl",
+    "cwd": "/Users/a_conte/dev/openclaw-agents",
+    "hook_event_name": "Notification",
+    "message": "Claude needs your permission to use plugin:playwright:playwright - Install the browser specified in the config (MCP)",
+    "notification_type": "permission_prompt"
+  }
+]

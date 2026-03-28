@@ -1,10 +1,45 @@
 {
-  "lastRun": 1773817252,
-  "lastInboxCheck": 1773817252,
+  "lastRun": 1774683795,
+  "lastInboxCheck": 1774683795,
   "processedMessages": [
-    "1773802839-dev.json"
+    "1742871600-dev.json",
+    "1761102024-dev.json",
+    "1773802839-dev.json",
+    "1773833512-research.json",
+    "1773919931-research.json",
+    "1773921675-ai-research.json",
+    "1773928844-dev.json",
+    "1773994956-dev.json",
+    "1774006328-research.json",
+    "1774015240-dev.json",
+    "1774036952-dev.json",
+    "1774062035-dev.json",
+    "1774092646-research.json",
+    "1774179000-research.json",
+    "1774234855-dev.json",
+    "1774265400-research.json",
+    "1774274400-dev.json",
+    "1774296043-dev.json",
+    "1774321200-dev.json",
+    "1774351925-research.json",
+    "1774360800-dev.json",
+    "1774382400-dev.json",
+    "1774438200-research.json",
+    "1774447200-dev.json",
+    "1774469073-dev.json",
+    "1774494034-dev.json",
+    "1774524600-research.json",
+    "1774526475-main.json",
+    "1774533600-dev.json",
+    "1774555266-dev.json",
+    "1774580400-dev.json",
+    "1774611000-research.json",
+    "1774620077-dev.json",
+    "1774641635-dev.json",
+    "1774666800-dev.json"
   ],
   "counters": {
-    "messagesProcessed": 27
-  }
+    "messagesProcessed": 69
+  },
+  "lastBriefingDate": "2026-03-26"
 }

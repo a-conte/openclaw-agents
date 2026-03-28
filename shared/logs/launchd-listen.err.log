@@ -1,0 +1,128 @@
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1343, in <module>
+    main()
+  File "/Users/a_conte/dev/openclaw-agents/apps/listen/listen_server.py", line 1334, in main
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+127.0.0.1 - - [22/Mar/2026 16:20:25] "GET /jobs HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:20:25] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:20:25] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:20:51] "GET /jobs HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:20:51] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:21:30] "GET /jobs HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:21:30] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 16:21:30] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /jobs HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /policy/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /notifications/preferences HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /artifacts/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /templates HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:35] "GET /policy/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/preferences HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /templates HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /artifacts/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:36] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /jobs HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /policy/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/preferences HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /templates HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /policy HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /artifacts/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /policy/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/preferences HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /templates HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /artifacts/admin HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /metrics HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /notifications/events?limit=8 HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:44] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 18:43:45] "GET /templates/open_command_page/versions HTTP/1.1" 200 -
+127.0.0.1 - - [22/Mar/2026 19:23:52] "GET /jobs HTTP/1.1" 200 -
