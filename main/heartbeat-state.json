@@ -1,6 +1,6 @@
 {
-  "lastRun": 1774783042,
-  "lastInboxCheck": 1774783042,
+  "lastRun": 1774784855,
+  "lastInboxCheck": 1774784855,
   "processedMessages": [
     "1742871600-dev.json",
     "1761102024-dev.json",
@@ -40,10 +40,11 @@
     "1774697400-research.json",
     "1774699500-research.json",
     "1774699501-ai-research.json",
-    "1774753233-dev.json"
+    "1774753233-dev.json",
+    "1774783849-research.json"
   ],
   "counters": {
-    "messagesProcessed": 73
+    "messagesProcessed": 74
   },
   "lastBriefingDate": "2026-03-29"
 }
