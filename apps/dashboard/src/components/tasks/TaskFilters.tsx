@@ -1,8 +1,8 @@
 'use client';
 
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/shared/Button';
-import { ACTIVE_AGENT_IDS, TASK_PRIORITIES, AGENT_EMOJIS } from '@/lib/constants';
+import { ACTIVE_AGENT_IDS, TASK_PRIORITIES, TASK_STATUSES, AGENT_EMOJIS, STATUS_LABELS } from '@/lib/constants';
 
 interface TaskFiltersProps {
   search: string;
@@ -11,6 +11,9 @@ interface TaskFiltersProps {
   onAgentFilterChange: (v: string) => void;
   priorityFilter: string;
   onPriorityFilterChange: (v: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (v: string) => void;
+  onClearFilters: () => void;
   onNewTask: () => void;
 }
 
@@ -18,6 +21,8 @@ export function TaskFilters({
   search, onSearchChange,
   agentFilter, onAgentFilterChange,
   priorityFilter, onPriorityFilterChange,
+  statusFilter, onStatusFilterChange,
+  onClearFilters,
   onNewTask,
 }: TaskFiltersProps) {
   const selectClass = 'bg-surface-3 border border-border rounded-md px-2.5 py-1.5 text-xs text-text-secondary focus:outline-none';
@@ -48,7 +53,18 @@ export function TaskFilters({
         ))}
       </select>
 
-      <div className="ml-auto">
+      <select value={statusFilter} onChange={e => onStatusFilterChange(e.target.value)} className={selectClass}>
+        <option value="">All stages</option>
+        {TASK_STATUSES.map((status) => (
+          <option key={status} value={status}>{STATUS_LABELS[status]}</option>
+        ))}
+      </select>
+
+      <Button variant="ghost" size="sm" onClick={onClearFilters}>
+        <RotateCcw size={13} className="mr-1" /> Clear
+      </Button>
+
+      <div className="ml-auto max-sm:ml-0">
         <Button variant="primary" size="sm" onClick={onNewTask}>
           <Plus size={14} className="mr-1" /> New Task
         </Button>

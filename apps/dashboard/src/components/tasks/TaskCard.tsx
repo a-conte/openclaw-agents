@@ -2,18 +2,21 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Calendar as CalendarIcon } from 'lucide-react';
+import { GripVertical, Calendar as CalendarIcon, Play, ArrowRight } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
-import { PRIORITY_COLORS, AGENT_EMOJIS } from '@/lib/constants';
+import { PRIORITY_COLORS, AGENT_EMOJIS, STATUS_LABELS, TASK_STATUSES } from '@/lib/constants';
 import { Badge } from '@/components/shared/Badge';
+import { Button } from '@/components/shared/Button';
 import type { Task } from '@/lib/types';
 
 interface TaskCardProps {
   task: Task;
   onClick: () => void;
+  onRun?: (task: Task) => void;
+  onAdvance?: (task: Task) => void;
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, onRun, onAdvance }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -27,6 +30,8 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const statusIndex = TASK_STATUSES.indexOf(task.status);
+  const nextStatus = statusIndex >= 0 && statusIndex < TASK_STATUSES.length - 1 ? TASK_STATUSES[statusIndex + 1] : null;
 
   return (
     <div
@@ -68,6 +73,36 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
                 <CalendarIcon size={10} />
                 {formatDate(task.dueDate, 'MMM d')}
               </span>
+            )}
+          </div>
+          <div className="mt-3 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+            {nextStatus && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAdvance?.(task);
+                }}
+                className="h-7 px-2 text-[11px]"
+              >
+                <ArrowRight size={12} className="mr-1" />
+                {STATUS_LABELS[nextStatus]}
+              </Button>
+            )}
+            {task.agentId && task.status !== 'done' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRun?.(task);
+                }}
+                className="h-7 px-2 text-[11px]"
+              >
+                <Play size={12} className="mr-1" />
+                Start
+              </Button>
             )}
           </div>
         </div>

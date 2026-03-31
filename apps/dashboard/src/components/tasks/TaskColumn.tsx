@@ -11,9 +11,11 @@ interface TaskColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  onRunTask?: (task: Task) => void;
+  onAdvanceTask?: (task: Task) => void;
 }
 
-export function TaskColumn({ status, tasks, onTaskClick }: TaskColumnProps) {
+export function TaskColumn({ status, tasks, onTaskClick, onRunTask, onAdvanceTask }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -37,7 +39,13 @@ export function TaskColumn({ status, tasks, onTaskClick }: TaskColumnProps) {
       <div className="flex-1 overflow-auto space-y-2 px-1 pb-4">
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick(task)}
+              onRun={onRunTask}
+              onAdvance={onAdvanceTask}
+            />
           ))}
         </SortableContext>
       </div>
